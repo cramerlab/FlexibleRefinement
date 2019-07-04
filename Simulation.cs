@@ -24,7 +24,9 @@ namespace FlexibleRefinement
                 (float)(center.Z + R * Math.Cos(angle) * a.Z + R * Math.Sin(angle) * b.Z));
         }
 
-        static void Main(string[] args)
+
+
+        static void simulate()
         {
             int3 dims = new int3(200, 200, 200);
             Image volStick = new Image(dims);
@@ -73,11 +75,11 @@ namespace FlexibleRefinement
             volStick.Binarize((float)(1 / Math.E));
             volStick.WriteMRC("StickVolume_Created.mrc");
             float RAtomStick, RAtomArc;
-            float3[] atomsStick = PhysicsHelper.FillWithEquidistantPoints(volStick, 1500, out RAtomStick);
+            float3[] atomsStick = PhysicsHelper.FillWithEquidistantPoints(volStick, 1000, out RAtomStick);
 
             volArc.Binarize((float)(1 / Math.E));
             volArc.WriteMRC("ArcVolume_Created.mrc");
-            float3[] atomsArc = PhysicsHelper.FillWithEquidistantPoints(volArc, 1500, out RAtomArc);
+            float3[] atomsArc = PhysicsHelper.FillWithEquidistantPoints(volArc, 1000, out RAtomArc);
             float RAtomStickS = (float)Math.Pow(RAtomStick,2), RAtomArcS = (float)Math.Pow(RAtomArc/2,2);
             volStickData = volAtomsStick.GetHost(Intent.Write);
             volArcData = volAtomsArc.GetHost(Intent.Write);
@@ -92,15 +94,15 @@ namespace FlexibleRefinement
                         {
                             
                             double distArc = Math.Pow(atomsArc[i].X - x, 2) + Math.Pow(atomsArc[i].Y - y, 2) + Math.Pow(atomsArc[i].Z - z, 2);
-                            //volArcData[z][dims.X * y + x] += distArc < RAtomArc ? 1 : 0;
-                            volArcData[z][dims.X * y + x] += (float)Math.Exp(-distArc/RAtomArcS);
+                            volArcData[z][dims.X * y + x] += distArc < RAtomArc ? 1 : 0;
+                            //volArcData[z][dims.X * y + x] += (float)Math.Exp(-distArc/RAtomArcS);
                         }
 
                         for (int i = 0; i < atomsStick.Length; i++)
                         {
                             double distStick = Math.Pow(atomsStick[i].X - x, 2) + Math.Pow(atomsStick[i].Y - y, 2) + Math.Pow(atomsStick[i].Z - z, 2);
-                            //volStickData[z][dims.X * y + x] += distStick < RAtomStick ? 1 : 0;
-                            volStickData[z][dims.X * y + x] += (float)Math.Exp(-distStick / RAtomStickS);
+                            volStickData[z][dims.X * y + x] += distStick < RAtomStick ? 1 : 0;
+                            //volStickData[z][dims.X * y + x] += (float)Math.Exp(-distStick / RAtomStickS);
                         }
 
                     }
@@ -108,6 +110,30 @@ namespace FlexibleRefinement
             }, null);
             volAtomsStick.WriteMRC("StickVolume_Atoms.mrc");
             volAtomsArc.WriteMRC("ArcVolume_Atoms.mrc");
+
+            AtomGraph graph = new AtomGraph(atomsStick, Helper.ArrayOfFunction(i => RAtomStick, atomsStick.Length), dims);
+        }
+
+        static void Main(string[] args)
+        {
+            int i = 0;
+            float3[] positions = new float3[1000];
+            float[] r = new float[1000];
+            for (int x = 0; x < 10; x++)
+            {
+                for (int y = 0; y < 10; y++)
+                {
+                    for (int z = 0; z < 10; z++)
+                    {
+                        positions[i] = new float3(x, y, z);
+                        r[i] = 0.5f;
+                        i++;
+                    }
+                }
+            }
+            AtomGraph graph = new AtomGraph(positions, r, new int3(10));
+            graph.SetupNeighbors();
+
         }
     }
 }
