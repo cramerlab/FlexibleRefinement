@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -28,71 +30,95 @@ namespace FlexibleRefinement
 
         static void simulate()
         {
-            int3 dims = new int3(200, 200, 200);
+            int3 dims = new int3(100, 100, 100);
             Image volStick = new Image(dims);
+
             Image volArc = new Image(dims);
+
             Image volAtomsStick = new Image(dims);
             Image volAtomsArc = new Image(dims);
-            float3[] atomPositionsStick = new float3[10];
-            float3[] atomPositionsArc = new float3[10];
-            float r = 20f;
+
+            float r = 10f;
             float rS = (float)Math.Pow(r,2);
-            int n = 10;
-            float len = 125;
+            int n = 5;
+            float len = 62;
+            float3[] atomPositionsStick = new float3[n];
+            float3[] atomPositionsArc = new float3[n];
             (float3 start, float3 end) beadString = ( new float3(dims.X/2-len/2, dims.Y/2, dims.Z/2), new float3(dims.X / 2+ len/2, dims.Y / 2, dims.Z / 2));
-            float R = (float)(len/Math.PI);
-            float3 c = new float3(dims.X/2, dims.Y/2, dims.Z/2);
+            float arcAngle = (float)(Math.PI / 6);
+            float R = (float)(len/arcAngle);
+            float3 c = new float3((float)(dims.X/2 ), (float)(dims.Y/2 - (R-R * (1 - Math.Cos(arcAngle / 2)))), dims.Z/2);
             float3 b = new float3(1, 0, 0);
             float3 a = new float3(0, 1, 0);
             for (int i = 0; i < n; i++)
             {
-                atomPositionsStick[i] = equidistantSpacing(new float3(dims.X / 2 - len / 2, dims.Y / 2, dims.Z / 2), new float3(dims.X / 2 + len / 2, dims.Y / 2, dims.Z / 2), i, n);
-                atomPositionsArc[i] = equidistantArcSpacing(c, a, b, R, (float)(-Math.PI / 2), (float)(Math.PI / 2), i, n);
+                atomPositionsStick[i] = equidistantSpacing(beadString.start, beadString.end, i, n);
+                atomPositionsArc[i] = equidistantArcSpacing(c, a, b, R, (float)(-arcAngle/2), (float)(arcAngle/2), i, n);
             }
             float[][] volStickData = volStick.GetHost(Intent.Write);
+
+
             float[][] volArcData = volArc.GetHost(Intent.Write);
+
             //for (int z = 0; z < dims.Z; z++)
-            Helper.ForCPU(0, dims.Z, 20, null, (z,id,ts) =>
+            Helper.ForCPU(0, dims.Z, 1, null, (z,id,ts) =>
 
             {
                 for (int y = 0; y < dims.Y; y++)
                 {
                     for (int x = 0; x < dims.X; x++)
                     {
-
                         for (int i = 0; i < n; i++)
                         {
                             double distStick = Math.Pow(atomPositionsStick[i].X - x, 2) + Math.Pow(atomPositionsStick[i].Y - y, 2) + Math.Pow(atomPositionsStick[i].Z - z, 2);
                             volStickData[z][dims.X * y + x] += (float)Math.Exp(-distStick / rS);
+
                             double distArc = Math.Pow(atomPositionsArc[i].X - x, 2) + Math.Pow(atomPositionsArc[i].Y - y, 2) + Math.Pow(atomPositionsArc[i].Z - z, 2);
                             volArcData[z][dims.X * y + x] += (float)Math.Exp(-distArc / rS);
                         }
-
                     }
                 }
             }
              , null);
-            volStick.Binarize((float)(1 / Math.E));
-            volStick.WriteMRC("StickVolume_Created.mrc");
-            float RAtomStick, RAtomArc;
-            float3[] atomsStick = PhysicsHelper.FillWithEquidistantPoints(volStick, 1000, out RAtomStick);
 
-            volArc.Binarize((float)(1 / Math.E));
+            volStick.WriteMRC("StickVolume_Created.mrc");
+
+            float3[][] gradStick = ImageProcessor.getGradient(volStick);
+            float[][] gradDataStick = Helper.ArrayOfFunction(z => Helper.ArrayOfFunction(i => (gradStick[z][i].Length()), dims.X * dims.Y), dims.Z);
+            Image gradImStick = new Image(gradDataStick, dims);
+            gradImStick.WriteMRC("StickGrad_Created.mrc");
+            
+            Image maskStick = volStick.GetCopy();
+            maskStick.Binarize((float)(1 / Math.E));
+            maskStick.WriteMRC("StickMask_Created.mrc");
+
+            float RAtomStick, RAtomArc;
+            float3[] atomsStick = PhysicsHelper.FillWithEquidistantPoints(maskStick, 1000, out RAtomStick);
+
             volArc.WriteMRC("ArcVolume_Created.mrc");
-            float3[] atomsArc = PhysicsHelper.FillWithEquidistantPoints(volArc, 1000, out RAtomArc);
+
+            float3[][] gradArc = ImageProcessor.getGradient(volArc);
+            float[][] gradDataArc = Helper.ArrayOfFunction(z => Helper.ArrayOfFunction(i => (gradArc[z][i].Length()), dims.X * dims.Y), dims.Z);
+            Image gradImArc = new Image(gradDataArc, dims);
+            gradImArc.WriteMRC("ArcGrad_Created.mrc");
+
+            Image maskArc = volArc.GetCopy();
+            maskArc.Binarize((float)(1 / Math.E));
+            maskArc.WriteMRC("ArcMask_Created.mrc");
+
+            float3[] atomsArc = PhysicsHelper.FillWithEquidistantPoints(maskArc, 1000, out RAtomArc);
             float RAtomStickS = (float)Math.Pow(RAtomStick,2), RAtomArcS = (float)Math.Pow(RAtomArc/2,2);
             volStickData = volAtomsStick.GetHost(Intent.Write);
             volArcData = volAtomsArc.GetHost(Intent.Write);
+            /*
             Helper.ForCPU(0, dims.Z, 20, null, (z, id, ts) =>
             {
                 for (int y = 0; y < dims.Y; y++)
                 {
                     for (int x = 0; x < dims.X; x++)
                     {
-
                         for (int i = 0; i < atomsArc.Length; i++)
                         {
-                            
                             double distArc = Math.Pow(atomsArc[i].X - x, 2) + Math.Pow(atomsArc[i].Y - y, 2) + Math.Pow(atomsArc[i].Z - z, 2);
                             volArcData[z][dims.X * y + x] += distArc < RAtomArc ? 1 : 0;
                             //volArcData[z][dims.X * y + x] += (float)Math.Exp(-distArc/RAtomArcS);
@@ -110,29 +136,88 @@ namespace FlexibleRefinement
             }, null);
             volAtomsStick.WriteMRC("StickVolume_Atoms.mrc");
             volAtomsArc.WriteMRC("ArcVolume_Atoms.mrc");
+            */
 
-            AtomGraph graph = new AtomGraph(atomsStick, Helper.ArrayOfFunction(i => RAtomStick, atomsStick.Length), dims);
+
+            AtomGraph graph = new AtomGraph(atomsArc, Helper.ArrayOfFunction(i => RAtomStick, atomsArc.Length), dims);
+            float3[][] forces = graph.CalculateForces(gradArc);
+            float[][] normForce = Helper.ArrayOfFunction(z => Helper.ArrayOfFunction(i => (forces[z][i].Length()), dims.X * dims.Y), dims.Z);
+            
+            Image imForce = new Image(normForce, dims);
+            imForce.WriteMRC("Arc_to_Arc_normForce_it0.mrc");
+            /*
+            float[][] forceX = Helper.ArrayOfFunction(z => Helper.ArrayOfFunction(i => (forces[z][i].X), dims.X * dims.Y), dims.Z);
+            float[][] forceY = Helper.ArrayOfFunction(z => Helper.ArrayOfFunction(i => (forces[z][i].Y), dims.X * dims.Y), dims.Z);
+            float[][] forceZ = Helper.ArrayOfFunction(z => Helper.ArrayOfFunction(i => (forces[z][i].Z), dims.X * dims.Y), dims.Z);
+            imForce = new Image(forceX, dims);
+            imForce.WriteMRC("Arc_to_Arc_forceX_it0.mrc");
+            imForce = new Image(forceY, dims);
+            imForce.WriteMRC("Arc_to_Arc_forceY_it0.mrc");
+            imForce = new Image(forceZ, dims);
+            imForce.WriteMRC("Arc_to_Arc_forceZ_it0.mrc");
+            */
+
+            /*
+            graph.repr().WriteMRC("Arc_to_Arc_im_it0.mrc");
+            for (int i = 0; i < 10; i++)
+            {
+                graph.moveAtoms(forces, 1.0f);
+                graph.repr().WriteMRC($"Arc_to_Arc_im_it{i+1}.mrc");
+            }
+            */
+            /*
+            graph = new AtomGraph(atomsStick, Helper.ArrayOfFunction(i => RAtomStick, atomsStick.Length), dims);
+            forces = graph.CalculateForces(gradStick);
+            normForce = Helper.ArrayOfFunction(z => Helper.ArrayOfFunction(i => (forces[z][i].Length()), dims.X * dims.Y), dims.Z);
+            imForce = new Image(normForce, dims);
+            imForce.WriteMRC("Stick_to_Stick_force_it0.mrc");
+            graph.repr().WriteMRC("Stick_to_Stick_im_it0.mrc");
+            for (int i = 0; i < 10; i++)
+            {
+                graph.moveAtoms(forces, 1.0f);
+                graph.repr().WriteMRC($"Stick_to_Stick_im_it{i+1}.mrc");
+            }
+            */
+
+            graph = new AtomGraph(atomsStick, Helper.ArrayOfFunction(i => RAtomStick, atomsStick.Length), dims);
+            graph.SetupNeighbors();
+            forces = graph.CalculateForces(gradArc);
+            normForce = Helper.ArrayOfFunction(z => Helper.ArrayOfFunction(i => (forces[z][i].Length()), dims.X * dims.Y), dims.Z);
+            imForce = new Image(normForce, dims);
+            imForce.WriteMRC("Stick_to_Arc_force_it0.mrc");
+            graph.repr().WriteMRC("Stick_to_Arc_im_it0.mrc");
+            for (int i = 0; i < 5; i++)
+            {
+                graph.moveAtoms(forces, 1.0f);
+                graph.repr().WriteMRC($"Stick_to_Arc_im_it{i+1}.mrc");
+            }
+
+
         }
+
+
 
         static void Main(string[] args)
         {
-            int i = 0;
-            float3[] positions = new float3[1000];
-            float[] r = new float[1000];
-            for (int x = 0; x < 10; x++)
+            Console.WriteLine(Directory.GetCurrentDirectory());
+            /*simulate();*/
+            Image stickIm = Image.FromFile("StickVolume_Created.mrc");
+            Image arcIm = Image.FromFile("ArcVolume_Created.mrc");
+            Image stickMask = stickIm.GetCopy();
+            stickMask.Binarize((float)(1.0f / Math.E));
+            AtomGraph stickGraph = new AtomGraph(stickIm, stickMask);
+            
+            stickGraph.repr().WriteMRC("StickGraph_Created.mrc");
+            stickGraph.intRepr().WriteMRC("ArcVolume_splineRep.mrc");
+
+            String trial = "Stick_to_Arc";
+
+            stickGraph.repr().WriteMRC($"{trial}_im_it0.mrc");
+            for (int i = 0; i < 10; i++)
             {
-                for (int y = 0; y < 10; y++)
-                {
-                    for (int z = 0; z < 10; z++)
-                    {
-                        positions[i] = new float3(x, y, z);
-                        r[i] = 0.5f;
-                        i++;
-                    }
-                }
+                stickGraph.moveAtoms();
+                stickGraph.repr().WriteMRC($"{trial}_im_it{i + 1}.mrc");
             }
-            AtomGraph graph = new AtomGraph(positions, r, new int3(10));
-            graph.SetupNeighbors();
 
         }
     }
