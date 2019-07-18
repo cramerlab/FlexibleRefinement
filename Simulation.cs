@@ -185,11 +185,11 @@ namespace FlexibleRefinement
             normForce = Helper.ArrayOfFunction(z => Helper.ArrayOfFunction(i => (forces[z][i].Length()), dims.X * dims.Y), dims.Z);
             imForce = new Image(normForce, dims);
             imForce.WriteMRC("Stick_to_Arc_force_it0.mrc");
-            graph.repr().WriteMRC("Stick_to_Arc_im_it0.mrc");
+            graph.Repr().WriteMRC("Stick_to_Arc_im_it0.mrc");
             for (int i = 0; i < 5; i++)
             {
                 graph.moveAtoms(forces, 1.0f);
-                graph.repr().WriteMRC($"Stick_to_Arc_im_it{i+1}.mrc");
+                graph.Repr().WriteMRC($"Stick_to_Arc_im_it{i+1}.mrc");
             }
 
 
@@ -205,18 +205,20 @@ namespace FlexibleRefinement
             Image arcIm = Image.FromFile("ArcVolume_Created.mrc");
             Image stickMask = stickIm.GetCopy();
             stickMask.Binarize((float)(1.0f / Math.E));
-            AtomGraph stickGraph = new AtomGraph(stickIm, stickMask);
+            AtomGraph stickGraph = new AtomGraph(arcIm, stickMask);
             
-            stickGraph.repr().WriteMRC("StickGraph_Created.mrc");
-            stickGraph.intRepr().WriteMRC("ArcVolume_splineRep.mrc");
+            stickGraph.Repr().WriteMRC("StickGraph_Created.mrc");
+            stickGraph.IntRepr().WriteMRC("ArcVolume_splineRep.mrc");
 
             String trial = "Stick_to_Arc";
 
-            stickGraph.repr().WriteMRC($"{trial}_im_it0.mrc");
+            stickGraph.Repr().WriteMRC($"{trial}_im_it0.mrc");
             for (int i = 0; i < 10; i++)
             {
                 stickGraph.moveAtoms();
-                stickGraph.repr().WriteMRC($"{trial}_im_it{i + 1}.mrc");
+                stickGraph.Repr().WriteMRC($"{trial}_im_it{i + 1}.mrc");
+                if (i == 8)
+                    Console.WriteLine("blub");
             }
 
         }
