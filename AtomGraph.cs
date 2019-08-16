@@ -7,6 +7,7 @@ using System.IO;
 using System.Text;
 using System.Linq;
 using System.Globalization;
+using System.Diagnostics;
 
 public class Atom
 {
@@ -47,7 +48,7 @@ public class GridCell
 public class AtomGraph
 {
 
-    public List<Atom> Atoms { get => atoms;}
+    public List<Atom> Atoms { get => atoms; }
     public float NeigbourCutoff { get => neigbourCutoff; set => neigbourCutoff = value; }
 
     float3 gridSpacing;
@@ -128,7 +129,7 @@ public class AtomGraph
             {
                 for (int x = 0; x < Dim.X; x++)
                 {
-                    repData[z][Dim.X * y + x] = getIntensity(new float3(x,y,z));
+                    repData[z][Dim.X * y + x] = getIntensity(new float3(x, y, z));
                 }
             }
         }, null);
@@ -138,14 +139,14 @@ public class AtomGraph
 
     private float3 DistF(float3 r1, float3 r2)
     {
-        if(r1 == r2)
+        if (r1 == r2)
         {
             return new float3(0.01f);
         }
         float3 vecR = (r2 - r1);
         float dist = Math.Max(vecR.Length(), 1e-6f);
         //return vecR * (float)(-2 * (dist - R0) / dist);
-        return vecR  * (float)(12 * Math.Pow(R0, 6) / Math.Pow(dist, 7) * (1 - Math.Pow(R0, 6) / Math.Pow(dist, 6))) / dist;
+        return vecR * (float)(12 * Math.Pow(R0, 6) / Math.Pow(dist, 7) * (1 - Math.Pow(R0, 6) / Math.Pow(dist, 6))) / dist;
     }
 
     private float3 DistF(Atom atom)
@@ -214,7 +215,7 @@ public class AtomGraph
                         continue;
                     float AI1 = atom.Intensity * getIntensity(atom.Pos + new float3(x * stepsize, y * stepsize, z * stepsize));
                     float As1 = As0;
-                    float correlation1 = (float)((sumAI - AI0 + AI1) / ((sumAs-As0+As1) * sumIs));
+                    float correlation1 = (float)((sumAI - AI0 + AI1) / ((sumAs - As0 + As1) * sumIs));
                     float diff = AI1 - AI0;
                     f = f + new float3(x * invStepsize * (diff), y * invStepsize * (diff), z * invStepsize * (diff));
                 }
@@ -249,17 +250,17 @@ public class AtomGraph
 
         double delta = Math.Sqrt(Math.Pow(ds.X, 2) + Math.Pow(ds.Y, 2) + Math.Pow(ds.Z, 2));
 
-        if (double.IsNaN(ds.X / delta) || double.IsNaN(ds.Y/delta) || double.IsNaN(ds.Z / delta))
+        if (double.IsNaN(ds.X / delta) || double.IsNaN(ds.Y / delta) || double.IsNaN(ds.Z / delta))
         {
             Console.WriteLine("blah");
         }
         if (delta > 0.1f)
         {
-            ds = new float3((float)(ds.X/delta), (float)(ds.Y/delta), (float)(ds.Z/delta));
+            ds = new float3((float)(ds.X / delta), (float)(ds.Y / delta), (float)(ds.Z / delta));
         }
         atom.Pos = atom.Pos + ds;
         if (atom.Pos.X < 0)
-            atom.Pos = atom.Pos * new float3(0,1,1);
+            atom.Pos = atom.Pos * new float3(0, 1, 1);
         if (atom.Pos.Y < 0)
             atom.Pos = atom.Pos * new float3(1, 0, 1);
         if (atom.Pos.Z < 0)
@@ -308,7 +309,7 @@ public class AtomGraph
             float As0 = atom.Intensity * atom.Intensity;
             float AI0 = atom.Intensity * getIntensity(atom.Pos);
 
-            MoveAtom(atom, corrForce+distForce);
+            MoveAtom(atom, corrForce + distForce);
 
             //contribution to correlation after moving
             float As1 = atom.Intensity * atom.Intensity;
@@ -339,7 +340,7 @@ public class AtomGraph
     }
 
 
-        public void moveAtoms(float3[][] forces,float scale=1.0f)
+    public void moveAtoms(float3[][] forces, float scale = 1.0f)
     {
 
         Helper.ForCPU(0, atoms.Count, 20, null, (i, id, obj) =>
@@ -370,7 +371,7 @@ public class AtomGraph
                    */
                    distForce = distForce + DistF(apos, btom.Pos);
                }
-               distForce =  distForce * (beta);
+               distForce = distForce * (beta);
                float3 imForce = forces[(int)Math.Round(atom.Pos.Z)][(int)((int)(Math.Round(atom.Pos.Y)) * gridSize.X + (int)(Math.Round(atom.Pos.X)))];
                MoveAtom(atom, distForce + imForce);
            }, null);
@@ -385,10 +386,10 @@ public class AtomGraph
             {
                 btom.Neighbours.Add(atom);
                 atom.Neighbours.Add(btom);
-                
+
             }
 
-            
+
         }
 
         int[] numNeig = Helper.ArrayOfFunction(i => atoms[i].Neighbours.Count, atoms.Count);
@@ -419,10 +420,10 @@ public class AtomGraph
             {
                 if (gridPos.Y + y >= gridSize.Y || gridPos.Y + y < 0)
                     continue;
-                for (int z = halfOnly ? 0 :-deltaZ; z < deltaZ; z++)
+                for (int z = halfOnly ? 0 : -deltaZ; z < deltaZ; z++)
                 {
                     //float gridDist = (float)(Math.Pow(start..X, 2) + Math.Pow(gridSpacing.Z, 2) + Math.Pow(gridSpacing.Y, 2));
-                    if (gridPos.Z + z >= gridSize.Z || gridPos.Z + z <0)
+                    if (gridPos.Z + z >= gridSize.Z || gridPos.Z + z < 0)
                         continue;
                     GridCell end = grid[gridPos.Z + z][(gridPos.Y + y) * gridSize.X + gridPos.X + x];
                     foreach (var atomFar in end.Atoms)
@@ -439,7 +440,7 @@ public class AtomGraph
         return neighbours;
     }
 
-     
+
 
     private int3 Dim;
 
@@ -458,7 +459,7 @@ public class AtomGraph
         {
             float3 pos = atomCenters[i];
             int3 gridPos = new int3((int)(pos.X / gridSpacing.X), (int)(pos.Y / gridSpacing.Y), (int)(pos.Z / gridSpacing.Z));
-            Atom a = new Atom(pos, atomRadius[i], (atomIntensities!=null)? atomIntensities[i]:1.0f);
+            Atom a = new Atom(pos, atomRadius[i], (atomIntensities != null) ? atomIntensities[i] : 1.0f);
             atoms.Add(a);
             grid[gridPos.Z][gridPos.Y * gridSize.X + gridPos.X].Atoms.Add(a);
 
@@ -469,14 +470,14 @@ public class AtomGraph
     private float getIntensity(float3 pos)
     {
         float[] output = new float[1];
-        CPU.EvalEinspline3(einSpline, new float[] { (float)(pos.Z/Dim.Z), (float)(pos.Y/Dim.Y), (float)(pos.X/Dim.X) }, 1, output);
+        CPU.EvalEinspline3(einSpline, new float[] { (float)(pos.Z / Dim.Z), (float)(pos.Y / Dim.Y), (float)(pos.X / Dim.X) }, 1, output);
         return output[0];
     }
 
     private float[] getIntensity(float3[] pos)
     {
         float[] output = new float[pos.Length];
-        float[] input = new float[pos.Length*3];
+        float[] input = new float[pos.Length * 3];
         for (int i = 0; i < pos.Length; i++)
         {
             input[i] = pos[i].X;
@@ -513,6 +514,77 @@ public class AtomGraph
         fs.Write(info, 0, info.Length);
     }
 
+    public Atom GetClosestAtom(Atom a)
+    {
+        return GetClosestAtom(a.Pos);
+    }
+
+    public Atom GetClosestAtom(float3 pos)
+    {
+        int3 gridPos = new int3((int)(pos.X / gridSpacing.X), (int)(pos.Y / gridSpacing.Y), (int)(pos.Z / gridSpacing.Z));
+        GridCell start = grid[gridPos.Z][gridPos.Y * gridSize.X + gridPos.X];
+        bool checkedOne;
+        int i = 0;
+        int iLim = int.MaxValue;
+        float minDist = float.PositiveInfinity;
+        Atom minAtom = null;
+        do
+        {
+            checkedOne = false;
+            for (int dz = -i; dz <= i; dz++)
+            {
+                if (gridPos.Z + dz >= gridSize.Z)
+                    continue;
+                for (int dy = -i; dy <= i; dy++)
+                {
+                    if (gridPos.Y + dy >= gridSize.Y)
+                        continue;
+                    for (int dx = -i; dx <= i; dx++)
+                    {
+                        if (gridPos.X + dx >= gridSize.X)
+                            continue;
+                        if (!(Math.Abs(dx) == i || Math.Abs(dy) == i || Math.Abs(dz) == i))
+                            continue;
+                        GridCell curr = grid[gridPos.Z + dz][(gridPos.Y + dy) * gridSize.X + gridPos.X + dx];
+                        checkedOne = true; //GridCells could be found
+                        if (curr.Atoms.Count > 0)
+                        {
+                            iLim = Math.Min(iLim,i + 1); // In current cubic layer there are atoms, therefore we can terminate with next layer
+                            foreach (var atom in curr.Atoms)
+                            {
+                                float dist = (atom.Pos - pos).Length();
+                                if (dist < minDist)
+                                {
+                                    minAtom = atom;
+                                    minDist = dist;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            i++;
+        } while (checkedOne && i <= iLim);
+        return minAtom;
+    }
+
+    /*
+     * Updates the atom Positions in <this> based on a nearest neighbour search in the graph <other> and displacements <displ> thereof
+     * */
+    public void setPositions(AtomGraph other, List<float3> displ)
+    {
+        float3 scaleFactor = new float3(Dim.X / other.Dim.X, Dim.Y / other.Dim.Y, Dim.Z / other.Dim.Z);
+        foreach (var atom in Atoms)
+        {
+            Atom nN = other.GetClosestAtom(atom.Pos / scaleFactor);
+            float3 displacement = displ[other.Atoms.IndexOf(nN)]*scaleFactor;
+            
+            atom.Pos = atom.Pos + displacement;
+            Debug.Assert(atom.Pos.X <= Dim.X || atom.Pos.Y <= Dim.Y || atom.Pos.Z <= Dim.Z);
+
+        }
+    }
+
 
     public AtomGraph(String filename, Image intensities)
     {
@@ -521,6 +593,7 @@ public class AtomGraph
         string line;
         float[] result;
         int[] temp;
+        EMIntensities = intensities;
         einSpline = ImageToSpline(intensities);
         atoms = new List<Atom>();
         // Read the file and display it line by line.  

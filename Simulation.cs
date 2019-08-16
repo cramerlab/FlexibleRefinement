@@ -157,7 +157,73 @@ namespace FlexibleRefinement
             maskArc.WriteMRC($"{name}Mask_Created.mrc");
         }
 
-        static void simulate()
+        static void simulateRotated(float c)
+        {
+            int3 dims = new int3(100, 100, 100);
+            Image volStick = new Image(dims);
+
+            Image volArc = new Image(dims);
+
+            Image volAtomsStick = new Image(dims);
+            Image volAtomsArc = new Image(dims);
+
+            float r = 10f;
+            float rS = (float)Math.Pow(r, 2);
+            int n = 5;
+            float len = 62;
+            float3[] atomPositionsStick = new float3[n];
+            float3[] atomPositionsArc = new float3[n];
+            (float3 start, float3 end) beadString = (new float3(dims.X / 2 - len / 2, dims.Y / 2, dims.Z / 2), new float3(dims.X / 2 + len / 2, dims.Y / 2, dims.Z / 2));
+            float arcAngle = (float)(Math.PI / 6);
+            float R = (float)(len / arcAngle);
+            for (int i = 0; i < n; i++)
+            {
+                atomPositionsStick[i] = equidistantSpacing(beadString.start, beadString.end, i, n);
+            }
+
+            float3 com = new float3(0);
+            foreach (var atom in atomPositionsStick)
+            {
+                com = com + atom;
+            }
+
+            com = com / atomPositionsStick.Length;
+
+            for (int i = 0; i < atomPositionsStick.Length; i++)
+            {
+                atomPositionsStick[i] = com + Helpers.rotate_euler(atomPositionsStick[i] - com, new float3((float)(Math.PI / c), 0, 0));
+            }
+    
+
+            float[][] volStickData = volStick.GetHost(Intent.Write);
+
+          
+            //for (int z = 0; z < dims.Z; z++)
+            Helper.ForCPU(0, dims.Z, 1, null, (z, id, ts) =>
+            {
+                for (int y = 0; y < dims.Y; y++)
+                {
+                    for (int x = 0; x < dims.X; x++)
+                    {
+                        for (int i = 0; i < n; i++)
+                        {
+                            double distStick = Math.Pow(atomPositionsStick[i].X - x, 2) + Math.Pow(atomPositionsStick[i].Y - y, 2) + Math.Pow(atomPositionsStick[i].Z - z, 2);
+                            volStickData[z][dims.X * y + x] += (float)Math.Exp(-distStick / rS);
+                        }
+                    }
+                }
+            }
+             , null);
+
+            volStick.WriteMRC($"StickVolume_Rotated_{c}_Created.mrc");
+            Image maskStick = volStick.GetCopy();
+            maskStick.Binarize((float)(1 / Math.E));
+            maskStick.WriteMRC($"StickMask_Rotated_{c}_Created.mrc");
+
+            return;
+        }
+
+            static void simulate()
         {
             int3 dims = new int3(100, 100, 100);
             Image volStick = new Image(dims);
@@ -500,6 +566,40 @@ namespace FlexibleRefinement
 
         }
 
+        private static void rotateGraph(String initialFile, String finalFile, String displacementFile, int c)
+        {
+            String trial = "RotateStick"; if (!Directory.Exists(trial))
+            {
+                Directory.CreateDirectory(trial);
+            }
+            Image stickIm = Image.FromFile("StickVolume_Created.mrc");
+            Image stickMask = stickIm.GetCopy();
+            stickMask.Binarize((float)(1.0f / Math.E));
+            AtomGraph initial = new AtomGraph(initialFile, stickIm);
+            var atomList = initial.Atoms;
+            float3 com = new float3(0);
+            foreach (var atom in atomList)
+            {
+                com = com + atom.Pos;
+            }
+
+            com = com / atomList.Count;
+            using (FileStream fs = File.Create(displacementFile))
+            {
+
+                foreach (var atom in atomList)
+                {
+                    float3 before = atom.Pos;
+                    atom.Pos = com + Helpers.rotate_euler(atom.Pos - com, new float3((float)(Math.PI / c), 0, 0));
+                    float3 after = atom.Pos;
+                    float3 gtDisplacement = after - before;
+                    AddText(fs, $"{gtDisplacement.X} {gtDisplacement.Y} {gtDisplacement.Z}\n".Replace(',', '.'));
+                }
+            }
+            initial.save(finalFile);
+            initial.Repr().WriteMRC(finalFile.Replace(".graph", ".mrc"));
+        }
+
         private static void createRotated(int c)
         {
             String trial = "RotateStick"; if (!Directory.Exists(trial))
@@ -535,62 +635,282 @@ namespace FlexibleRefinement
         }
 
 
-        static void Main(string[] args)
+
+        static Image Downsample(Image im, float factor)
         {
-            int c = 20;
-            createRotated(c);
-            String trial = "RotateStick"; if (!Directory.Exists(trial))
+            int3 oldSize = im.Dims;
+            float falloff = 5.0f;
+            int3 newSize = oldSize / factor;
+            float innerRadius = (newSize-newSize/2).Length() - (1.1f * falloff);
+            Image ft = im.AsFFT(true);
+            Image Cosine = new Image(ft.Dims, true);
+            float[][] CosineData = Cosine.GetHost(Intent.Write);
+            double CosineSum = 0;
+            for (int z = 0; z < Cosine.DimsFT.Z; z++)
+            {
+                int zz = z;
+                if (z > Cosine.DimsFT.Z / 2)
+                {
+                    zz = Cosine.DimsFT.Z - z;
+                }
+                zz *= zz;
+                for (int y = 0; y < Cosine.DimsFT.Y; y++)
+                {
+                    int yy = y;
+                    if ( y > Cosine.DimsFT.Y / 2)
+                    {
+                        yy = Cosine.DimsFT.Y - y;
+                    }
+                    
+                    yy *= yy;
+                    for (int x = 0; x < Cosine.DimsFT.X; x++)
+                    {
+                        int xx = x;
+                        xx *= xx;
+
+                        float R = (float)Math.Sqrt(xx + yy + zz);
+                        double C = Math.Cos(Math.Max(0, Math.Min(falloff, R - innerRadius)) / falloff * Math.PI) * 0.5 + 0.5;
+
+                        CosineSum += C;
+                        CosineData[z][y * Cosine.DimsFT.X + x] = (float)C;
+                    }
+                }
+            }
+            ft.WriteMRC("ftRemapped.mrc");
+            Cosine.WriteMRC("RaisedCosineIM.mrc");
+            
+            ft.Multiply(Cosine);
+            ft.WriteMRC("ftRemappedultiplied.mrc");
+            ft = ft.AsPadded(newSize); ft.WriteMRC("ftRemappedPadded.mrc");
+            Image newIm = ft.AsIFFT(true);
+            GPU.Normalize(newIm.GetDevice(Intent.Read),
+                         newIm.GetDevice(Intent.Write),
+                         (uint)newIm.ElementsReal,
+                         (uint)1);
+            ft.WriteMRC("ftRemappedNormalized.mrc");
+            return newIm;
+
+        }
+
+        public static void upscalingTest()
+        {
+            String trial = "downsampling";
+            float pixSize = 1.0f;
+            int c = 10;
+            if (!Directory.Exists(trial))
             {
                 Directory.CreateDirectory(trial);
             }
             Image stickIm = Image.FromFile("StickVolume_Created.mrc");
-            Image stickMask = stickIm.GetCopy();
-            stickMask.Binarize((float)(1.0f / Math.E));
-            AtomGraph startGraph = new AtomGraph($@"{trial}\Stick_Initial.graph", stickIm);
+            Image stickMask = Image.FromFile("StickMask_Created.mrc");
 
-            Image rotated = Image.FromFile($@"{trial}\Rotate_PI_{c}_gt.mrc");
-            rotated.AsConvolvedGaussian(1.0f).WriteMRC($@"{trial}\Rotate_PI_{c}_gt_convolved1.mrc");
-            Image convolved4 = rotated.AsConvolvedGaussian(4.0f);
-            convolved4.WriteMRC($@"{trial}\Rotate_PI_{c}_gt_convolved4.mrc");
+            if (!File.Exists($"StickVolume_Rotatef_{c}_Created.mrc"))
+            {
+                simulateRotated(c);
+            }
+            Image stickRotIm = Image.FromFile($"StickVolume_Rotated_{c}_Created.mrc");
+            Image stickRotMask = Image.FromFile($"StickMask_Rotated_{c}_Created.mrc");
 
-            Image rotatedkMask = convolved4.GetCopy();
-            rotatedkMask.Binarize(0.25f);
-            rotatedkMask.WriteMRC($@"{trial}\Rotate_PI_{c}_gt_convolved4_mask.mrc");
-            startGraph.setEMIntensities(rotatedkMask.AsConvolvedGaussian(5));
+            float[] sampleRates = new float[3] { 4, 2, 1 };
+            int targetCount = 2000;
+            int[] sampledCounts = Helper.ArrayOfFunction(i => (int)(targetCount / Math.Pow(sampleRates[i], 3)), 3);
+            Image[] StartIms = Helper.ArrayOfFunction(i => sampleRates[i] == 1 ? stickIm.GetCopy() : Downsample(stickIm, sampleRates[i]), 3);
+            Image[] StartMasks = Helper.ArrayOfFunction(i => {
+                Image mask = StartIms[i].GetCopy();
+                mask.Binarize(0.25f);
+                return mask;
+            }, 3);
 
-            
+            AtomGraph[] StartGraphs = Helper.ArrayOfFunction(i => new AtomGraph(StartIms[i], StartMasks[i], sampledCounts[i]), 3);
+
+
+            Image[] TarIms = Helper.ArrayOfFunction(i => sampleRates[i] == 1 ? stickRotIm.GetCopy() : Downsample(stickRotIm, sampleRates[i]), 3);
+            Image[] TarMasks = Helper.ArrayOfFunction(i => {
+                Image mask = TarIms[i].GetCopy();
+                mask.Binarize(0.25f);
+                return mask;
+            }, 3);
+            for (int i = 0; i < 3; i++)
+            {
+                StartIms[i].WriteMRC($@"{trial}\{sampleRates[i]}_StartIm.mrc");
+                TarIms[i].WriteMRC($@"{trial}\{sampleRates[i]}_TarIm.mrc");
+
+                StartMasks[i].WriteMRC($@"{trial}\{sampleRates[i]}_StartMask.mrc");
+                TarMasks[i].WriteMRC($@"{trial}\{sampleRates[i]}_TarMask.mrc");
+
+                StartGraphs[i].save($@"{trial}\{sampleRates[i]}_StartGraph.graph");
+                StartGraphs[i].Repr().WriteMRC($@"{trial}\{sampleRates[i]}_StartGraph.mrc");
+
+                rotateGraph($@"{trial}\{sampleRates[i]}_StartGraph.graph", $@"{trial}\{sampleRates[i]}_TarGraph.graph", $@"{trial}\{sampleRates[i]}_GtDispalcements.txt", c);
+                AtomGraph targetGraph = new AtomGraph($@"{trial}\{sampleRates[i]}_TarGraph.graph", TarIms[i]);
+                targetGraph.Repr().WriteMRC($@"{trial}\{sampleRates[i]}_TarGraph.mrc");
+            }
+
             float[] corrScales = Helper.ArrayOfFunction(k => (float)(k + 1), 20);
             float[] distScales = Helper.ArrayOfFunction(k => (float)(k + 1), 20);
             bool[] normalizings = new bool[2] { true, false };
+
+            #region FirstStep
+            if (!Directory.Exists($@"{trial}\StepOne"))
+            {
+                Directory.CreateDirectory($@"{trial}\StepOne");
+            }
+            TarIms[0].AsConvolvedGaussian(1).WriteMRC($@"{trial}\StepOne\{sampleRates[0]}_TarIm_Convolved.mrc");
             Helper.ForCPU(0, 20, 11, null, (k, id, ts) => {
                 float corrScale = corrScales[k];
-                
+
                 foreach (var distScale in distScales)
                 {
                     foreach (var normalizing in normalizings)
                     {
                         int i = 0;
-                        AtomGraph localStartGraph = new AtomGraph($@"{trial}\Stick_Initial.graph", stickIm);
-                        localStartGraph.setEMIntensities(rotatedkMask.AsConvolvedGaussian(5));
-                        for (; i < 5; i++)
+                        AtomGraph localStartGraph = new AtomGraph($@"{trial}\{sampleRates[0]}_StartGraph.graph", TarIms[0].AsConvolvedGaussian(1));
+                        for (; i < 10; i++)
                         {
                             localStartGraph.moveAtoms(corrScale, distScale, normalizing);
-                            localStartGraph.Repr().WriteMRC($@"{trial}\Rotate_PI_{c}_im_it{i + 1}_{corrScale:#.#}_{distScale:#.#}_{normalizing}.mrc");
+                            localStartGraph.Repr().WriteMRC($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{c}__{corrScale:#.#}_{distScale:#.#}_{normalizing}_it{i + 1}.mrc");
                         }
-                        localStartGraph.save($@"{trial}\Rotate_PI_{c}_final_{corrScale:#.#}_{distScale:#.#}_{normalizing}.graph");
+                        localStartGraph.save($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{c}__{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.graph");
                     }
 
                 }
 
             }, null);
-            startGraph.setEMIntensities(rotatedkMask.AsConvolvedGaussian(1));
+            #endregion
 
-            /*for (; i < 10; i++)
+            /*
+            #region SecondStep
+            String fromFirstGraphFileStart = $@"{trial}\StartGraph_downSampled_{sampleRates[0]}.graph";
+            AtomGraph fromFirstGraphStart = new AtomGraph(fromFirstGraphFileStart, TarMasks[0].AsConvolvedGaussian(1));
+            String fromFirstGraphFileFinal = $@"{trial}\StepOne\downSampled_4_Rotate_PI_10_final_17_16_False.graph";
+            AtomGraph fromFirstGraphFinal = new AtomGraph(fromFirstGraphFileFinal, TarMasks[0].AsConvolvedGaussian(1));
+
+            List<float3> displacements = new List<float3>(fromFirstGraphFinal.Atoms.Count);
+            for (int j = 0; j < fromFirstGraphStart.Atoms.Count; j++)
             {
-                startGraph.moveAtoms(10.0f, 4.0f,true);
-                startGraph.Repr().WriteMRC($@"{trial}\Rotate_PI_{c}_im_it{i + 1}.mrc");
-            }*/
-            startGraph.save($@"{trial}\Rotate_PI_{c}_final.graph");
+                displacements.Add(fromFirstGraphFinal.Atoms[j].Pos - fromFirstGraphStart.Atoms[j].Pos);
+            }
+
+            
+
+            if (!Directory.Exists($@"{trial}\StepTwo"))
+            {
+                Directory.CreateDirectory($@"{trial}\StepTwo");
+            }
+            Helper.ForCPU(0, 20, 11, null, (k, id, ts) => {
+                float corrScale = corrScales[k];
+
+                foreach (var distScale in distScales)
+                {
+                    foreach (var normalizing in normalizings)
+                    {
+                        int i = 0;
+                        AtomGraph localStartGraph = new AtomGraph($@"{trial}\StartGraph_downSampled_{sampleRates[1]}.graph", TarMasks[1].AsConvolvedGaussian(1));
+                        localStartGraph.setPositions(fromFirstGraphStart, displacements);
+                        for (; i < 10; i++)
+                        {
+                            localStartGraph.moveAtoms(corrScale, distScale, normalizing);
+                            localStartGraph.Repr().WriteMRC($@"{trial}\StepTwo\downSampled_{sampleRates[1]}_Rotate_PI_{c}_im_it{i + 1}_{corrScale:#.#}_{distScale:#.#}_{normalizing}.mrc");
+                        }
+                        localStartGraph.save($@"{trial}\StepTwo\downSampled_{sampleRates[1]}_Rotate_PI_{c}_final_{corrScale:#.#}_{distScale:#.#}_{normalizing}.graph");
+                    }
+
+                }
+
+            }, null);
+            #endregion*/
+
+            return;
+        }
+
+        public static void graphTest()
+        {
+            String trial = "TestUpscaling"; if (!Directory.Exists(trial))
+            {
+                Directory.CreateDirectory(trial);
+            }
+            Image downsampledIm = Image.FromFile(@"downsampling\Downsampled_4.mrc");
+            AtomGraph downsampled = new AtomGraph($@"downsampling\StartGraph_downSampled_4.graph", downsampledIm);
+
+            Image nextIm = Image.FromFile(@"downsampling\Downsampled_2.mrc");
+            AtomGraph nextGraph = new AtomGraph($@"downsampling\StartGraph_downSampled_2.graph", nextIm);
+
+            downsampled.Repr().WriteMRC($@"{trial}\DownScaledGraphStart.mrc");
+            rotateGraph($@"downsampling\StartGraph_downSampled_4.graph", $@"{trial}\StartGraph_downSampled_4_rotate_5.graph", $@"{trial}\StartGraph_downSampled_4_rotate_5.displacements.txt", 5);
+            downsampled = new AtomGraph($@"{trial}\StartGraph_downSampled_4_rotate_5.graph", downsampledIm);
+            downsampled.Repr().WriteMRC($@"{trial}\DownScaledGraphUpdated.mrc");
+
+            AtomGraph rotated = new AtomGraph($@"{trial}\StartGraph_downSampled_4_rotate_5.graph", downsampledIm);
+
+            List<float3> displacements = new List<float3>(rotated.Atoms.Count);
+            for (int i = 0; i < rotated.Atoms.Count; i++)
+            {
+                displacements.Add(rotated.Atoms[i].Pos - downsampled.Atoms[i].Pos);
+            }
+            nextGraph.Repr().WriteMRC($@"{trial}\UpscaledGraphStart.mrc");
+            nextGraph.setPositions(downsampled, displacements);
+            nextGraph.Repr().WriteMRC($@"{trial}\UpscaledGraphUpdated.mrc");
+
+        }
+
+        static void Main(string[] args)
+        {
+
+            upscalingTest();
+            //int c = 10;
+            //createRotated(c);
+            //String trial = "RotateStick"; if (!Directory.Exists(trial))
+            //{
+            //    Directory.CreateDirectory(trial);
+            //}
+            //Image stickIm = Image.FromFile("StickVolume_Created.mrc");
+            //Image stickMask = stickIm.GetCopy();
+            //stickMask.Binarize((float)(1.0f / Math.E));
+            //AtomGraph startGraph = new AtomGraph($@"{trial}\Stick_Initial.graph", stickIm);
+
+            //Image rotated = Image.FromFile($@"{trial}\Rotate_PI_{c}_gt.mrc");
+            //rotated.AsConvolvedGaussian(1.0f).WriteMRC($@"{trial}\Rotate_PI_{c}_gt_convolved1.mrc");
+            //Image convolved4 = rotated.AsConvolvedGaussian(4.0f);
+            //convolved4.WriteMRC($@"{trial}\Rotate_PI_{c}_gt_convolved4.mrc");
+
+            //Image rotatedkMask = convolved4.GetCopy();
+            //rotatedkMask.Binarize(0.25f);
+            //rotatedkMask.WriteMRC($@"{trial}\Rotate_PI_{c}_gt_convolved4_mask.mrc");
+            //startGraph.setEMIntensities(rotatedkMask.AsConvolvedGaussian(5));
+
+
+            //float[] corrScales = Helper.ArrayOfFunction(k => (float)(k + 1), 20);
+            //float[] distScales = Helper.ArrayOfFunction(k => (float)(k + 1), 20);
+            //bool[] normalizings = new bool[2] { true, false };
+            //Helper.ForCPU(0, 20, 11, null, (k, id, ts) => {
+            //    float corrScale = corrScales[k];
+
+            //    foreach (var distScale in distScales)
+            //    {
+            //        foreach (var normalizing in normalizings)
+            //        {
+            //            int i = 0;
+            //            AtomGraph localStartGraph = new AtomGraph($@"{trial}\Stick_Initial.graph", stickIm);
+            //            localStartGraph.setEMIntensities(rotatedkMask.AsConvolvedGaussian(5));
+            //            for (; i < 5; i++)
+            //            {
+            //                localStartGraph.moveAtoms(corrScale, distScale, normalizing);
+            //                localStartGraph.Repr().WriteMRC($@"{trial}\Rotate_PI_{c}_im_it{i + 1}_{corrScale:#.#}_{distScale:#.#}_{normalizing}.mrc");
+            //            }
+            //            localStartGraph.save($@"{trial}\Rotate_PI_{c}_final_{corrScale:#.#}_{distScale:#.#}_{normalizing}.graph");
+            //        }
+
+            //    }
+
+            //}, null);
+            //startGraph.setEMIntensities(rotatedkMask.AsConvolvedGaussian(1));
+
+            ///*for (; i < 10; i++)
+            //{
+            //    startGraph.moveAtoms(10.0f, 4.0f,true);
+            //    startGraph.Repr().WriteMRC($@"{trial}\Rotate_PI_{c}_im_it{i + 1}.mrc");
+            //}*/
+            //startGraph.save($@"{trial}\Rotate_PI_{c}_final.graph");
         }
     }
 }
