@@ -104,26 +104,37 @@ def rotationExp():
 def dosnwampledRotationExp():
     c = 10
 
-    gtStartCenters = getCenters(r"D:\Software\FlexibleRefinement\bin\Debug\downsampling\4_StartGraph.graph")
-    gtEndCenters = getCenters(r"D:\Software\FlexibleRefinement\bin\Debug\downsampling\4_TarGraph.graph")
+    step = "StepThree"
+    if step == "StepOne":
+        factor = 4
+    elif step == "StepTwo":
+        factor = 2
+    elif step == "StepThree":
+        factor = 1
+    gtStartCenters = getCenters(r"D:\Software\FlexibleRefinement\bin\Debug\downsampling\{}_StartGraph.graph".format(factor))
+    gtEndCenters = getCenters(r"D:\Software\FlexibleRefinement\bin\Debug\downsampling\{}_TarGraph.graph".format(factor))
     gtDisplacements = gtEndCenters - gtStartCenters
     results = []
     for corrScale in range(1, 21):
         for distScale in range(1, 21):
             for norm in ["True", "False"]:
                 if not os.path.isfile(
-                        r"D:\Software\FlexibleRefinement\bin\Debug\downsampling\StepOne\4_Rotate_PI_{}__{}_{}_{}_final.graph".format(
-                                c, corrScale, distScale, norm)):
-                    print("4_Rotate_PI_{}__{}_{}_{}_final.graph not done yet".format(c, corrScale, distScale, norm))
+                        r"D:\Software\FlexibleRefinement\bin\Debug\downsampling\{}\{}_Rotate_PI_{}__{}_{}_{}_final.graph".format(
+                                step, factor, c, corrScale, distScale, norm)):
+                    print("{}_Rotate_PI_{}__{}_{}_{}_final.graph not done yet".format(factor, c, corrScale, distScale, norm))
                     results.append(
-                        ["4_Rotate_PI_{}_{}_{}_{}".format(c, corrScale, distScale, norm), 0, 0,
+                        ["{}_Rotate_PI_{}_{}_{}_{}".format(factor, c, corrScale, distScale, norm), 0, 0,
                          0, 0])
                     continue
                 endCenters = getCenters(
-                    r"D:\Software\FlexibleRefinement\bin\Debug\downsampling\StepOne\4_Rotate_PI_{}__{}_{}_{}_final.graph".format(c,
-                                                                                                                     corrScale,
-                                                                                                                     distScale,
-                                                                                                                     norm))
+                    r"D:\Software\FlexibleRefinement\bin\Debug\downsampling\{}\{}_Rotate_PI_{}__{}_{}_{}_final.graph".format(
+                        step,
+                        factor,
+                        c,
+                        corrScale,
+                        distScale,
+                        norm))
+
                 displacements = endCenters - gtStartCenters
                 offsets = endCenters - gtEndCenters
                 offNorm = np.linalg.norm(offsets, axis=1)
@@ -134,11 +145,11 @@ def dosnwampledRotationExp():
                 dispDiffMean = np.mean(dispDiffNorm)
                 dispDiffStd = np.std(dispDiffNorm)
                 results.append(
-                    ["4_Rotate_PI_{}_{}_{}_{}".format(c, corrScale, distScale, norm), offMean, offStd, dispDiffMean,
+                    ["{}_Rotate_PI_{}_{}_{}_{}".format(factor, c, corrScale, distScale, norm), offMean, offStd, dispDiffMean,
                      dispDiffStd])
                 # plt.hist(diff)
     df = pd.DataFrame(results, columns=["Filename", "Mean Pos Offset", "Std Pos Offset", "Diff of distance", "std"])
-    df.to_csv('StepOne.csv', index=False)
+    df.to_csv('{}.csv'.format(step), index=False)
     '''
     gtStartCenters = getCenters(r"D:\Software\FlexibleRefinement\bin\Debug\downsampling\StartGraph_downSampled_2.graph")
     gtEndCenters = getCenters(r"D:\Software\FlexibleRefinement\bin\Debug\downsampling\TargetGraph_downSampled_2.graph")
