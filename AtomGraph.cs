@@ -11,22 +11,32 @@ using System.Diagnostics;
 
 public class Atom
 {
+
     public Atom(float3 p, float radius, float intense=1.0f)
     {
         pos = p;
+        PrevPos = new float3(0);
+        PrevPrevPos = new float3(0);
         r = radius;
         neighbours = new List<Atom>();
         intensity = intense;
+        v = 0.0f;
     }
     float3 pos;             // atom position in real space
+    float3 prevpos;             // atom position in real space
+    float3 prevprevpos;             // atom position in real space
     List<Atom> neighbours;      // 
     float r;
     float intensity;
+    float v;
 
     public float3 Pos { get => pos; set => pos = value; }
     public float Intensity { get => intensity; set => intensity = value; }
     public List<Atom> Neighbours { get => neighbours; set => neighbours = value; }
     public float R { get => r; set => r = value; }
+    public float V { get => v; set => v = value; }
+    public float3 PrevPos { get => prevpos; set => prevpos = value; }
+    public float3 PrevPrevPos { get => prevprevpos; set => prevprevpos = value; }
 }
 
 public class GridCell
@@ -47,7 +57,7 @@ public class GridCell
 
 public class AtomGraph
 {
-
+    public float sqrt3 = (float)Math.Sqrt(3);
     public List<Atom> Atoms { get => atoms; }
     public float NeigbourCutoff { get => neigbourCutoff; set => neigbourCutoff = value; }
 
@@ -249,16 +259,48 @@ public class AtomGraph
         GridCell gridCellBefore = grid[gridPosBefore.Z][gridPosBefore.Y * gridSize.X + gridPosBefore.X];
 
         double delta = Math.Sqrt(Math.Pow(ds.X, 2) + Math.Pow(ds.Y, 2) + Math.Pow(ds.Z, 2));
-
+        /*
         if (double.IsNaN(ds.X / delta) || double.IsNaN(ds.Y / delta) || double.IsNaN(ds.Z / delta))
         {
             Console.WriteLine("blah");
-        }
-        if (delta > 0.1f)
+        }*/
+        if (delta > sqrt3)
         {
-            ds = new float3((float)(ds.X / delta), (float)(ds.Y / delta), (float)(ds.Z / delta));
+            //Normalize to move at most 1 (along diagonal) whole pixel at once
+            ds = new float3((float)(sqrt3*Math.Max(1e-20,ds.X) / delta), (float)(sqrt3*Math.Max(1e-20, ds.Y) / delta), (float)(sqrt3*Math.Max(1e-20, ds.Z) / delta));
         }
         atom.Pos = atom.Pos + ds;
+        if (atom.Pos.X < 0)
+            atom.Pos = atom.Pos * new float3(0, 1, 1);
+        else if (atom.Pos.X > Dim.X)
+            atom.Pos = new float3(Dim.X-1e-4f, atom.Pos.Y, atom.Pos.Z);
+        if (atom.Pos.Y < 0)
+            atom.Pos = atom.Pos * new float3(1, 0, 1);
+        else if (atom.Pos.Y > Dim.Y)
+            atom.Pos = new float3(atom.Pos.X, Dim.Y - 1e-4f, atom.Pos.Z);
+        if (atom.Pos.Z < 0)
+            atom.Pos = atom.Pos * new float3(1, 1, 0);
+        else if (atom.Pos.Z > Dim.Z)
+            atom.Pos = new float3(atom.Pos.X, atom.Pos.Y, Dim.Z - 1e-4f);
+
+        int3 gridPosAfter = new int3((int)(atom.Pos.X / gridSpacing.X), (int)(atom.Pos.Y / gridSpacing.Y), (int)(atom.Pos.Z / gridSpacing.Z));
+        if (gridPosAfter != gridPosBefore)
+        {
+            GridCell gridCellAfter = grid[gridPosAfter.Z][gridPosAfter.Y * gridSize.X + gridPosAfter.X];
+            gridCellBefore.Atoms.Remove(atom);
+            gridCellAfter.Atoms.Add(atom);
+        }
+    }
+
+    private void MoveAtomVerlet(Atom atom, float3 a, float dT = 0.0001f)
+    {
+        int3 gridPosBefore = new int3((int)(atom.Pos.X / gridSpacing.X), (int)(atom.Pos.Y / gridSpacing.Y), (int)(atom.Pos.Z / gridSpacing.Z));
+        GridCell gridCellBefore = grid[gridPosBefore.Z][gridPosBefore.Y * gridSize.X + gridPosBefore.X];
+
+
+        float3 offset = atom.Pos - atom.PrevPos + a * (float)Math.Pow(dT,2);
+        double delta = offset.Length();
+        atom.Pos = atom.Pos + offset;
         if (atom.Pos.X < 0)
             atom.Pos = atom.Pos * new float3(0, 1, 1);
         if (atom.Pos.Y < 0)
@@ -275,7 +317,70 @@ public class AtomGraph
         }
     }
 
-    public void moveAtoms(float corrScale = 20.0f, float distScale = 1.0f, bool normalizeForce = true)
+    public void moveAtomsVerlet(float corrScale = 20.0f, float distScale = 1.0f, bool normalizeForce = true)
+    {
+        CurrentCorrelation(out float sumAs, out float sumIs, out float sumAI);
+        foreach (var atom in atoms)
+        {
+            float3 intensityForce = IntensityF(atom.Pos);
+            float intensityLength = intensityForce.Length();
+            float3 distForce = new float3(0);
+            if (atom.Neighbours.Count > 0)
+            {
+                distForce = DistF(atom) * distScale;
+            }
+            else
+            {
+                distForce = new float3(0);
+
+            }
+            float3 corrForce = CorrForce(atom, sumAs, sumIs, sumAI) * corrScale;
+
+            if (normalizeForce)
+            {
+                if (corrForce.Length() > 1.0f)
+                {
+                    corrForce = corrForce / corrForce.Length();
+                }
+                if (distForce.Length() > 1.0f)
+                {
+                    distForce = distForce / distForce.Length();
+                }
+            }
+            //Contribution to correlation before moving
+            float As0 = atom.Intensity * atom.Intensity;
+            float AI0 = atom.Intensity * getIntensity(atom.Pos);
+
+            MoveAtom(atom, corrForce + distForce);
+
+            //contribution to correlation after moving
+            float As1 = atom.Intensity * atom.Intensity;
+            float AI1 = atom.Intensity * getIntensity(atom.Pos);
+
+            sumAs = sumAs - As0 + As1;
+            sumAI = sumAI - AI0 + AI1;
+
+            List<Atom> newNeighbours = getNeighbours(atom, false);
+
+            foreach (var btom in atom.Neighbours)
+            {
+                if (!newNeighbours.Contains(btom))
+                {
+                    btom.Neighbours.Remove(atom);
+                }
+            }
+            atom.Neighbours = newNeighbours;
+            foreach (var btom in atom.Neighbours)
+            {
+                if (!btom.Neighbours.Contains(atom))
+                {
+                    btom.Neighbours.Add(atom);
+                }
+            }
+
+        }
+    }
+        public void moveAtoms(float corrScale = 20.0f, float distScale = 1.0f, bool normalizeForce = true)
     {
         CurrentCorrelation(out float sumAs, out float sumIs, out float sumAI);
         foreach (var atom in atoms)

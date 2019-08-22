@@ -750,39 +750,39 @@ namespace FlexibleRefinement
             float[] distScales = Helper.ArrayOfFunction(k => (float)(k + 1), 20);
             bool[] normalizings = new bool[2] { true, false };
             /*
-            #region FirstStep
-            if (!Directory.Exists($@"{trial}\StepOne"))
-            {
-                Directory.CreateDirectory($@"{trial}\StepOne");
-            }
-            TarIms[0].AsConvolvedGaussian(1).WriteMRC($@"{trial}\StepOne\{sampleRates[0]}_TarIm_Convolved.mrc");
-            Helper.ForCPU(0, 20, 11, null, (k, id, ts) => {
-                float corrScale = corrScales[k];
+             #region FirstStep
+             if (!Directory.Exists($@"{trial}\StepOne"))
+             {
+                 Directory.CreateDirectory($@"{trial}\StepOne");
+             }
+             TarIms[0].AsConvolvedGaussian(1).WriteMRC($@"{trial}\StepOne\{sampleRates[0]}_TarIm_Convolved.mrc");
+             Helper.ForCPU(0, 20, 11, null, (k, id, ts) => {
+                 float corrScale = corrScales[k];
 
-                foreach (var distScale in distScales)
-                {
-                    foreach (var normalizing in normalizings)
-                    {
-                        int i = 0;
-                        AtomGraph localStartGraph = new AtomGraph($@"{trial}\{sampleRates[0]}_StartGraph.graph", TarIms[0].AsConvolvedGaussian(1));
-                        for (; i < 10; i++)
-                        {
-                            localStartGraph.moveAtoms(corrScale, distScale, normalizing);
-                            localStartGraph.Repr().WriteMRC($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{c}__{corrScale:#.#}_{distScale:#.#}_{normalizing}_it{i + 1}.mrc");
-                        }
-                        localStartGraph.save($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{c}__{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.graph");
-                    }
+                 foreach (var distScale in distScales)
+                 {
+                     foreach (var normalizing in normalizings)
+                     {
+                         int i = 0;
+                         AtomGraph localStartGraph = new AtomGraph($@"{trial}\{sampleRates[0]}_StartGraph.graph", TarIms[0].AsConvolvedGaussian(1));
+                         for (; i < 10; i++)
+                         {
+                             localStartGraph.moveAtoms(corrScale, distScale, normalizing);
+                             localStartGraph.Repr().WriteMRC($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{c}__{corrScale:#.#}_{distScale:#.#}_{normalizing}_it{i + 1}.mrc");
+                         }
+                         localStartGraph.save($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{c}__{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.graph");
+                     }
 
-                }
+                 }
 
-            }, null);
-            #endregion
-            */
+             }, null);
+             #endregion
+             */
             /*
             #region SecondStep
             String fromFirstGraphFileStart = $@"{trial}\{sampleRates[0]}_StartGraph.graph";
             AtomGraph fromFirstGraphStart = new AtomGraph(fromFirstGraphFileStart, TarMasks[0].AsConvolvedGaussian(1));
-            String fromFirstGraphFileFinal = $@"{trial}\StepOne\4_Rotate_PI_10__5_19_False_final.graph";
+            String fromFirstGraphFileFinal = $@"{trial}\StepOne\4_Rotate_PI_10__11_2_True_final.graph";
             AtomGraph fromFirstGraphFinal = new AtomGraph(fromFirstGraphFileFinal, TarMasks[0].AsConvolvedGaussian(1));
 
             List<float3> displacements = new List<float3>(fromFirstGraphFinal.Atoms.Count);
@@ -819,13 +819,13 @@ namespace FlexibleRefinement
 
             }, null);
             #endregion
-           */
+            */
 
 
             #region ThirdStep
             String fromSecondGraphFileStart = $@"{trial}\{sampleRates[1]}_StartGraph.graph";
             AtomGraph fromSecondGraphStart = new AtomGraph(fromSecondGraphFileStart, TarMasks[0].AsConvolvedGaussian(1));
-            String fromSecondGraphFileFinal = $@"{trial}\StepTwo\2_Rotate_PI_10__2_4_True_final.graph";
+            String fromSecondGraphFileFinal = $@"{trial}\StepTwo\2_Rotate_PI_10__9_1_True_final.graph";
             AtomGraph fromSecondGraphFinal = new AtomGraph(fromSecondGraphFileFinal, TarMasks[0].AsConvolvedGaussian(1));
 
             List<float3> displacements = new List<float3>(fromSecondGraphFinal.Atoms.Count);
@@ -840,7 +840,7 @@ namespace FlexibleRefinement
             {
                 Directory.CreateDirectory($@"{trial}\StepThree");
             }
-            Helper.ForCPU(0, 20, 15, null, (k, id, ts) => {
+            Helper.ForCPU(0, 20, 11, null, (k, id, ts) => {
                 float corrScale = corrScales[k];
 
                 foreach (var distScale in distScales)
@@ -850,7 +850,7 @@ namespace FlexibleRefinement
                         int i = 0;
                         AtomGraph localStartGraph = new AtomGraph($@"{trial}\{sampleRates[2]}_StartGraph.graph", TarMasks[1].AsConvolvedGaussian(1));
                         localStartGraph.setPositions(fromSecondGraphStart, displacements);
-                        for (; i < 10; i++)
+                        for (; i < 5; i++)
                         {
                             localStartGraph.moveAtoms(corrScale, distScale, normalizing);
                             localStartGraph.Repr().WriteMRC($@"{trial}\StepThree\{sampleRates[2]}_Rotate_PI_{c}__{corrScale:#.#}_{distScale:#.#}_{normalizing}_it{i + 1}.mrc");
@@ -862,6 +862,7 @@ namespace FlexibleRefinement
 
             }, null);
             #endregion
+           
             return;
         }
 
