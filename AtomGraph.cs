@@ -59,6 +59,7 @@ public class AtomGraph
     IntPtr einSpline;
     float neigbourCutoff = 4.0f;
     float R0 = 3.0f;
+    float R0_6;
 
 
 
@@ -139,14 +140,12 @@ public class AtomGraph
 
     private float3 DistF(float3 r1, float3 r2)
     {
-        if (r1 == r2)
-        {
-            return new float3(0.01f);
-        }
+
         float3 vecR = (r2 - r1);
-        float dist = Math.Max(vecR.Length(), 1e-6f);
+        double dist = Math.Max(vecR.Length(), 1e-6f);
         //return vecR * (float)(-2 * (dist - R0) / dist);
-        return vecR * (float)(12 * Math.Pow(R0, 6) / Math.Pow(dist, 7) * (1 - Math.Pow(R0, 6) / Math.Pow(dist, 6))) / dist;
+        //return vecR * (float)(12 * R0_6 / Math.Pow(dist, 8) * (1 - Math.Pow(R0/dist, 6)));
+        return vecR * (float)((12 * Math.Pow(R0, 6) / Math.Pow(dist, 8) * (1 - Math.Pow(R0/dist, 6))));
     }
 
     private float3 DistF(Atom atom)
@@ -160,6 +159,29 @@ public class AtomGraph
 
         return force;
     }
+
+    private float3 DistFSqrd(float3 r1, float3 r2)
+    {
+
+        float3 vecR = (r2 - r1);
+        float len = vecR.Length();
+        float dist = len - R0;
+        //return vecR * (float)(-2 * (dist - R0) / dist);
+        return vecR / len * 2 * dist;
+    }
+
+    private float3 DistFSqrd(Atom atom)
+    {
+        float3 force = new float3(0);
+
+        foreach (var btom in atom.Neighbours)
+        {
+            force = force + DistFSqrd(atom.Pos, btom.Pos);
+        }
+
+        return force;
+    }
+
 
     private float3 IntensityF(float3 pos)
     {
@@ -335,7 +357,6 @@ public class AtomGraph
                     btom.Neighbours.Add(atom);
                 }
             }
-
         }
     }
 
@@ -386,9 +407,7 @@ public class AtomGraph
             {
                 btom.Neighbours.Add(atom);
                 atom.Neighbours.Add(btom);
-
             }
-
 
         }
 
@@ -677,6 +696,7 @@ public class AtomGraph
         float3[] atomCenters = PhysicsHelper.FillWithEquidistantPoints(mask, numAtoms, out rAtoms);
         neigbourCutoff = 3.5f * rAtoms;
         R0 = 2.0f * rAtoms;
+        R0_6 = (float)Math.Pow(R0, 6);
         float[] atomRadius = Helper.ArrayOfFunction(i => rAtoms, atomCenters.Length);
         float[] atomIntensities = getIntensity(atomCenters);
         InitializeAtomGrid(atomCenters, atomRadius);

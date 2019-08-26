@@ -692,6 +692,158 @@ namespace FlexibleRefinement
 
         }
 
+
+        public static void doRotationExp(String outdir, float c, List<float> corrScales, List<float> distScales, List<bool> normalizes)
+        {
+            float pixSize = 1.0f;
+            if (!Directory.Exists(outdir))
+            {
+                Directory.CreateDirectory(outdir);
+            }
+            Image stickIm = Image.FromFile("StickVolume_Created.mrc");
+            Image stickMask = Image.FromFile("StickMask_Created.mrc");
+
+            if (!File.Exists($"StickVolume_Rotatef_{c}_Created.mrc"))
+            {
+                simulateRotated(c);
+            }
+            Image stickRotIm = Image.FromFile($"StickVolume_Rotated_{c}_Created.mrc");
+            Image stickRotMask = Image.FromFile($"StickMask_Rotated_{c}_Created.mrc");
+
+            float[] sampleRates = new float[3] { 4, 2, 1 };
+            int targetCount = 2000;
+            int[] sampledCounts = Helper.ArrayOfFunction(i => (int)(targetCount / Math.Pow(sampleRates[i], 3)), 3);
+            Image[] StartIms = Helper.ArrayOfFunction(i => sampleRates[i] == 1 ? stickIm.GetCopy() : Downsample(stickIm, sampleRates[i]), 3);
+            Image[] StartMasks = Helper.ArrayOfFunction(i =>
+            {
+                Image mask = StartIms[i].GetCopy();
+                mask.Binarize(0.25f);
+                return mask;
+            }, 3);
+
+            AtomGraph[] StartGraphs = Helper.ArrayOfFunction(i => new AtomGraph(StartIms[i], StartMasks[i], sampledCounts[i]), 3);
+
+
+            Image[] TarIms = Helper.ArrayOfFunction(i => sampleRates[i] == 1 ? stickRotIm.GetCopy() : Downsample(stickRotIm, sampleRates[i]), 3);
+            Image[] TarMasks = Helper.ArrayOfFunction(i =>
+            {
+                Image mask = TarIms[i].GetCopy();
+                mask.Binarize(0.25f);
+                return mask;
+            }, 3);
+            for (int i = 0; i < 3; i++)
+            {
+                StartIms[i].WriteMRC($@"{outdir}\{sampleRates[i]}_StartIm.mrc");
+                TarIms[i].WriteMRC($@"{outdir}\{sampleRates[i]}_TarIm.mrc");
+
+                StartMasks[i].WriteMRC($@"{outdir}\{sampleRates[i]}_StartMask.mrc");
+                TarMasks[i].WriteMRC($@"{outdir}\{sampleRates[i]}_TarMask.mrc");
+
+                StartGraphs[i].save($@"{outdir}\{sampleRates[i]}_StartGraph.graph");
+                StartGraphs[i].Repr().WriteMRC($@"{outdir}\{sampleRates[i]}_StartGraph.mrc");
+
+                rotateGraph($@"{outdir}\{sampleRates[i]}_StartGraph.graph", $@"{outdir}\{sampleRates[i]}_TarGraph.graph", $@"{outdir}\{sampleRates[i]}_GtDispalcements.txt", c);
+                AtomGraph targetGraph = new AtomGraph($@"{outdir}\{sampleRates[i]}_TarGraph.graph", TarIms[i]);
+                targetGraph.Repr().WriteMRC($@"{outdir}\{sampleRates[i]}_TarGraph.mrc");
+            }
+
+
+
+            #region FirstStep
+            if (!Directory.Exists($@"{outdir}\StepOne"))
+            {
+                Directory.CreateDirectory($@"{outdir}\StepOne");
+            }
+            TarIms[0].AsConvolvedGaussian(1).WriteMRC($@"{outdir}\StepOne\{sampleRates[0]}_TarIm_Convolved.mrc");
+
+
+            DateTime begin = DateTime.UtcNow;
+
+            int i = 0;
+            AtomGraph localStartGraph = new AtomGraph($@"{outdir}\{sampleRates[0]}_StartGraph.graph", TarIms[0].AsConvolvedGaussian(1));
+            for (; i < 10; i++)
+            {
+                localStartGraph.moveAtoms(corrScales[0], distScales[0], normalizes[0]);
+                localStartGraph.save($@"{outdir}\StepOne\{sampleRates[0]}_Rotate_PI_{c}_{corrScales[0]:#.#}_{distScales[0]:#.#}_{normalizes[0]}_it{i + 1}.graph");
+            }
+            localStartGraph.save($@"{outdir}\StepOne\{sampleRates[0]}_Rotate_PI_{c}_{corrScales[0]:#.#}_{distScales[0]:#.#}_{normalizes[0]}_final.graph");
+
+            DateTime end = DateTime.UtcNow;
+            System.Console.WriteLine($"Total Elapsed Time: {(end - begin).Milliseconds} ms");
+            #endregion
+
+
+            #region SecondStep
+            String fromFirstGraphFileStart = $@"{outdir}\{sampleRates[0]}_StartGraph.graph";
+            AtomGraph fromFirstGraphStart = new AtomGraph(fromFirstGraphFileStart, TarMasks[0].AsConvolvedGaussian(1));
+            String fromFirstGraphFileFinal = $@"{outdir}\StepOne\{sampleRates[0]}_Rotate_PI_{c}_{corrScales[0]:#.#}_{distScales[0]:#.#}_{normalizes[0]}_final.graph";
+            AtomGraph fromFirstGraphFinal = new AtomGraph(fromFirstGraphFileFinal, TarMasks[0].AsConvolvedGaussian(1));
+
+            List<float3> displacements = new List<float3>(fromFirstGraphFinal.Atoms.Count);
+            for (int j = 0; j < fromFirstGraphStart.Atoms.Count; j++)
+            {
+                displacements.Add(fromFirstGraphFinal.Atoms[j].Pos - fromFirstGraphStart.Atoms[j].Pos);
+            }
+
+
+
+            if (!Directory.Exists($@"{outdir}\StepTwo"))
+            {
+                Directory.CreateDirectory($@"{outdir}\StepTwo");
+            }
+            begin = DateTime.UtcNow;
+
+            i = 0;
+            localStartGraph = new AtomGraph($@"{outdir}\{sampleRates[1]}_StartGraph.graph", TarMasks[1].AsConvolvedGaussian(1));
+            localStartGraph.setPositions(fromFirstGraphStart, displacements);
+            for (; i < 10; i++)
+            {
+                localStartGraph.moveAtoms(corrScales[1], distScales[1], normalizes[1]);
+                localStartGraph.save($@"{outdir}\StepTwo\{sampleRates[1]}_Rotate_PI_{c}_{corrScales[1]:#.#}_{distScales[1]:#.#}_{normalizes[1]}_it{i + 1}.graph");
+            }
+            localStartGraph.save($@"{outdir}\StepTwo\{sampleRates[1]}_Rotate_PI_{c}_{corrScales[1]:#.#}_{distScales[1]:#.#}_{normalizes[1]}_final.graph");
+
+            end = DateTime.UtcNow;
+            System.Console.WriteLine($"Total Elapsed Time: {(end - begin).Milliseconds} ms");
+            #endregion
+
+
+
+            #region ThirdStep
+            String fromSecondGraphFileStart = $@"{outdir}\{sampleRates[1]}_StartGraph.graph";
+            AtomGraph fromSecondGraphStart = new AtomGraph(fromSecondGraphFileStart, TarMasks[0].AsConvolvedGaussian(1));
+            String fromSecondGraphFileFinal = $@"{outdir}\StepTwo\{sampleRates[1]}_Rotate_PI_{c}_{corrScales[1]:#.#}_{distScales[1]:#.#}_{normalizes[1]}_final.graph";
+            AtomGraph fromSecondGraphFinal = new AtomGraph(fromSecondGraphFileFinal, TarMasks[0].AsConvolvedGaussian(1));
+
+            displacements = new List<float3>(fromSecondGraphFinal.Atoms.Count);
+            for (int j = 0; j < fromSecondGraphStart.Atoms.Count; j++)
+            {
+                displacements.Add(fromSecondGraphFinal.Atoms[j].Pos - fromSecondGraphStart.Atoms[j].Pos);
+            }
+
+
+
+            if (!Directory.Exists($@"{outdir}\StepThree"))
+            {
+                Directory.CreateDirectory($@"{outdir}\StepThree");
+            }
+            begin = DateTime.UtcNow;
+
+            i = 0;
+            localStartGraph = new AtomGraph($@"{outdir}\{sampleRates[2]}_StartGraph.graph", TarMasks[1].AsConvolvedGaussian(1));
+            localStartGraph.setPositions(fromSecondGraphStart, displacements);
+            for (; i < 10; i++)
+            {
+                localStartGraph.moveAtoms(corrScales[2], distScales[2], normalizes[2]);
+                localStartGraph.save($@"{outdir}\StepThree\{sampleRates[2]}_Rotate_PI_{c}_{corrScales[2]:#.#}_{distScales[2]:#.#}_{normalizes[2]}_it{i + 1}.graph");
+            }
+            localStartGraph.save($@"{outdir}\StepThree\{sampleRates[2]}_Rotate_PI_{c}_{corrScales[2]:#.#}_{distScales[2]:#.#}_{normalizes[2]}_final.graph");
+
+            end = DateTime.UtcNow;
+            System.Console.WriteLine($"Total Elapsed Time: {(end - begin).Milliseconds} ms");
+            #endregion*/
+        }
+
         public static void upscalingTest()
         {
             String trial = "downsampling";
@@ -756,7 +908,10 @@ namespace FlexibleRefinement
                 Directory.CreateDirectory($@"{trial}\StepOne");
             }
             TarIms[0].AsConvolvedGaussian(1).WriteMRC($@"{trial}\StepOne\{sampleRates[0]}_TarIm_Convolved.mrc");
-            Helper.ForCPU(0, 20, 11, null, (k, id, ts) => {
+
+
+            DateTime begin = DateTime.UtcNow;
+            Helper.ForCPU(0, 20, 20, null, (k, id, ts) => {
                 float corrScale = corrScales[k];
 
                 foreach (var distScale in distScales)
@@ -768,21 +923,23 @@ namespace FlexibleRefinement
                         for (; i < 10; i++)
                         {
                             localStartGraph.moveAtoms(corrScale, distScale, normalizing);
-                            localStartGraph.Repr().WriteMRC($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{c}__{corrScale:#.#}_{distScale:#.#}_{normalizing}_it{i + 1}.mrc");
+                            localStartGraph.save($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{c}_{corrScale:#.#}_{distScale:#.#}_{normalizing}_it{i + 1}.graph");
                         }
-                        localStartGraph.save($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{c}__{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.graph");
+                        localStartGraph.save($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{c}_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.graph");
                     }
 
                 }
 
             }, null);
+            DateTime end = DateTime.UtcNow;
+            System.Console.WriteLine($"Total Elapsed Time: {(end - begin).Milliseconds} ms");
             #endregion
             */
             /*
             #region SecondStep
             String fromFirstGraphFileStart = $@"{trial}\{sampleRates[0]}_StartGraph.graph";
             AtomGraph fromFirstGraphStart = new AtomGraph(fromFirstGraphFileStart, TarMasks[0].AsConvolvedGaussian(1));
-            String fromFirstGraphFileFinal = $@"{trial}\StepOne\4_Rotate_PI_10__5_19_False_final.graph";
+            String fromFirstGraphFileFinal = $@"{trial}\StepOne\4_Rotate_PI_10_4_20_False_final.graph";
             AtomGraph fromFirstGraphFinal = new AtomGraph(fromFirstGraphFileFinal, TarMasks[0].AsConvolvedGaussian(1));
 
             List<float3> displacements = new List<float3>(fromFirstGraphFinal.Atoms.Count);
@@ -797,7 +954,8 @@ namespace FlexibleRefinement
             {
                 Directory.CreateDirectory($@"{trial}\StepTwo");
             }
-            Helper.ForCPU(0, 20, 11, null, (k, id, ts) => {
+            DateTime begin = DateTime.UtcNow;
+            Helper.ForCPU(0, 20, 20, null, (k, id, ts) => {
                 float corrScale = corrScales[k];
 
                 foreach (var distScale in distScales)
@@ -810,22 +968,24 @@ namespace FlexibleRefinement
                         for (; i < 10; i++)
                         {
                             localStartGraph.moveAtoms(corrScale, distScale, normalizing);
-                            localStartGraph.Repr().WriteMRC($@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{c}__{corrScale:#.#}_{distScale:#.#}_{normalizing}_it{i + 1}.mrc");
+                            localStartGraph.save($@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{c}_{corrScale:#.#}_{distScale:#.#}_{normalizing}_it{i + 1}.graph");
                         }
-                        localStartGraph.save($@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{c}__{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.graph");
+                        localStartGraph.save($@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{c}_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.graph");
                     }
 
                 }
 
             }, null);
+            DateTime end = DateTime.UtcNow;
+            System.Console.WriteLine($"Total Elapsed Time: {(end - begin).Milliseconds} ms");
             #endregion
-           */
+            */
 
-
+            
             #region ThirdStep
             String fromSecondGraphFileStart = $@"{trial}\{sampleRates[1]}_StartGraph.graph";
             AtomGraph fromSecondGraphStart = new AtomGraph(fromSecondGraphFileStart, TarMasks[0].AsConvolvedGaussian(1));
-            String fromSecondGraphFileFinal = $@"{trial}\StepTwo\2_Rotate_PI_10__2_4_True_final.graph";
+            String fromSecondGraphFileFinal = $@"{trial}\StepTwo\2_Rotate_PI_10_13_5_True_final.graph";
             AtomGraph fromSecondGraphFinal = new AtomGraph(fromSecondGraphFileFinal, TarMasks[0].AsConvolvedGaussian(1));
 
             List<float3> displacements = new List<float3>(fromSecondGraphFinal.Atoms.Count);
@@ -840,7 +1000,8 @@ namespace FlexibleRefinement
             {
                 Directory.CreateDirectory($@"{trial}\StepThree");
             }
-            Helper.ForCPU(0, 20, 15, null, (k, id, ts) => {
+            DateTime begin = DateTime.UtcNow;
+            Helper.ForCPU(0, 20, 20, null, (k, id, ts) => {
                 float corrScale = corrScales[k];
 
                 foreach (var distScale in distScales)
@@ -853,15 +1014,17 @@ namespace FlexibleRefinement
                         for (; i < 10; i++)
                         {
                             localStartGraph.moveAtoms(corrScale, distScale, normalizing);
-                            localStartGraph.Repr().WriteMRC($@"{trial}\StepThree\{sampleRates[2]}_Rotate_PI_{c}__{corrScale:#.#}_{distScale:#.#}_{normalizing}_it{i + 1}.mrc");
+                            localStartGraph.save($@"{trial}\StepThree\{sampleRates[2]}_Rotate_PI_{c}_{corrScale:#.#}_{distScale:#.#}_{normalizing}_it{i + 1}.graph");
                         }
-                        localStartGraph.save($@"{trial}\StepThree\{sampleRates[2]}_Rotate_PI_{c}__{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.graph");
+                        localStartGraph.save($@"{trial}\StepThree\{sampleRates[2]}_Rotate_PI_{c}_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.graph");
                     }
 
                 }
 
             }, null);
-            #endregion
+            DateTime end = DateTime.UtcNow;
+            System.Console.WriteLine($"Total Elapsed Time: {(end - begin).Milliseconds} ms");
+            #endregion*/
             return;
         }
 
@@ -895,10 +1058,18 @@ namespace FlexibleRefinement
 
         }
 
+
+
         static void Main(string[] args)
         {
-
+            String rootDir = @"D:\Software\FlexibleRefinement\bin\Debug\lennardJones";
+            if (!Directory.Exists(rootDir))
+            {
+                Directory.CreateDirectory(rootDir);
+            }
+            Directory.SetCurrentDirectory(rootDir);
             upscalingTest();
+            //doRotationExp(String outdir, float c, List<float> corrScales, List<float> distScales, List<bool> normalizes)
             //int c = 10;
             //createRotated(c);
             //String trial = "RotateStick"; if (!Directory.Exists(trial))
