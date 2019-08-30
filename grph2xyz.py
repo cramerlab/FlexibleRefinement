@@ -2,6 +2,7 @@
 from glob import glob
 import numpy as np
 import os
+import re
 
 def grph2xyz(graphFileName, xyzFileName):
     with open(graphFileName, "r") as ifile:
@@ -15,5 +16,9 @@ def grph2xyz(graphFileName, xyzFileName):
         for i in range(centers.shape[0]):
             ofile.write("C {} {} {}\n".format(centers[i,0], centers[i,1],centers[i,2]))
 
-for f in glob(r"D:\Software\FlexibleRefinement2\bin\Debug\downsampling\StepTwo\*.graph"):
+for f in glob(r"D:\Software\FlexibleRefinement\bin\Debug\lennardJones\GridSearchParams_No_NeighborUpdate_c10000_it100\**\*.graph",recursive=True):
+    if re.search(r"it\d+\.graph", f):
+        continue
     grph2xyz(f, f.replace(".graph", ".xyz"))
+#for f in glob(r"D:\Software\FlexibleRefinement\bin\Debug\lennardJones\differentRotExp\*.graph",recursive=True):
+#    grph2xyz(f, f.replace(".graph", ".xyz"))

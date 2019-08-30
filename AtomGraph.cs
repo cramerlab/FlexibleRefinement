@@ -98,11 +98,11 @@ public class AtomGraph
     }
 
 
-    public Image Repr()
+    public Image Repr(int threads=1)
     {
         Image rep = new Image(Dim);
         float[][] repData = rep.GetHost(Intent.Read);
-        Helper.ForCPU(0, Dim.Z, 20, null, (z, id, ts) =>
+        for (int z = 0; z < Dim.Z; z++)
         {
             for (int y = 0; y < Dim.Y; y++)
             {
@@ -116,7 +116,7 @@ public class AtomGraph
 
                 }
             }
-        }, null);
+        }
         return rep;
     }
 
@@ -276,17 +276,24 @@ public class AtomGraph
         {
             Console.WriteLine("blah");
         }
-        if (delta > 0.1f)
+        double movementCutoff = 0.1;
+        if (delta > movementCutoff)
         {
-            ds = new float3((float)(ds.X / delta), (float)(ds.Y / delta), (float)(ds.Z / delta));
+            ds = new float3((float)(movementCutoff * (ds.X / delta)), (float)(movementCutoff * (ds.Y / delta)), (float)(movementCutoff * (ds.Z / delta)));
         }
         atom.Pos = atom.Pos + ds;
         if (atom.Pos.X < 0)
             atom.Pos = atom.Pos * new float3(0, 1, 1);
+        else if (atom.Pos.X > Dim.X)
+            atom.Pos = new float3(Dim.X - 1e-4f, atom.Pos.Y, atom.Pos.Z);
         if (atom.Pos.Y < 0)
             atom.Pos = atom.Pos * new float3(1, 0, 1);
+        else if (atom.Pos.Y > Dim.Y)
+            atom.Pos = new float3(atom.Pos.X, Dim.Y - 1e-4f, atom.Pos.Z);
         if (atom.Pos.Z < 0)
             atom.Pos = atom.Pos * new float3(1, 1, 0);
+        else if (atom.Pos.Z > Dim.Z)
+            atom.Pos = new float3(atom.Pos.X, atom.Pos.Y, Dim.Z - 1e-4f);
         int3 gridPosAfter = new int3((int)(atom.Pos.X / gridSpacing.X), (int)(atom.Pos.Y / gridSpacing.Y), (int)(atom.Pos.Z / gridSpacing.Z));
         if (gridPosAfter != gridPosBefore)
         {
@@ -305,15 +312,14 @@ public class AtomGraph
             float3 intensityForce = IntensityF(atom.Pos);
             float intensityLength = intensityForce.Length();
             float3 distForce = new float3(0);
-            if (atom.Neighbours.Count > 0)
-            {
-                distForce = DistF(atom) * distScale;
+            if (atom.Neighbours.Count == 0)
+            {   //Make sure that a single atom will not loose the connection to the rest
+                Atom b = GetClosestAtom(atom);
+                atom.Neighbours.Add(b);
             }
-            else
-            {
-                distForce = new float3(0);
 
-            }
+            distForce = DistF(atom) * distScale;
+
             float3 corrForce = CorrForce(atom, sumAs, sumIs, sumAI) * corrScale;
 
             if (normalizeForce)
@@ -322,14 +328,18 @@ public class AtomGraph
                 {
                     corrForce = corrForce / corrForce.Length();
                 }
-                if (distForce.Length() > 1.0f)
+                double distL = Math.Sqrt(Math.Pow(distForce.X, 2)+ Math.Pow(distForce.Y, 2)+ Math.Pow(distForce.Z, 2));
+                if (distL > 1.0f)
                 {
-                    distForce = distForce / distForce.Length();
+                    distForce = new float3((float)(((double)distForce.X) / distL), (float)(((double)distForce.Y)/ distL), (float)(((double)distForce.Z) / distL)) ;
                 }
             }
             //Contribution to correlation before moving
             float As0 = atom.Intensity * atom.Intensity;
             float AI0 = atom.Intensity * getIntensity(atom.Pos);
+
+            if ((corrForce + distForce).Length() == 0)
+                Console.WriteLine("Offset is 0");
 
             MoveAtom(atom, corrForce + distForce);
 
@@ -339,8 +349,10 @@ public class AtomGraph
 
             sumAs = sumAs - As0 + As1;
             sumAI = sumAI - AI0 + AI1;
-
+            /* TODO: Not updating neighbours for now
             List<Atom> newNeighbours = getNeighbours(atom, false);
+
+        
 
             foreach (var btom in atom.Neighbours)
             {
@@ -357,6 +369,7 @@ public class AtomGraph
                     btom.Neighbours.Add(atom);
                 }
             }
+            */
         }
     }
 
@@ -642,7 +655,7 @@ public class AtomGraph
             result = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(s => float.Parse(s, CultureInfo.InvariantCulture.NumberFormat)).ToArray();
             atoms.Add(new Atom(new float3(result[0], result[1], result[2]), result[3], result[4]));
         }
-
+        file.Close();
         grid = Helper.ArrayOfFunction(i => Helper.ArrayOfFunction(j => new GridCell(), gridSize.X * gridSize.Y), Dim.Z);
 
 
@@ -663,8 +676,10 @@ public class AtomGraph
 
     public void save(String filename)
     {
-        using (FileStream fs = File.Create(filename))
+        FileStream fs = null;
+        try
         {
+            fs = File.Create(filename);
             AddText(fs, $"{Dim.X} {Dim.Y} {Dim.Z}\n".Replace(',', '.'));
             AddText(fs, $"{gridSpacing.X} {gridSpacing.Y} {gridSpacing.Z}\n".Replace(',', '.'));
             AddText(fs, $"{gridSize.X} {gridSize.Y} {gridSize.Z}\n".Replace(',', '.'));
@@ -675,8 +690,15 @@ public class AtomGraph
             {
                 AddText(fs, $"{atom.Pos.X} {atom.Pos.Y} {atom.Pos.Z} {atom.R} {atom.Intensity}\n".Replace(',', '.'));
             }
+            
+        }
+        catch (IOException)
+        {
+            Console.WriteLine($"Cannot Save to {filename}, resource is busy");
 
         }
+        if(fs != null)
+            fs.Close();
     }
 
 
@@ -694,7 +716,7 @@ public class AtomGraph
 
         einSpline = ImageToSpline(intensities);
         float3[] atomCenters = PhysicsHelper.FillWithEquidistantPoints(mask, numAtoms, out rAtoms);
-        neigbourCutoff = 3.5f * rAtoms;
+        neigbourCutoff = 2.5f * rAtoms;
         R0 = 2.0f * rAtoms;
         R0_6 = (float)Math.Pow(R0, 6);
         float[] atomRadius = Helper.ArrayOfFunction(i => rAtoms, atomCenters.Length);
