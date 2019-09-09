@@ -1225,7 +1225,7 @@ namespace FlexibleRefinement
             int steps = 3;
             float[] sampleRates = new float[3] { 4, 2, 1 };
             int[] numIterations = new int[3] { 50, 50, 50 };
-            int[] sampledCounts = Helper.ArrayOfFunction(i => (int)(targetCount / Math.Pow(sampleRates[i], 3)), 3);
+            int[] sampledCounts = Helper.ArrayOfFunction(i => (int)(targetCount / sampleRates[i]), 3);
             float[] corrScales = Helper.ArrayOfFunction(k => (float)(k + 1), 20);
             float[] distScales = Helper.ArrayOfFunction(k => (float)(k + 1), 20);
             bool[] normalizings = new bool[2] { true, false };
@@ -1540,7 +1540,7 @@ namespace FlexibleRefinement
 
             //simulateRotated(8, rootDir, "", (im) => { middleHole(im, 4.0f); });
             int c = 8;
-            GridSearchParams(rootDir + @"\initial_volume.mrc", rootDir + @"\initial_mask.mrc", rootDir + $@"\rotated_{c}_volume.mrc", rootDir + $@"\rotated_{c}_volume.mrc", rootDir + @"\middleHole_10000_it50_50_50", c, 10000);
+            GridSearchParams(rootDir + @"\initial_volume.mrc", rootDir + @"\initial_mask.mrc", rootDir + $@"\rotated_{c}_volume.mrc", rootDir + $@"\rotated_{c}_volume.mrc", rootDir + @"\middleHole_10000_it50_50_50_linIncrease", c, 10000);
 
             //GridSearchParams(8);
             /*for (int c = 8; c < 9; c++)
