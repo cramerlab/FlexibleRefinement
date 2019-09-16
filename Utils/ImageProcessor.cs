@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 using Warp.Tools;
 using Warp;
 
-namespace FlexibleRefinement
+namespace FlexibleRefinement.Util
 {
-    class ImageProcessor
+    public class ImageProcessor
     {
         public static float3[][] getGradient(Image im)
         {
@@ -33,6 +33,60 @@ namespace FlexibleRefinement
             return grad;
         }
 
+
+        public static Image Downsample(Image im, float factor)
+        {
+            int3 oldSize = im.Dims;
+            float falloff = 5.0f;
+            int3 newSize = oldSize / factor;
+            float innerRadius = (newSize - newSize / 2).Length() - (1.1f * falloff);
+            Image ft = im.AsFFT(true);
+            Image Cosine = new Image(ft.Dims, true);
+            float[][] CosineData = Cosine.GetHost(Intent.Write);
+            double CosineSum = 0;
+            for (int z = 0; z < Cosine.DimsFT.Z; z++)
+            {
+                int zz = z;
+                if (z > Cosine.DimsFT.Z / 2)
+                {
+                    zz = Cosine.DimsFT.Z - z;
+                }
+                zz *= zz;
+                for (int y = 0; y < Cosine.DimsFT.Y; y++)
+                {
+                    int yy = y;
+                    if (y > Cosine.DimsFT.Y / 2)
+                    {
+                        yy = Cosine.DimsFT.Y - y;
+                    }
+
+                    yy *= yy;
+                    for (int x = 0; x < Cosine.DimsFT.X; x++)
+                    {
+                        int xx = x;
+                        xx *= xx;
+
+                        float R = (float)Math.Sqrt(xx + yy + zz);
+                        double C = Math.Cos(Math.Max(0, Math.Min(falloff, R - innerRadius)) / falloff * Math.PI) * 0.5 + 0.5;
+
+                        CosineSum += C;
+                        CosineData[z][y * Cosine.DimsFT.X + x] = (float)C;
+                    }
+                }
+            }
+
+            ft.Multiply(Cosine);
+
+            ft = ft.AsPadded(newSize);
+            Image newIm = ft.AsIFFT(true);
+            GPU.Normalize(newIm.GetDevice(Intent.Read),
+                         newIm.GetDevice(Intent.Write),
+                         (uint)newIm.ElementsReal,
+                         (uint)1);
+
+            return newIm;
+
+        }
 
         public static float3[] FillWithEquidistantPoints(Image mask, int n, out float R, float r0 = 0.0f)
         {

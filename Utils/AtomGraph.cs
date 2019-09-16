@@ -9,8 +9,9 @@ using System.Linq;
 using System.Globalization;
 using System.Diagnostics;
 
-namespace FlexibleRefinement
+namespace FlexibleRefinement.Util
 {
+
     public class Atom
     {
         public Atom(float3 p, float radius, float intense = 1.0f)
@@ -52,6 +53,7 @@ namespace FlexibleRefinement
 
         public List<Atom> Atoms { get => atoms; }
         public float NeigbourCutoff { get => neigbourCutoff; set => neigbourCutoff = value; }
+        public double R0 { get => r0; set => r0 = value; }
 
         float3 gridSpacing;
         int3 gridSize;
@@ -60,7 +62,7 @@ namespace FlexibleRefinement
         Image EMIntensities;
         IntPtr einSpline;
         float neigbourCutoff = 4.0f;
-        float R0 = 3.0f;
+        double r0 = 3.0;
         float R0_6;
 
 
@@ -104,16 +106,39 @@ namespace FlexibleRefinement
         {
             Image rep = new Image(Dim);
             float[][] repData = rep.GetHost(Intent.Read);
-            for (int z = 0; z < Dim.Z; z++)
+            foreach (var atom in atoms)
             {
-                for (int y = 0; y < Dim.Y; y++)
+                for (int z = (int)Math.Floor(atom.Pos.Z-atom.R); z <= (int)Math.Ceiling(atom.Pos.Z + atom.R); z++)
                 {
-                    for (int x = 0; x < Dim.X; x++)
+                    for (int y = (int)Math.Floor(atom.Pos.Y - atom.R); y <= (int)Math.Ceiling(atom.Pos.Y + atom.R); y++)
                     {
-                        foreach (var atom in atoms)
-                        {
+                        for (int x = (int)Math.Floor(atom.Pos.X - atom.R); x <= (int)Math.Ceiling(atom.Pos.X + atom.R); x++)
+                        { 
                             double dist = Math.Pow(atom.Pos.X - x, 2) + Math.Pow(atom.Pos.Y - y, 2) + Math.Pow(atom.Pos.Z - z, 2);
                             repData[z][Dim.X * y + x] += dist < atom.R ? 1 : 0;
+                        }
+
+                    }
+                }
+            }
+            return rep;
+        }
+
+        public Image Repr(double sigma, int threads = 1)
+        {
+            Image rep = new Image(Dim);
+            double sigSqrd = Math.Pow(sigma, 2);
+            float[][] repData = rep.GetHost(Intent.Read);
+            foreach (var atom in atoms)
+            {
+                for (int z = (int)Math.Floor(atom.Pos.Z - 3*sigma); z <= (int)Math.Ceiling(atom.Pos.Z + 3 * sigma); z++)
+                {
+                    for (int y = (int)Math.Floor(atom.Pos.Y - 3 * sigma); y <= (int)Math.Ceiling(atom.Pos.Y + 3 * sigma); y++)
+                    {
+                        for (int x = (int)Math.Floor(atom.Pos.X - 3 * sigma); x <= (int)Math.Ceiling(atom.Pos.X + 3 * sigma); x++)
+                        {
+                            double r = Math.Pow(z - atom.Pos.Z, 2) + Math.Pow(y - atom.Pos.Y, 2) + Math.Pow(x - atom.Pos.X, 2);
+                            repData[z][Dim.X * y + x] += (float)Math.Exp(-r/sigSqrd);
                         }
 
                     }
@@ -147,7 +172,7 @@ namespace FlexibleRefinement
             double dist = Math.Max(vecR.Length(), 1e-6f);
             //return vecR * (float)(-2 * (dist - R0) / dist);
             //return vecR * (float)(12 * R0_6 / Math.Pow(dist, 8) * (1 - Math.Pow(R0/dist, 6)));
-            return vecR * (float)((12 * Math.Pow(R0, 6) / Math.Pow(dist, 8) * (1 - Math.Pow(R0 / dist, 6))));
+            return vecR * (float)Math.Round(((12 * Math.Pow(R0, 6) / Math.Pow(dist, 8) * (1 - Math.Pow(R0 / dist, 6)))),3);
         }
 
         private float3 DistF(Atom atom)
@@ -167,9 +192,9 @@ namespace FlexibleRefinement
 
             float3 vecR = (r2 - r1);
             float len = vecR.Length();
-            float dist = len - R0;
+            double dist = len - R0;
             //return vecR * (float)(-2 * (dist - R0) / dist);
-            return vecR / len * 2 * dist;
+            return new float3((float)(vecR.X / len * 2 * dist), (float)(vecR.Y / len * 2 * dist), (float)(vecR.Z / len * 2 * dist));
         }
 
         private float3 DistFSqrd(Atom atom)
@@ -274,10 +299,7 @@ namespace FlexibleRefinement
 
             double delta = Math.Sqrt(Math.Pow(ds.X, 2) + Math.Pow(ds.Y, 2) + Math.Pow(ds.Z, 2));
 
-            if (double.IsNaN(ds.X / delta) || double.IsNaN(ds.Y / delta) || double.IsNaN(ds.Z / delta))
-            {
-                Console.WriteLine("blah");
-            }
+           
             double movementCutoff = 0.1;
             if (delta > movementCutoff)
             {
@@ -304,6 +326,49 @@ namespace FlexibleRefinement
                 gridCellAfter.Atoms.Add(atom);
                 //TODO: update neigbors as well
             }
+        }
+
+        public void moveAtoms(float3[][] forcefield)
+        {
+
+            float[] xForce = new float[Dim.Elements()];
+            float[] yForce = new float[Dim.Elements()];
+            float[] zForce = new float[Dim.Elements()];
+            for (int z = 0; z < Dim.Z; z++)
+            {
+                for (int x = 0; x < Dim.X; x++)
+                {
+                    for (int y = 0; y < Dim.Y; y++)
+                    {
+                        xForce[(x * Dim.Y + y) * Dim.Z + z] = forcefield[z][y * Dim.X + x].X;
+                        yForce[(x * Dim.Y + y) * Dim.Z + z] = forcefield[z][y * Dim.X + x].Y;
+                        zForce[(x * Dim.Y + y) * Dim.Z + z] = forcefield[z][y * Dim.X + x].Z;
+                    }
+                }
+            }
+            IntPtr xForceSpline = CPU.CreateEinspline3(xForce, Dim, new float3(0));
+            IntPtr yForceSpline = CPU.CreateEinspline3(xForce, Dim, new float3(0));
+            IntPtr zForceSpline = CPU.CreateEinspline3(xForce, Dim, new float3(0));
+
+            float[] tmp = new float[1];
+
+            foreach (var atom in Atoms)
+            {
+
+                float3 force = new float3(0);
+                CPU.EvalEinspline3(xForceSpline, new float[] { (float)(atom.Pos.Z / Dim.Z), (float)(atom.Pos.Y / Dim.Y), (float)(atom.Pos.X / Dim.X) }, 1, tmp);
+                force.X = tmp[0];
+
+                CPU.EvalEinspline3(yForceSpline, new float[] { (float)(atom.Pos.Z / Dim.Z), (float)(atom.Pos.Y / Dim.Y), (float)(atom.Pos.X / Dim.X) }, 1, tmp);
+                force.Y = tmp[0];
+                CPU.EvalEinspline3(zForceSpline, new float[] { (float)(atom.Pos.Z / Dim.Z), (float)(atom.Pos.Y / Dim.Y), (float)(atom.Pos.X / Dim.X) }, 1, tmp);
+                force.Z = tmp[0];
+
+                float3 distForce = DistF(atom);
+                MoveAtom(atom, force + distForce);
+
+            }
+
         }
 
         public void moveAtoms(float corrScale = 20.0f, float distScale = 1.0f, bool normalizeForce = true)
@@ -388,23 +453,23 @@ namespace FlexibleRefinement
                    float beta = 1.0f / 1.0f;
                    foreach (var btom in atom.Neighbours)
                    {
-                   /*
-                   float3 bpos = btom.Pos;
-                   float E0 = DistE((bpos - apos).Length());
-                   for (int x = -1; x <= 1; x++)
-                   {
-                       for (int y = -1; y <= 1; y++)
-                       {
-                           for (int z = -1; z <= 1; z++)
+                           /*
+                           float3 bpos = btom.Pos;
+                           float E0 = DistE((bpos - apos).Length());
+                           for (int x = -1; x <= 1; x++)
                            {
-                               float3 shifted = new float3(apos.X + x * stepSize, apos.Y + y * stepSize, apos.Z + z * stepSize);
-                               float E1 = DistE((bpos - shifted).Length());
-                               float diffQuot = (E1 - E0) / stepSize;
-                               distForce += new float3(x * diffQuot, y * diffQuot, z * diffQuot);
+                               for (int y = -1; y <= 1; y++)
+                               {
+                                   for (int z = -1; z <= 1; z++)
+                                   {
+                                       float3 shifted = new float3(apos.X + x * stepSize, apos.Y + y * stepSize, apos.Z + z * stepSize);
+                                       float E1 = DistE((bpos - shifted).Length());
+                                       float diffQuot = (E1 - E0) / stepSize;
+                                       distForce += new float3(x * diffQuot, y * diffQuot, z * diffQuot);
+                                   }
+                               }
                            }
-                       }
-                   }
-                   */
+                           */
                        distForce = distForce + DistF(apos, btom.Pos);
                    }
                    distForce = distForce * (beta);
@@ -428,10 +493,6 @@ namespace FlexibleRefinement
 
             int[] numNeig = Helper.ArrayOfFunction(i => atoms[i].Neighbours.Count, atoms.Count);
         }
-
-
-
-
 
         //Returns all Atoms whose distance to center is smaller than cutoff
         public List<Atom> getNeighbours(Atom atom, bool halfOnly = false)
@@ -681,28 +742,46 @@ namespace FlexibleRefinement
         public void save(String filename)
         {
             FileStream fs = null;
-            try
+            if (filename.EndsWith(".graph"))
+            {
+                try
+                {
+                    fs = File.Create(filename);
+                    AddText(fs, $"{Dim.X} {Dim.Y} {Dim.Z}\n".Replace(',', '.'));
+                    AddText(fs, $"{gridSpacing.X} {gridSpacing.Y} {gridSpacing.Z}\n".Replace(',', '.'));
+                    AddText(fs, $"{gridSize.X} {gridSize.Y} {gridSize.Z}\n".Replace(',', '.'));
+                    AddText(fs, $"{neigbourCutoff}\n".Replace(',', '.'));
+                    AddText(fs, $"{R0}\n".Replace(',', '.'));
+                    AddText(fs, $"#Atoms\n");
+                    foreach (var atom in atoms)
+                    {
+                        AddText(fs, $"{atom.Pos.X} {atom.Pos.Y} {atom.Pos.Z} {atom.R} {atom.Intensity}\n".Replace(',', '.'));
+                    }
+
+                }
+                catch (IOException)
+                {
+                    Console.WriteLine($"Cannot Save to {filename}, resource is busy");
+
+                }
+                if (fs != null)
+                    fs.Close();
+            }
+            else if (filename.EndsWith(".xyz"))
             {
                 fs = File.Create(filename);
-                AddText(fs, $"{Dim.X} {Dim.Y} {Dim.Z}\n".Replace(',', '.'));
-                AddText(fs, $"{gridSpacing.X} {gridSpacing.Y} {gridSpacing.Z}\n".Replace(',', '.'));
-                AddText(fs, $"{gridSize.X} {gridSize.Y} {gridSize.Z}\n".Replace(',', '.'));
-                AddText(fs, $"{neigbourCutoff}\n".Replace(',', '.'));
-                AddText(fs, $"{R0}\n".Replace(',', '.'));
-                AddText(fs, $"#Atoms\n");
+                AddText(fs, $"{Atoms.Count}\n");
+                AddText(fs, $"{gridSpacing.X} {gridSpacing.Y} {gridSpacing.Z}".Replace(',', '.'));
+                AddText(fs, $" {gridSize.X} {gridSize.Y} {gridSize.Z}".Replace(',', '.'));
+                AddText(fs, $" {neigbourCutoff}".Replace(',', '.'));
+                AddText(fs, $" {R0}\n".Replace(',', '.'));
                 foreach (var atom in atoms)
                 {
-                    AddText(fs, $"{atom.Pos.X} {atom.Pos.Y} {atom.Pos.Z} {atom.R} {atom.Intensity}\n".Replace(',', '.'));
+                    AddText(fs, $"C {atom.Pos.X} {atom.Pos.Y} {atom.Pos.Z}\n".Replace(',', '.'));
                 }
-
             }
-            catch (IOException)
-            {
-                Console.WriteLine($"Cannot Save to {filename}, resource is busy");
-
-            }
-            if (fs != null)
-                fs.Close();
+            else
+                throw new NotImplementedException("This file extensions is not supported for saving");
         }
 
 
@@ -773,4 +852,5 @@ namespace FlexibleRefinement
             graph.SetupNeighbors();
         }
     }
+
 }

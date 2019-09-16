@@ -16,7 +16,7 @@ def grph2xyz(graphFileName, xyzFileName):
         for i in range(centers.shape[0]):
             ofile.write("C {} {} {}\n".format(centers[i,0], centers[i,1],centers[i,2]))
 
-for f in glob(r"D:\Software\FlexibleRefinement\bin\Debug\lennardJones\bombarded\middleHole_10000_it50_50_50_linIncrease\**\*.graph",recursive=True):
+for f in glob(r"D:\Software\FlexibleRefinement\bin\Debug\lennardJones\bombarded\middleHole_5000_it50_50_50_linIncrease\**\*.graph",recursive=True):
     if re.search(r"it\d+\.graph", f):
        continue
     grph2xyz(f, f.replace(".graph", ".xyz"))

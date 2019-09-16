@@ -133,7 +133,7 @@ def plotIterationDiff(step="StepThree", c=10):
         prev=now
     print("done")
 def downsampledRotationExp(step="StepThree", c=10):
-    basepath = r"D:\Software\FlexibleRefinement\bin\Debug\lennardJones\bombarded\middleHole_10000_it50_50_50_linIncrease"
+    basepath = r"D:\Software\FlexibleRefinement\bin\Debug\lennardJones\bombarded\middleHole_5000_it50_50_50_linIncrease"
 
     if step == "StepOne":
         factor = 4
