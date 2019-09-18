@@ -226,9 +226,26 @@ namespace FlexibleRefinement.Util
             return;
         }
 
+
+        private static void AddText(FileStream fs, string value)
+        {
+            byte[] info = new UTF8Encoding(true).GetBytes(value);
+            fs.Write(info, 0, info.Length);
+        }
+
+        public static double evalGauss(double x, double sigma)
+        {
+            return evalGauss2(Math.Pow(x, 2), Math.Pow(sigma, 2));
+        }
+
+        public static double evalGauss2(double xSqrd,double sigmaSqrd)
+        {
+            return Math.Exp(- xSqrd / sigmaSqrd);
+        }
+
         public static void simulatePulledApo()
         {
-            String outdir = $@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\empiar_10216\";
+            String outdir = $@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\empiar_10216";
             if (!Directory.Exists(outdir))
             {
                 Directory.CreateDirectory(outdir);
@@ -267,8 +284,15 @@ namespace FlexibleRefinement.Util
             maskDownsampled.Binarize(1.0f);
             maskDownsampled.WriteMRC($@"{outdir}\maskDownsampled.mrc");
             AtomGraph graph = new AtomGraph(refDownsampled, maskDownsampled, 10000);
+            
             graph.save($@"{outdir}\startGraph.xyz");
-            graph.Repr(1.5d * graph.R0).WriteMRC($@"{outdir}\startGraph.mrc");
+            AtomGraph startGraph = new AtomGraph($@"{outdir}\startGraph.xyz", refDownsampled);
+
+            Image startIm = startGraph.Repr(1.0d * graph.R0);
+            startIm.WriteMRC($@"{outdir}\startIm_fromGraph.mrc");
+            startIm.Binarize((float)(1.0f / Math.E));
+            startIm.WriteMRC($@"{outdir}\startMask_fromGraph.mrc");
+
             float3[][] forceField  = Helper.ArrayOfFunction(i => new float3[refDownsampled.Dims.X * refDownsampled.Dims.Y], refDownsampled.Dims.Z);
 
             for (int z = 0; z < refDownsampled.Dims.Z; z++)
@@ -278,25 +302,46 @@ namespace FlexibleRefinement.Util
                     for (int x = 0; x < refDownsampled.Dims.X; x++)
                     {
                         forceField[z][y * refDownsampled.Dims.X + x] = new float3(0);
-                        if (x > refDownsampled.Dims.X/2.0f && y > refDownsampled.Dims.Y/2.0f && z > refDownsampled.Dims.Z/2.0f)
+                        //if (x > refDownsampled.Dims.X/2.0f && y > refDownsampled.Dims.Y/2.0f && z > refDownsampled.Dims.Z/2.0f)
+                        //{
+                        float3 dir = new float3(x - refDownsampled.Dims.X / 2.0f, y - refDownsampled.Dims.Y / 2.0f, z - refDownsampled.Dims.Z / 2.0f);
+                        float3 sphericDir = new float3(dir.Length(), (float)Math.Acos(dir.Z / dir.Length()), (float)Math.Atan2(dir.Y, dir.X));
+                        if (float.IsNaN(sphericDir.Y))
+                            sphericDir.Y = 0;
+                        if (float.IsNaN(sphericDir.Z))
+                            sphericDir.Z = 0;
+                        double r = dir.Length();
+                        if (r > 0.0)
                         {
-                            float3 dir = new float3(x - refDownsampled.Dims.X / 2.0f, y - refDownsampled.Dims.Y / 2.0f, z - refDownsampled.Dims.Z / 2.0f);
-                            forceField[z][y * refDownsampled.Dims.X + x] = dir.Normalized()*(dir*0.1f).Length();
-
+                            forceField[z][y * refDownsampled.Dims.X + x] = dir.Normalized() * (float)(Math.Round(evalGauss(sphericDir.X - 30, 30) * evalGauss(sphericDir.Y - Math.PI / 4, Math.PI / 4) * evalGauss(sphericDir.Z - Math.PI / 4, Math.PI / 4), 4));
                         }
-                    
+                        //}
+
                     }
                 }
             }
-            
 
-            for (int i = 0; i < 50; i++)
+            int it = 100;
+            for (int i = 0; i < it; i++)
             {
                 graph.moveAtoms(forceField);
             }
 
-            graph.save($@"{outdir}\TargetGraph.xyz");
-            graph.Repr(1.5d*graph.R0).WriteMRC($@"{outdir}\TargetGraph.mrc");
+
+            using (FileStream fs = File.Create($@"{outdir}\gtDisplacements.txt"))
+            {
+                for (int i = 0; i < graph.Atoms.Count; i++)
+                {
+                    AddText(fs, $"{graph.Atoms[i].Pos.X - startGraph.Atoms[i].Pos.X} {graph.Atoms[i].Pos.Y - startGraph.Atoms[i].Pos.Y} {graph.Atoms[i].Pos.Z - startGraph.Atoms[i].Pos.Z}\n".Replace(',', '.'));
+                }
+            }
+           
+
+            graph.save($@"{outdir}\TargetGraph{it}.xyz");
+            Image tarIm = graph.Repr(1.0d * graph.R0);
+            tarIm.WriteMRC($@"{outdir}\TargetIm_fromGraph{it}.mrc");
+            tarIm.Binarize((float)(1.0f / Math.E));
+            tarIm.WriteMRC($@"{outdir}\TargetMask_fromGraph{it}.mrc");
         }
     }
 }

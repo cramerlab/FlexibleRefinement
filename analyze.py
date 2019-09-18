@@ -34,8 +34,8 @@ def plotDisplacement(fullPath):
 def getCenters(fileName):
     with open(fileName, "r") as ifile:
         lines = ifile.readlines()
-        lines = lines[6:]
-        centers = np.array([[float(f) for f in line.split()[:3]] for line in lines])
+        lines = lines[2:]
+        centers = np.array([[float(f) for f in line.split()[1:4]] for line in lines])
     return centers
 
 
@@ -130,10 +130,11 @@ def plotIterationDiff(step="StepThree", c=10):
             step, factor, c, corrScale, distScale, norm, it))
         dispalcements = np.linalg.norm(now-prev, axis=1)
         displMatrix[it-1,:] = np.linalg.norm(now-prev, axis=1)
-        prev=now
+        prev = now
     print("done")
+
 def downsampledRotationExp(step="StepThree", c=10):
-    basepath = r"D:\Software\FlexibleRefinement\bin\Debug\lennardJones\bombarded\middleHole_5000_it50_50_50_linIncrease"
+    basepath = r"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\empiar_10216\trial1"
 
     if step == "StepOne":
         factor = 4
@@ -235,8 +236,72 @@ def downsampledRotationExp(step="StepThree", c=10):
     df.to_csv('StepTwo.csv', index=False)
 '''
 
+def forceFieldExp(step="StepThree"):
+    basepath = r"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\empiar_10216\trial1"
+
+    if step == "StepOne":
+        factor = 4
+    elif step == "StepTwo":
+        factor = 2
+    elif step == "StepThree":
+        factor = 1
+    gtStartCenters = getCenters(basepath + "\{}_StartGraph.xyz".format(factor))
+    gtEndCenters = getCenters(basepath + "\{}_TargetGraph.xyz".format(factor))
+    gtDisplacements = gtEndCenters - gtStartCenters
+    results = []
+    done = 0
+    notDone = 0
+    for corrScale in range(1, 21):
+        for distScale in range(1, 21):
+            for norm in ["True", "False"]:
+                if not os.path.isfile(
+                        basepath + "\{}\{}_Rotate_PI_{}_{}_{}_final.xyz".format(
+                                step, factor, corrScale, distScale, norm)):
+                    print("{}_Rotate_PI_{}_{}_{}_final.graph not done yet".format(factor, corrScale, distScale,
+                                                                                     norm))
+                    results.append(
+                        ["{}_Rotate_PI_{}_{}_{}".format(factor, corrScale, distScale, norm), 0, 0,
+                         0, 0])
+                    notDone += 1
+                    continue
+                endCenters = getCenters(
+                    basepath + "\{}\{}_Rotate_PI_{}_{}_{}_final.xyz".format(
+                        step,
+                        factor,
+                        corrScale,
+                        distScale,
+                        norm))
+                done += 1
+                displacements = endCenters - gtStartCenters
+                #fig = plt.figure()
+                #plt.hist(np.linalg.norm(displacements, axis=1))
+                #plt.savefig(basepath + "\{}\{}_Rotate_PI_{}_{}_{}_{}_final.png".format(
+                #        step,
+                #        factor,
+                #        c,
+                #        corrScale,
+                #        distScale,
+                #        norm))
+                #plt.close(fig)
+                offsets = endCenters - gtEndCenters
+                offNorm = np.linalg.norm(offsets, axis=1)
+                offMean = np.sqrt(np.mean(offNorm**2))
+                offStd = np.std(offNorm)
+                dispDiff = displacements - gtDisplacements
+                dispDiffNorm = np.linalg.norm(dispDiff, axis=1)
+                dispDiffMean = np.mean(dispDiffNorm)
+                dispDiffStd = np.std(dispDiffNorm)
+                results.append(
+                    ["{}_Rotate_PI_{}_{}_{}".format(factor, corrScale, distScale, norm), offMean, offStd,
+                     dispDiffMean, dispDiffStd])
+                # plt.hist(diff)
+    df = pd.DataFrame(results, columns=["Filename", "Mean Pos Offset", "Std Pos Offset", "Diff of distance", "std"])
+    df.to_csv(basepath + r'\{}.csv'.format(step), index=False)
+    print("Done: {} ({} %) NotDone: {} ({} %)".format(done, done/(done+notDone)*100, notDone,
+                                                      notDone/(done+notDone)*100))
+
 if __name__ == "__main__":
     for s in ['StepOne', 'StepTwo', 'StepThree']:
-        downsampledRotationExp(step=s, c=8)
+        forceFieldExp(step=s)
     #downsampledRotationExp(step="StepThree", c=8)
     print("foo")

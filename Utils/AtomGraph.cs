@@ -343,12 +343,17 @@ namespace FlexibleRefinement.Util
                         xForce[(x * Dim.Y + y) * Dim.Z + z] = forcefield[z][y * Dim.X + x].X;
                         yForce[(x * Dim.Y + y) * Dim.Z + z] = forcefield[z][y * Dim.X + x].Y;
                         zForce[(x * Dim.Y + y) * Dim.Z + z] = forcefield[z][y * Dim.X + x].Z;
+                        if(float.IsNaN(forcefield[z][y * Dim.X + x].X) || float.IsNaN(forcefield[z][y * Dim.X + x].Y) || float.IsNaN(forcefield[z][y * Dim.X + x].Z))
+                        {
+                            Console.WriteLine("test");
+                        }
+
                     }
                 }
             }
             IntPtr xForceSpline = CPU.CreateEinspline3(xForce, Dim, new float3(0));
-            IntPtr yForceSpline = CPU.CreateEinspline3(xForce, Dim, new float3(0));
-            IntPtr zForceSpline = CPU.CreateEinspline3(xForce, Dim, new float3(0));
+            IntPtr yForceSpline = CPU.CreateEinspline3(yForce, Dim, new float3(0));
+            IntPtr zForceSpline = CPU.CreateEinspline3(zForce, Dim, new float3(0));
 
             float[] tmp = new float[1];
 
@@ -668,7 +673,7 @@ namespace FlexibleRefinement.Util
          * */
         public void setPositions(AtomGraph other, List<float3> displ)
         {
-            float3 scaleFactor = new float3(Dim.X / other.Dim.X, Dim.Y / other.Dim.Y, Dim.Z / other.Dim.Z);
+            float3 scaleFactor = new float3((float)Dim.X / other.Dim.X, (float)Dim.Y / other.Dim.Y, (float)Dim.Z / other.Dim.Z);
             foreach (var atom in Atoms)
             {
                 Atom nN = other.GetClosestAtom(atom.Pos / scaleFactor);
@@ -686,7 +691,7 @@ namespace FlexibleRefinement.Util
             int counter = 0;
             string line;
             float[] result;
-            int[] temp;
+            
             EMIntensities = intensities;
             if (intensities != null)
             {
@@ -695,30 +700,54 @@ namespace FlexibleRefinement.Util
             atoms = new List<Atom>();
             // Read the file and display it line by line.  
             System.IO.StreamReader file = new System.IO.StreamReader(filename);
-
-            line = file.ReadLine();
-            temp = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(s => int.Parse(s)).ToArray();
-            Dim = new int3(temp[0], temp[1], temp[2]);
-
-            line = file.ReadLine();
-            result = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(s => float.Parse(s, CultureInfo.InvariantCulture.NumberFormat)).ToArray();
-            gridSpacing = new float3(result[0], result[1], result[2]);
-
-            line = file.ReadLine();
-            temp = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(s => int.Parse(s)).ToArray();
-            gridSize = new int3(temp[0], temp[1], temp[2]);
-
-            line = file.ReadLine();
-            neigbourCutoff = float.Parse(line, CultureInfo.InvariantCulture.NumberFormat);
-
-            line = file.ReadLine();
-            R0 = float.Parse(line, CultureInfo.InvariantCulture.NumberFormat);
-
-            line = file.ReadLine();
-            while ((line = file.ReadLine()) != null)
+            Dim = intensities.Dims;
+            if (filename.EndsWith(".graph"))
             {
+                int[] temp;
+                line = file.ReadLine();
+                temp = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(s => int.Parse(s)).ToArray();
+                Dim = new int3(temp[0], temp[1], temp[2]);
+
+                line = file.ReadLine();
                 result = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(s => float.Parse(s, CultureInfo.InvariantCulture.NumberFormat)).ToArray();
-                atoms.Add(new Atom(new float3(result[0], result[1], result[2]), result[3], result[4]));
+                gridSpacing = new float3(result[0], result[1], result[2]);
+
+                line = file.ReadLine();
+                temp = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(s => int.Parse(s)).ToArray();
+                gridSize = new int3(temp[0], temp[1], temp[2]);
+
+                line = file.ReadLine();
+                neigbourCutoff = float.Parse(line, CultureInfo.InvariantCulture.NumberFormat);
+
+                line = file.ReadLine();
+                R0 = float.Parse(line, CultureInfo.InvariantCulture.NumberFormat);
+
+                line = file.ReadLine();
+                while ((line = file.ReadLine()) != null)
+                {
+                    result = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(s => float.Parse(s, CultureInfo.InvariantCulture.NumberFormat)).ToArray();
+                    atoms.Add(new Atom(new float3(result[0], result[1], result[2]), result[3], result[4]));
+                }
+            }
+            else if (filename.EndsWith(".xyz"))
+            {
+                float[] temp;
+                line = file.ReadLine();
+                //Atom count does not need to be parsed
+                line = file.ReadLine();
+                temp = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(s => float.Parse(s, CultureInfo.InvariantCulture.NumberFormat)).ToArray();
+
+                gridSpacing = new float3(temp[0], temp[1], temp[2]);
+                gridSize = new int3((int)temp[3], (int)temp[4], (int)temp[5]);
+                neigbourCutoff = temp[6];
+                R0 = temp[7];
+                while ((line = file.ReadLine()) != null)
+                {
+                    line = line.Substring(2);
+                    result = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(s => float.Parse(s, CultureInfo.InvariantCulture.NumberFormat)).ToArray();
+                    float3 pos = new float3(result[0], result[1], result[2]);
+                    atoms.Add(new Atom(pos, (float)(R0/2), getIntensity(pos)));
+                }
             }
             file.Close();
             grid = Helper.ArrayOfFunction(i => Helper.ArrayOfFunction(j => new GridCell(), gridSize.X * gridSize.Y), Dim.Z);
@@ -742,46 +771,47 @@ namespace FlexibleRefinement.Util
         public void save(String filename)
         {
             FileStream fs = null;
-            if (filename.EndsWith(".graph"))
-            {
-                try
-                {
-                    fs = File.Create(filename);
-                    AddText(fs, $"{Dim.X} {Dim.Y} {Dim.Z}\n".Replace(',', '.'));
-                    AddText(fs, $"{gridSpacing.X} {gridSpacing.Y} {gridSpacing.Z}\n".Replace(',', '.'));
-                    AddText(fs, $"{gridSize.X} {gridSize.Y} {gridSize.Z}\n".Replace(',', '.'));
-                    AddText(fs, $"{neigbourCutoff}\n".Replace(',', '.'));
-                    AddText(fs, $"{R0}\n".Replace(',', '.'));
-                    AddText(fs, $"#Atoms\n");
-                    foreach (var atom in atoms)
-                    {
-                        AddText(fs, $"{atom.Pos.X} {atom.Pos.Y} {atom.Pos.Z} {atom.R} {atom.Intensity}\n".Replace(',', '.'));
-                    }
-
-                }
-                catch (IOException)
-                {
-                    Console.WriteLine($"Cannot Save to {filename}, resource is busy");
-
-                }
-                if (fs != null)
-                    fs.Close();
-            }
-            else if (filename.EndsWith(".xyz"))
+            try
             {
                 fs = File.Create(filename);
-                AddText(fs, $"{Atoms.Count}\n");
-                AddText(fs, $"{gridSpacing.X} {gridSpacing.Y} {gridSpacing.Z}".Replace(',', '.'));
-                AddText(fs, $" {gridSize.X} {gridSize.Y} {gridSize.Z}".Replace(',', '.'));
-                AddText(fs, $" {neigbourCutoff}".Replace(',', '.'));
-                AddText(fs, $" {R0}\n".Replace(',', '.'));
-                foreach (var atom in atoms)
+                if (filename.EndsWith(".graph"))
                 {
-                    AddText(fs, $"C {atom.Pos.X} {atom.Pos.Y} {atom.Pos.Z}\n".Replace(',', '.'));
+                
+                        AddText(fs, $"{Dim.X} {Dim.Y} {Dim.Z}\n".Replace(',', '.'));
+                        AddText(fs, $"{gridSpacing.X} {gridSpacing.Y} {gridSpacing.Z}\n".Replace(',', '.'));
+                        AddText(fs, $"{gridSize.X} {gridSize.Y} {gridSize.Z}\n".Replace(',', '.'));
+                        AddText(fs, $"{neigbourCutoff}\n".Replace(',', '.'));
+                        AddText(fs, $"{R0}\n".Replace(',', '.'));
+                        AddText(fs, $"#Atoms\n");
+                        foreach (var atom in atoms)
+                        {
+                            AddText(fs, $"{atom.Pos.X} {atom.Pos.Y} {atom.Pos.Z} {atom.R} {atom.Intensity}\n".Replace(',', '.'));
+                        }
+
+                
                 }
+                else if (filename.EndsWith(".xyz"))
+                {
+                    AddText(fs, $"{Atoms.Count}\n");
+                    AddText(fs, $"{gridSpacing.X} {gridSpacing.Y} {gridSpacing.Z}".Replace(',', '.'));
+                    AddText(fs, $" {gridSize.X} {gridSize.Y} {gridSize.Z}".Replace(',', '.'));
+                    AddText(fs, $" {neigbourCutoff}".Replace(',', '.'));
+                    AddText(fs, $" {R0}\n".Replace(',', '.'));
+                    foreach (var atom in atoms)
+                    {
+                        AddText(fs, $"C {atom.Pos.X} {atom.Pos.Y} {atom.Pos.Z}\n".Replace(',', '.'));
+                    }
+                }
+                else
+                    throw new NotImplementedException("This file extensions is not supported for saving");
             }
-            else
-                throw new NotImplementedException("This file extensions is not supported for saving");
+            catch (IOException)
+            {
+                Console.WriteLine($"Cannot Save to {filename}, resource is busy");
+
+            }
+            if (fs != null)
+                fs.Close();
         }
 
 
