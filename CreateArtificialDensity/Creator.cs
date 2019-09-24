@@ -254,7 +254,7 @@ namespace CreateArtificialDensity
         static void Main(string[] args)
         {
             
-            Simulation.simulatePulledApo();
+            Simulation.simulatePulledToy();
             //String rootDir = @"D:\Software\FlexibleRefinement\bin\Debug\lennardJones\bombarded";
             //simulateRotated(8, rootDir, "", (im) => { middleHole(im, 4.0f); });
         }
