@@ -14,13 +14,26 @@ namespace FlexibleRefinement.Util
 
     public class Atom
     {
+        private static int LifetimeObjectCounter = 0;
+        public readonly int ObjectID = -1;
         public Atom(float3 p, float radius, float intense = 1.0f)
         {
+            ObjectID = LifetimeObjectCounter++;
             pos = p;
             r = radius;
             neighbours = new List<Atom>();
             intensity = intense;
         }
+        public override bool Equals(object other)
+        {
+            if ((other == null) || !this.GetType().Equals(other.GetType()))
+            {
+                return false;
+            }
+            else
+                return this.ObjectID == ((Atom)other).ObjectID;
+        }
+
         float3 pos;             // atom position in real space
         List<Atom> neighbours;      // 
         float r;
@@ -324,7 +337,7 @@ namespace FlexibleRefinement.Util
                 GridCell gridCellAfter = grid[gridPosAfter.Z][gridPosAfter.Y * gridSize.X + gridPosAfter.X];
                 gridCellBefore.Atoms.Remove(atom);
                 gridCellAfter.Atoms.Add(atom);
-                //TODO: update neigbors as well
+                //TODO: update neighbours as well
             }
         }
 
@@ -381,8 +394,8 @@ namespace FlexibleRefinement.Util
             CurrentCorrelation(out float sumAs, out float sumIs, out float sumAI);
             foreach (var atom in atoms)
             {
-                float3 intensityForce = IntensityF(atom.Pos);
-                float intensityLength = intensityForce.Length();
+                /*float3 intensityForce = IntensityF(atom.Pos);
+                float intensityLength = intensityForce.Length();*/
                 float3 distForce = new float3(0);
                 if (atom.Neighbours.Count == 0)
                 {   //Make sure that a single atom will not loose the connection to the rest
@@ -412,6 +425,11 @@ namespace FlexibleRefinement.Util
 
                 if ((corrForce + distForce).Length() == 0)
                     Console.WriteLine("Offset is 0");
+                float3 ds = corrForce + distForce;
+                if (float.IsNaN(ds.X) || float.IsNaN(ds.Y) || float.IsNaN(ds.Z))
+                {
+                    Console.WriteLine("Encountered NaN displacement");
+                }
 
                 MoveAtom(atom, corrForce + distForce);
 
