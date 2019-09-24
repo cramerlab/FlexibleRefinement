@@ -1,0 +1,24 @@
+\documentclass[a4paper]{article}
+
+\usepackage{amsmath}
+
+
+\begin{document}
+
+Potential Energy for absolute distance of two atoms at positions $\vec{r}_1$ and $\vec{r}_1$:
+
+\[E_r (\vec{r}_1, \vec{r}_2) = (|\vec{r}_1-\vec{r}_2|-R_0)^2 = (\sqrt{(x_1-x_2)^2 + (y_1-y_2)^2 + (z_1-z_2)^2}-R_0)^2\]
+
+With the energy minimum at a distance $R_0$
+
+this creates a force on atom 1:
+
+\begin{align*}
+F_x &= - \partial x_1 E_r  \\
+&= - 2(\sqrt{(x_1-x_2)^2 + (y_1-y_2)^2 + (z_1-z_2)^2}-R_0) \cdot \partial x_1 (\sqrt{(x_1-x_2)^2 + (y_1-y_2)^2 + (z_1-z_2)^2})\\
+&=  - 2(\sqrt{(x_1-x_2)^2 + (y_1-y_2)^2 + (z_1-z_2)^2}-R_0) \cdot \frac{2(x_1-x_2)}{2\sqrt{(x_1-x_2)^2 + (y_1-y_2)^2 + (z_1-z_2)^2}}\\
+&=- 2(|\vec{r}_1-\vec{r}_2|-R_0) \cdot \frac{(x_1-x_2)}{|\vec{r}_1-\vec{r}_2|}
+\end{align*}
+
+
+\end{document}
