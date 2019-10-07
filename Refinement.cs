@@ -1214,7 +1214,7 @@ namespace FlexibleRefinement
 
         static void Main(string[] args)
         {
-            String rootDir = @"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\stasis";
+            String rootDir = @"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\movement";
             if (!Directory.Exists(rootDir))
             {
                 Directory.CreateDirectory(rootDir);
@@ -1226,14 +1226,18 @@ namespace FlexibleRefinement
             Image im = Image.FromFile(@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\trial10000\4_StartIm.mrc");
             ImageProcessor.Normalize01(im);
 
+            Image tarIm = Image.FromFile(@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\trial10000\4_TarIm.mrc");
+            ImageProcessor.Normalize01(tarIm);
+
             Image mask = Image.FromFile(@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\trial10000\4_StartMask.mrc");
             Image tarMask = Image.FromFile(@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\trial10000\4_TarMask.mrc");
 
             AtomGraph graph = new AtomGraph(im, mask, (int)(10000.0/64.0));
-            AtomGraph tarGraph = new AtomGraph(im, tarMask, (int)(10000.0 / 64.0));
+            AtomGraph tarGraph = new AtomGraph(tarIm, tarMask, (int)(10000.0 / 64.0));
 
-            Image imFG = graph.Repr(1.0d, true);
-            graph.setEMIntensities(imFG);
+            Image imFG = tarGraph.Repr(1.0d, true);
+            tarIm.WriteMRC($@"{rootDir}\TargetIm.mrc");
+            graph.setEMIntensities(tarIm);
             graph.moveAtoms();
 
             //GridSearchParams(rootDir + "startIm_fromGraph.mrc", rootDir + "startMask_fromGraph.mrc", rootDir + $"TargetIm_fromGraph{it}.mrc", rootDir + $"TargetMask_fromGraph{it}.mrc", rootDir + "startGraph.xyz", rootDir + $"TargetGraph{it}.xyz",rootDir + "gtDisplacements.txt", "trial10000", 10000);

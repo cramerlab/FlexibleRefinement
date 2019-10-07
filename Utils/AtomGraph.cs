@@ -517,9 +517,9 @@ namespace FlexibleRefinement.Util
                     forceImYData[(int)Math.Round(atom.Pos.Z, 0)][(int)Math.Round(atom.Pos.Y, 0) * Dim.X + (int)Math.Round(atom.Pos.X, 0)] = diff.Y;
                     forceImZData[(int)Math.Round(atom.Pos.Z, 0)][(int)Math.Round(atom.Pos.Y, 0) * Dim.X + (int)Math.Round(atom.Pos.X, 0)] = diff.Z;
                 }
-                forceImX.WriteMRC($@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\stasis\forceImX.mrc");
-                forceImY.WriteMRC($@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\stasis\forceImY.mrc");
-                forceImZ.WriteMRC($@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\stasis\forceImZ.mrc");
+                forceImX.WriteMRC($@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\movement\forceImX.mrc");
+                forceImY.WriteMRC($@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\movement\forceImY.mrc");
+                forceImZ.WriteMRC($@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\movement\forceImZ.mrc");
 
             }
             
