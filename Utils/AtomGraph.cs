@@ -77,7 +77,7 @@ namespace FlexibleRefinement.Util
         float neigbourCutoff = 4.0f;
         double r0 = 3.0;
         float R0_6;
-
+        double[] atomSpread;
 
 
         public float3[][] CalculateForces(float3[][] grad)
@@ -137,21 +137,33 @@ namespace FlexibleRefinement.Util
             return rep;
         }
 
-        public Image Repr(double sigma, int threads = 1)
+        public Image Repr(double sigma, bool rFractions = true, int threads = 1)
         {
             Image rep = new Image(Dim);
+            if (rFractions)
+                sigma = Atoms[0].R * sigma;
             double sigSqrd = Math.Pow(sigma, 2);
-            float[][] repData = rep.GetHost(Intent.Read);
+            float[][] repData = rep.GetHost(Intent.Write);
             foreach (var atom in atoms)
             {
                 for (int z = (int)Math.Floor(atom.Pos.Z - 3*sigma); z <= (int)Math.Ceiling(atom.Pos.Z + 3 * sigma); z++)
                 {
+                    if (z < 0 || z >= Dim.Z)
+                        continue;
                     for (int y = (int)Math.Floor(atom.Pos.Y - 3 * sigma); y <= (int)Math.Ceiling(atom.Pos.Y + 3 * sigma); y++)
                     {
+                        if (y < 0 || y >= Dim.Y)
+                            continue;
                         for (int x = (int)Math.Floor(atom.Pos.X - 3 * sigma); x <= (int)Math.Ceiling(atom.Pos.X + 3 * sigma); x++)
                         {
+                            if (x < 0 || x >= Dim.X)
+                                continue;
+
                             double r = Math.Pow(z - atom.Pos.Z, 2) + Math.Pow(y - atom.Pos.Y, 2) + Math.Pow(x - atom.Pos.X, 2);
-                            repData[z][Dim.X * y + x] += (float)Math.Exp(-r/sigSqrd);
+
+                            repData[z][Dim.X * y + x] += (float)(atom.Intensity * Math.Exp(-r / sigSqrd));
+                            if (x == 8 && y == 10 && z == 5)
+                                 ;
                         }
 
                     }
@@ -391,11 +403,134 @@ namespace FlexibleRefinement.Util
 
         public void moveAtoms(float corrScale = 20.0f, float distScale = 1.0f, bool normalizeForce = true)
         {
+            Image CurrentAtomSpread = new Image(Dim);
+            
+            float[][] EMIntensitiesData = EMIntensities.GetHost(Intent.Read);
+            float[][] CurrentAtomSpreadData = CurrentAtomSpread.GetHost(Intent.Write);
+
+            foreach (var atom in atoms)
+            {
+                for (int z = (int)Math.Floor(atom.Pos.Z - 3 * atom.R); z <= (int)Math.Ceiling(atom.Pos.Z + 3 * atom.R); z++)
+                {
+                    if (z >= Dim.Z || z < 0)
+                        continue;
+                    for (int y = (int)Math.Floor(atom.Pos.Y - 3 * atom.R); y <= (int)Math.Ceiling(atom.Pos.Y + 3 * atom.R); y++)
+                    {
+                        if (y >= Dim.Y || y < 0)
+                            continue;
+                        for (int x = (int)Math.Floor(atom.Pos.X - 3 * atom.R); x <= (int)Math.Ceiling(atom.Pos.X + 3 * atom.R); x++)
+                        {
+                            if (x >= Dim.X || x < 0)
+                                continue;
+                            double r = Math.Pow(z - atom.Pos.Z, 2) + Math.Pow(y - atom.Pos.Y, 2) + Math.Pow(x - atom.Pos.X, 2);
+                            CurrentAtomSpreadData[z][Dim.X * y + x] += (float)(atom.Intensity * Math.Exp(-r / Math.Pow(atom.R, 2)));
+                            if (x == 8 && y == 10 && z == 5)
+                                ;
+                        }
+
+                    }
+                }
+            }
+            double currentAgreement = 0;
+            double max = double.MinValue;
+            double min = double.MaxValue;
+            double sum = 0;
+            for (int z = 0; z < Dim.Z; z++)
+            {
+                for (int y = 0; y < Dim.Y; y++)
+                {
+                    for (int x = 0; x < Dim.X; x++)
+                    {
+                        sum += EMIntensitiesData[z][Dim.X * y + x];
+                        currentAgreement += EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4));
+                        if (Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4)) > max)
+                            max = Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4));
+                        if (Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4)) < min)
+                        { 
+                            min = Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4));
+                            ;
+                        }
+                        if (double.IsNaN(currentAgreement))
+                        {
+                            ;
+                        }
+                        if (Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 3) != 1)
+                        {
+                            ;
+                        }
+                    }
+                }
+            }
+
+            {
+                Image forceImX = new Image(Dim);
+                Image forceImY = new Image(Dim);
+                Image forceImZ = new Image(Dim);
+                float[][] forceImXData = forceImX.GetHost(Intent.Write);
+                float[][] forceImYData = forceImY.GetHost(Intent.Write);
+                float[][] forceImZData = forceImZ.GetHost(Intent.Write);
+                /* subtract current atom position */
+                foreach (var atom in atoms)
+                {
+                    float3 diff = new float3(0);
+                    for (int dz = -1; dz <= 1; dz++)
+                    {
+                        for (int dy = -1; dy <= 1; dy++)
+                        {
+                            for (int dx = -1; dx <= 1; dx++)
+                            {
+                                double currentAgreementNew = currentAgreement;
+                                float3 newPos = new float3(atom.Pos.X + dx * 0.1f, atom.Pos.Y + dy * 0.1f, atom.Pos.Z + dz * 0.1f);
+                                if (newPos.X < 0 || newPos.X >= Dim.X || newPos.Y < 0 || newPos.Y >= Dim.Y || newPos.Z < 0 || newPos.Z >= Dim.Z)
+                                    continue;
+                                for (int z = (int)Math.Floor(atom.Pos.Z - 3 * atom.R); z <= (int)Math.Ceiling(atom.Pos.Z + 3 * atom.R); z++)
+                                {
+                                    if (z >= Dim.Z || z < 0)
+                                        continue;
+                                    for (int y = (int)Math.Floor(atom.Pos.Y - 3 * atom.R); y <= (int)Math.Ceiling(atom.Pos.Y + 3 * atom.R); y++)
+                                    {
+                                        if (y >= Dim.Y || y < 0)
+                                            continue;
+                                        for (int x = (int)Math.Floor(atom.Pos.X - 3 * atom.R); x <= (int)Math.Ceiling(atom.Pos.X + 3 * atom.R); x++)
+                                        {
+                                            if (x >= Dim.X || x < 0)
+                                                continue;
+                                            double rOld = Math.Pow(z - atom.Pos.Z, 2) + Math.Pow(y - atom.Pos.Y, 2) + Math.Pow(x - atom.Pos.X, 2);
+                                            double rNew = Math.Pow(z - newPos.Z, 2) + Math.Pow(y - newPos.Y, 2) + Math.Pow(x - newPos.X, 2);
+                                            currentAgreementNew -= EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4));
+                                            CurrentAtomSpreadData[z][Dim.X * y + x] -= (float)(atom.Intensity * Math.Exp(-rOld / Math.Pow(atom.R, 2)));
+                                            
+                                            CurrentAtomSpreadData[z][Dim.X * y + x] += (float)(atom.Intensity * Math.Exp(-rNew / Math.Pow(atom.R, 2)));
+                                            currentAgreementNew += EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4));
+                                            CurrentAtomSpreadData[z][Dim.X * y + x] -= (float)(atom.Intensity * Math.Exp(-rNew / Math.Pow(atom.R, 2)));
+                                            CurrentAtomSpreadData[z][Dim.X * y + x] += (float)(atom.Intensity * Math.Exp(-rOld / Math.Pow(atom.R, 2)));
+                                        }
+
+                                    }
+                                }
+                                if(currentAgreement - currentAgreementNew > 0)
+                                    diff += new float3(dx, dy, dz) * (float)(currentAgreement - currentAgreementNew);
+                            }
+                        }
+                    }
+                    forceImXData[(int)Math.Round(atom.Pos.Z, 0)][(int)Math.Round(atom.Pos.Y, 0) * Dim.X + (int)Math.Round(atom.Pos.X, 0)] = diff.X;
+                    forceImYData[(int)Math.Round(atom.Pos.Z, 0)][(int)Math.Round(atom.Pos.Y, 0) * Dim.X + (int)Math.Round(atom.Pos.X, 0)] = diff.Y;
+                    forceImZData[(int)Math.Round(atom.Pos.Z, 0)][(int)Math.Round(atom.Pos.Y, 0) * Dim.X + (int)Math.Round(atom.Pos.X, 0)] = diff.Z;
+                }
+                forceImX.WriteMRC($@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\stasis\forceImX.mrc");
+                forceImY.WriteMRC($@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\stasis\forceImY.mrc");
+                forceImZ.WriteMRC($@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\stasis\forceImZ.mrc");
+
+            }
+            
             CurrentCorrelation(out float sumAs, out float sumIs, out float sumAI);
             foreach (var atom in atoms)
             {
                 /*float3 intensityForce = IntensityF(atom.Pos);
                 float intensityLength = intensityForce.Length();*/
+
+                
+                
                 float3 distForce = new float3(0);
                 if (atom.Neighbours.Count == 0)
                 {   //Make sure that a single atom will not loose the connection to the rest
@@ -598,9 +733,9 @@ namespace FlexibleRefinement.Util
             float[] input = new float[pos.Length * 3];
             for (int i = 0; i < pos.Length; i++)
             {
-                input[i] = pos[i].X;
-                input[i + 1] = pos[i].Y;
-                input[i + 2] = pos[i].Z;
+                input[i*3] = pos[i].Z/Dim.Z;
+                input[i*3 + 1] = pos[i].Y/Dim.Y;
+                input[i*3 + 2] = pos[i].X/Dim.X;
             }
             CPU.EvalEinspline3(einSpline, input, pos.Length, output);
             return output;
@@ -703,6 +838,12 @@ namespace FlexibleRefinement.Util
             }
         }
 
+        private void SetupAtomSpread()
+        {
+            double r = Atoms[0].R;
+            double stepSize = 0.0001;
+            atomSpread = Helper.ArrayOfFunction(i => Math.Exp(-Math.Pow(i*stepSize/r,2)), (int)(Math.Round(r / stepSize, 0)));
+        }
 
         public AtomGraph(String filename, Image intensities)
         {
@@ -782,7 +923,8 @@ namespace FlexibleRefinement.Util
 
             }
             SetupNeighbors();
-
+            atomSpread = null;
+            SetupAtomSpread();
 
         }
 
@@ -840,10 +982,10 @@ namespace FlexibleRefinement.Util
             EMIntensities = intensities;
             Dim = intensities.Dims;
 
-            GPU.Normalize(intensities.GetDevice(Intent.Read),
+            /*GPU.Normalize(intensities.GetDevice(Intent.Read),
                               intensities.GetDevice(Intent.Write),
                               (uint)intensities.ElementsReal,
-                              (uint)1);
+                              (uint)1);*/
 
             einSpline = ImageToSpline(intensities);
             float3[] atomCenters = ImageProcessor.FillWithEquidistantPoints(mask, numAtoms, out rAtoms, r0);
@@ -852,7 +994,9 @@ namespace FlexibleRefinement.Util
             R0_6 = (float)Math.Pow(R0, 6);
             float[] atomRadius = Helper.ArrayOfFunction(i => rAtoms, atomCenters.Length);
             float[] atomIntensities = getIntensity(atomCenters);
-            InitializeAtomGrid(atomCenters, atomRadius);
+            InitializeAtomGrid(atomCenters, atomRadius, atomIntensities);
+            atomSpread = null;
+            SetupAtomSpread();
         }
 
         public AtomGraph(float3[] positions, float[] r, int3 dim)
@@ -877,6 +1021,8 @@ namespace FlexibleRefinement.Util
                 grid[gridPos.Z][gridPos.Y * gridSize.X + gridPos.X].Atoms.Add(a);
 
             }
+            atomSpread = null;
+            SetupAtomSpread();
         }
 
         void testNeigbor()

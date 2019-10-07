@@ -33,6 +33,23 @@ namespace FlexibleRefinement.Util
             return grad;
         }
 
+        public static void Normalize01(Image im)
+        {
+
+            double min = double.MaxValue, max = double.MinValue;
+            double sum = 0;
+            im.TransformValues(f =>
+            {
+                if (f < min)
+                    min = f;
+                if (f > max)
+                    max = f;
+                return f;
+            });
+            im.Add((float)-min);
+            //double mean = im.AsSum3D().GetHost(Intent.Read)[0][0];
+            im.Multiply((float)(1.0f/(max-min)));
+        }
 
         public static Image Downsample(Image im, float factor)
         {

@@ -815,6 +815,8 @@ namespace FlexibleRefinement
             return;
         }
 
+        
+
         public static void GridSearchParams(String startImFile, String startMaskFile, String tarImFile, String tarMaskFile, String StartGraph, String TargetGraph, String GtDisplacements, String trial, int targetCount = 2000)
         {
             if (!Directory.Exists(trial))
@@ -822,7 +824,7 @@ namespace FlexibleRefinement
                 Directory.CreateDirectory(trial);
             }
             const int steps = 3;
-            float[] sampleRates = new float[steps] { 6, 3, 1 };
+            float[] sampleRates = new float[steps] { 4, 2, 1 };
             int[] numIterations = new int[steps] { 100, 50, 50 };
             int[] sampledCounts = Helper.ArrayOfFunction(i => (int)(targetCount / Math.Pow(sampleRates[i],3)), steps);
 
@@ -846,6 +848,7 @@ namespace FlexibleRefinement
             Image[] StartMasks = Helper.ArrayOfFunction(i => sampleRates[i] == 1 ? startMask.GetCopy() : ImageProcessor.Downsample(startMask, sampleRates[i]), steps);
             for (int k = 0; k < steps; k++)
             {
+                ImageProcessor.Normalize01(StartIms[k]);
                 StartMasks[k].Binarize(1.0f);
             }
             AtomGraph[] StartGraphs = Helper.ArrayOfFunction(i => sampleRates[i] == 1 ? new AtomGraph(StartGraph, startIm):new AtomGraph(StartIms[i], StartMasks[i], sampledCounts[i]), steps);
@@ -857,6 +860,7 @@ namespace FlexibleRefinement
             {
                 Image tmp = TarIms[k].AsConvolvedGaussian(0.5f);
                 TarIms[k].Dispose();
+                ImageProcessor.Normalize01(tmp);
                 TarIms[k] = tmp;
                 TarMasks[k].Binarize(1.0f);
             }
@@ -875,7 +879,7 @@ namespace FlexibleRefinement
             {
                 if (sampleRates[i] == 1)
                 {
-                    return new AtomGraph(TargetGraph, TarMasks[i]);
+                    return new AtomGraph(TargetGraph, TarIms[i]);
                 }
                 AtomGraph tmp = new AtomGraph(StartIms[i], StartMasks[i], sampledCounts[i]);
                 tmp.setPositions(StartGraphs[steps-1], gtDisplList);
@@ -883,6 +887,8 @@ namespace FlexibleRefinement
             }, steps);
             for (int i = 0; i < steps; i++)
             {
+                StartIms[i] = StartGraphs[i].Repr(1.0);
+                TarIms[i] = TargetGraphs[i].Repr(1.0);
                 StartIms[i].WriteMRC($@"{trial}\{sampleRates[i]}_StartIm.mrc");
                 TarIms[i].WriteMRC($@"{trial}\{sampleRates[i]}_TarIm.mrc");
 
@@ -904,16 +910,19 @@ namespace FlexibleRefinement
 
 
             DateTime begin = DateTime.UtcNow;
-            Helper.ForCPU(0, 20, 20, null, (k, id, ts) =>
+            /*Helper.ForCPU(0, 20, 20, null, (k, id, ts) =>
+            {*/
+            foreach (var corrScale in corrScales)
             {
-                float corrScale = corrScales[k];
+                /*float corrScale = corrScales[k];*/
 
                 foreach (var distScale in distScales)
                 {
                     foreach (var normalizing in normalizings)
                     {
                         int i = 0;
-                        AtomGraph localStartGraph = new AtomGraph($@"{trial}\{sampleRates[0]}_StartGraph.xyz", TarIms[0]);
+                        AtomGraph localStartGraph = new AtomGraph($@"{trial}\{sampleRates[0]}_StartGraph.xyz", StartIms[0]);
+                        //localStartGraph.setEMIntensities(TarIms[0]);
                         for (; i < numIterations[0]; i++)
                         {
                             localStartGraph.moveAtoms(corrScale, distScale, normalizing);
@@ -924,7 +933,7 @@ namespace FlexibleRefinement
 
                 }
 
-            }, null);
+            }/*, null);*/
             DateTime end = DateTime.UtcNow;
             System.Console.WriteLine($"Total Elapsed Time: {(end - begin).Milliseconds} ms");
             #endregion
@@ -1205,7 +1214,7 @@ namespace FlexibleRefinement
 
         static void Main(string[] args)
         {
-            String rootDir = @"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\empiar_10216\ds4\";
+            String rootDir = @"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\stasis";
             if (!Directory.Exists(rootDir))
             {
                 Directory.CreateDirectory(rootDir);
@@ -1214,8 +1223,20 @@ namespace FlexibleRefinement
 
 
             int it = 100;
-            
-            GridSearchParams(rootDir + "startIm_fromGraph.mrc", rootDir + "startMask_fromGraph.mrc", rootDir + $"TargetIm_fromGraph{it}.mrc", rootDir + $"TargetMask_fromGraph{it}.mrc", rootDir + "startGraph.xyz", rootDir + $"TargetGraph{it}.xyz",rootDir + "gtDisplacements.txt", "trial10000_lin", 10000);
+            Image im = Image.FromFile(@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\trial10000\4_StartIm.mrc");
+            ImageProcessor.Normalize01(im);
+
+            Image mask = Image.FromFile(@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\trial10000\4_StartMask.mrc");
+            Image tarMask = Image.FromFile(@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\trial10000\4_TarMask.mrc");
+
+            AtomGraph graph = new AtomGraph(im, mask, (int)(10000.0/64.0));
+            AtomGraph tarGraph = new AtomGraph(im, tarMask, (int)(10000.0 / 64.0));
+
+            Image imFG = graph.Repr(1.0d, true);
+            graph.setEMIntensities(imFG);
+            graph.moveAtoms();
+
+            //GridSearchParams(rootDir + "startIm_fromGraph.mrc", rootDir + "startMask_fromGraph.mrc", rootDir + $"TargetIm_fromGraph{it}.mrc", rootDir + $"TargetMask_fromGraph{it}.mrc", rootDir + "startGraph.xyz", rootDir + $"TargetGraph{it}.xyz",rootDir + "gtDisplacements.txt", "trial10000", 10000);
 
             //GridSearchParams(8);
             /*for (int c = 8; c < 9; c++)
