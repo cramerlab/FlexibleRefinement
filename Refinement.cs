@@ -825,12 +825,12 @@ namespace FlexibleRefinement
             }
             const int steps = 3;
             float[] sampleRates = new float[steps] { 4, 2, 1 };
-            int[] numIterations = new int[steps] { 100, 50, 50 };
+            int[] numIterations = new int[steps] { 50, 50, 50 };
             int[] sampledCounts = Helper.ArrayOfFunction(i => (int)(targetCount / Math.Pow(sampleRates[i],3)), steps);
 
             float[] corrScales = Helper.ArrayOfFunction(k => (float)(k + 1), 20);
             float[] distScales = Helper.ArrayOfFunction(k => (float)(k + 1), 20);
-            bool[] normalizings = new bool[2] { true, false };
+            bool[] normalizings = new bool[] { /*true,*/ false };
 
             float[] minCorrScales = new float[steps];
             float[] minDistScales = new float[steps];
@@ -923,7 +923,7 @@ namespace FlexibleRefinement
                 {
                     foreach (var normalizing in normalizings)
                     {
-                        /*int i = 0;
+                        int i = 0;
                         AtomGraph localStartGraph = new AtomGraph($@"{trial}\{sampleRates[0]}_StartGraph.xyz", StartIms[0]);
                         localStartGraph.setEMIntensities(TarIms[0]);
                         for (; i < numIterations[0]; i++)
@@ -931,7 +931,7 @@ namespace FlexibleRefinement
                             localStartGraph.moveAtoms(corrScale, distScale, normalizing);
                             localStartGraph.save($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_it{i + 1}.xyz");
                         }
-                        localStartGraph.save($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz");*/
+                        localStartGraph.save($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz");
                     }
 
                 }
@@ -944,7 +944,7 @@ namespace FlexibleRefinement
             /* Evaluate first step */
 
             double minDisplRMSD = double.MaxValue;
-
+            double maxAgreement = double.MinValue;
             foreach (var corrScale in corrScales)
             {
                 foreach (var distScale in distScales)
@@ -952,7 +952,7 @@ namespace FlexibleRefinement
                     foreach (var normalizing in normalizings)
                     {
                         AtomGraph localGraph = new AtomGraph($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz", TarIms[0]);
-                        double displRMSD = 0.0;
+                        /*double displRMSD = 0.0;
                         for (int i = 0; i < localGraph.Atoms.Count(); i++)
                         {
                             float3 dist = TargetGraphs[0].Atoms[i].Pos - localGraph.Atoms[i].Pos;
@@ -966,6 +966,18 @@ namespace FlexibleRefinement
                             minNormalizings[0] = normalizing;
                             minDisplRMSD = displRMSD;
                         }
+                        */
+                        Image tmp = new Image(TarIms[0].Dims);
+                        float[][] currentAtomSpread = tmp.GetHost(Intent.Write);
+                        double agreement = localGraph.getCurrentAgreement(currentAtomSpread);
+                        if (agreement > maxAgreement)
+                        {
+                            minCorrScales[0] = corrScale;
+                            minDistScales[0] = distScale;
+                            minNormalizings[0] = normalizing;
+                            maxAgreement = agreement;
+                        }
+                        tmp.Dispose();
                     }
                 }
             }
@@ -999,7 +1011,7 @@ namespace FlexibleRefinement
                 {
                     foreach (var normalizing in normalizings)
                     {
-                        /*
+                        
                         int i = 0;
                         AtomGraph localStartGraph = new AtomGraph($@"{trial}\{sampleRates[1]}_StartGraph.xyz", StartIms[1]);
                         localStartGraph.setPositions(fromFirstGraphStart, displacements);
@@ -1011,7 +1023,7 @@ namespace FlexibleRefinement
                             localStartGraph.save($@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_it{i + 1}.xyz");
                         }
                         localStartGraph.save($@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz");
-                        */
+                        
                     }
 
                 }
@@ -1023,7 +1035,7 @@ namespace FlexibleRefinement
             /* Evaluate second step */
 
             minDisplRMSD = double.MaxValue;
-
+            maxAgreement = double.MinValue;
             foreach (var corrScale in corrScales)
             {
                 foreach (var distScale in distScales)
@@ -1031,7 +1043,7 @@ namespace FlexibleRefinement
                     foreach (var normalizing in normalizings)
                     {
                         AtomGraph localGraph = new AtomGraph($@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz", TarIms[1]);
-                        double displRMSD = 0.0;
+                        /*double displRMSD = 0.0;
                         for (int i = 0; i < localGraph.Atoms.Count(); i++)
                         {
                             float3 dist = TargetGraphs[1].Atoms[i].Pos - localGraph.Atoms[i].Pos;
@@ -1043,6 +1055,16 @@ namespace FlexibleRefinement
                             minCorrScales[1] = corrScale;
                             minDistScales[1] = distScale;
                             minNormalizings[1] = normalizing;
+                        }
+                        */
+                        float[][] currentAtomSpread = new Image(TarIms[1].Dims).GetHost(Intent.Write);
+                        double agreement = localGraph.getCurrentAgreement(currentAtomSpread);
+                        if (agreement > maxAgreement)
+                        {
+                            minCorrScales[1] = corrScale;
+                            minDistScales[1] = distScale;
+                            minNormalizings[1] = normalizing;
+                            maxAgreement = agreement;
                         }
                     }
                 }
@@ -1102,7 +1124,7 @@ namespace FlexibleRefinement
             /* Evaluate third step */
 
             minDisplRMSD = double.MaxValue;
-
+            maxAgreement = double.MinValue;
             foreach (var corrScale in corrScales)
             {
                 foreach (var distScale in distScales)
@@ -1110,7 +1132,7 @@ namespace FlexibleRefinement
                     foreach (var normalizing in normalizings)
                     {
                         AtomGraph localGraph = new AtomGraph($@"{trial}\StepThree\{sampleRates[2]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz", TarIms[2]);
-                        double displRMSD = 0.0;
+                        /*double displRMSD = 0.0;
                         for (int i = 0; i < localGraph.Atoms.Count(); i++)
                         {
                             float3 dist = TargetGraphs[2].Atoms[i].Pos - localGraph.Atoms[i].Pos;
@@ -1122,7 +1144,18 @@ namespace FlexibleRefinement
                             minCorrScales[2] = corrScale;
                             minDistScales[2] = distScale;
                             minNormalizings[2] = normalizing;
+                        }*/
+                        Image tmp = new Image(TarIms[2].Dims);
+                        float[][] currentAtomSpread = tmp.GetHost(Intent.Write);
+                        double agreement = localGraph.getCurrentAgreement(currentAtomSpread);
+                        if (agreement > maxAgreement)
+                        {
+                            minCorrScales[2] = corrScale;
+                            minDistScales[2] = distScale;
+                            minNormalizings[2] = normalizing;
+                            maxAgreement = agreement;
                         }
+                        tmp.Dispose();
                     }
                 }
             }
