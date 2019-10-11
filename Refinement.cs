@@ -923,6 +923,8 @@ namespace FlexibleRefinement
                 {
                     foreach (var normalizing in normalizings)
                     {
+                        if (File.Exists($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz"))
+                            continue;
                         int i = 0;
                         AtomGraph localStartGraph = new AtomGraph($@"{trial}\{sampleRates[0]}_StartGraph.xyz", StartIms[0]);
                         localStartGraph.setEMIntensities(TarIms[0]);
@@ -1011,7 +1013,8 @@ namespace FlexibleRefinement
                 {
                     foreach (var normalizing in normalizings)
                     {
-                        
+                        if (File.Exists($@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz"))
+                            continue;
                         int i = 0;
                         AtomGraph localStartGraph = new AtomGraph($@"{trial}\{sampleRates[1]}_StartGraph.xyz", StartIms[1]);
                         localStartGraph.setPositions(fromFirstGraphStart, displacements);
