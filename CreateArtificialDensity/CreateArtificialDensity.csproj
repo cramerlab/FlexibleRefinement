@@ -8,7 +8,7 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>CreateArtificialDensity</RootNamespace>
     <AssemblyName>CreateArtificialDensity</AssemblyName>
-    <TargetFrameworkVersion>v4.7</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
@@ -74,8 +74,9 @@
     <Reference Include="Utils">
       <HintPath>..\FlexibleRefinement\bin\Debug\Utils.dll</HintPath>
     </Reference>
-    <Reference Include="WarpLib">
-      <HintPath>..\warp2\bin\WarpLib.dll</HintPath>
+    <Reference Include="WarpLib, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\warp_recentGit\bin\WarpLib.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
