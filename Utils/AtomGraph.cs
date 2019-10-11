@@ -162,8 +162,6 @@ namespace FlexibleRefinement.Util
                             double r = Math.Pow(z - atom.Pos.Z, 2) + Math.Pow(y - atom.Pos.Y, 2) + Math.Pow(x - atom.Pos.X, 2);
 
                             repData[z][Dim.X * y + x] += (float)(atom.Intensity * Math.Exp(-r / sigSqrd));
-                            if (x == 8 && y == 10 && z == 5)
-                                 ;
                         }
 
                     }
@@ -401,13 +399,9 @@ namespace FlexibleRefinement.Util
 
         }
 
-        public void moveAtoms(float corrScale = 20.0f, float distScale = 1.0f, bool normalizeForce = true)
+        public double getCurrentAgreement(float[][] CurrentAtomSpreadData)
         {
-            Image CurrentAtomSpread = new Image(Dim);
-            
             float[][] EMIntensitiesData = EMIntensities.GetHost(Intent.Read);
-            float[][] CurrentAtomSpreadData = CurrentAtomSpread.GetHost(Intent.Write);
-
             foreach (var atom in atoms)
             {
                 for (int z = (int)Math.Floor(atom.Pos.Z - 3 * atom.R); z <= (int)Math.Ceiling(atom.Pos.Z + 3 * atom.R); z++)
@@ -423,46 +417,128 @@ namespace FlexibleRefinement.Util
                             if (x >= Dim.X || x < 0)
                                 continue;
                             double r = Math.Pow(z - atom.Pos.Z, 2) + Math.Pow(y - atom.Pos.Y, 2) + Math.Pow(x - atom.Pos.X, 2);
+
                             CurrentAtomSpreadData[z][Dim.X * y + x] += (float)(atom.Intensity * Math.Exp(-r / Math.Pow(atom.R, 2)));
-                            if (x == 8 && y == 10 && z == 5)
-                                ;
                         }
 
                     }
                 }
             }
             double currentAgreement = 0;
-            double max = double.MinValue;
-            double min = double.MaxValue;
-            double sum = 0;
             for (int z = 0; z < Dim.Z; z++)
             {
                 for (int y = 0; y < Dim.Y; y++)
                 {
                     for (int x = 0; x < Dim.X; x++)
                     {
-                        sum += EMIntensitiesData[z][Dim.X * y + x];
+                        if (double.IsNaN(EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4))))
+                            ;
                         currentAgreement += EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4));
-                        if (Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4)) > max)
-                            max = Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4));
-                        if (Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4)) < min)
-                        { 
-                            min = Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4));
-                            ;
-                        }
-                        if (double.IsNaN(currentAgreement))
-                        {
-                            ;
-                        }
-                        if (Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 3) != 1)
-                        {
-                            ;
-                        }
                     }
                 }
             }
+            return currentAgreement;
+        }
 
+        public void moveAtoms(float corrScale = 20.0f, float distScale = 1.0f, bool normalizeForce = true)
+        {
+            Image CurrentAtomSpread = new Image(Dim);
+            
+            float[][] EMIntensitiesData = EMIntensities.GetHost(Intent.Read);
+            float[][] CurrentAtomSpreadData = CurrentAtomSpread.GetHost(Intent.Write);
+
+            /* Calculate current atom representation */
+            /*
+            foreach (var atom in atoms)
             {
+                for (int z = (int)Math.Floor(atom.Pos.Z - 3 * atom.R); z <= (int)Math.Ceiling(atom.Pos.Z + 3 * atom.R); z++)
+                {
+                    if (z >= Dim.Z || z < 0)
+                        continue;
+                    for (int y = (int)Math.Floor(atom.Pos.Y - 3 * atom.R); y <= (int)Math.Ceiling(atom.Pos.Y + 3 * atom.R); y++)
+                    {
+                        if (y >= Dim.Y || y < 0)
+                            continue;
+                        for (int x = (int)Math.Floor(atom.Pos.X - 3 * atom.R); x <= (int)Math.Ceiling(atom.Pos.X + 3 * atom.R); x++)
+                        {
+                            if (x >= Dim.X || x < 0)
+                                continue;
+                            double r = Math.Pow(z - atom.Pos.Z, 2) + Math.Pow(y - atom.Pos.Y, 2) + Math.Pow(x - atom.Pos.X, 2);
+
+                            CurrentAtomSpreadData[z][Dim.X * y + x] += (float)(atom.Intensity * Math.Exp(-r / Math.Pow(atom.R, 2)));
+                        }
+
+                    }
+                }
+            }
+            */
+            /* Calculate current KL divergence value */
+            double currentAgreement = 0;
+            /*
+            for (int z = 0; z < Dim.Z; z++)
+            {
+                for (int y = 0; y < Dim.Y; y++)
+                {
+                    for (int x = 0; x < Dim.X; x++)
+                    {
+                        if (double.IsNaN(EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4))))
+                            ;
+                        currentAgreement += EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4));
+                    }
+                }
+            }
+            */
+            currentAgreement = getCurrentAgreement(CurrentAtomSpreadData);
+            float3 getKLForce(Atom a, double currAgreement)
+            {
+                double withoutAtom = currentAgreement;
+                float3 diff = new float3(0);
+                for (int dz = -1; dz <= 1; dz++)
+                {
+                    for (int dy = -1; dy <= 1; dy++)
+                    {
+                        for (int dx = -1; dx <= 1; dx++)
+                        {
+                            double currentAgreementNew = currAgreement;
+                            float3 newPos = new float3(a.Pos.X + dx * 0.1f, a.Pos.Y + dy * 0.1f, a.Pos.Z + dz * 0.1f);
+                            if (newPos.X < 0 || newPos.X >= Dim.X || newPos.Y < 0 || newPos.Y >= Dim.Y || newPos.Z < 0 || newPos.Z >= Dim.Z)
+                                continue;
+                            for (int z = (int)Math.Floor(a.Pos.Z - 3 * a.R); z <= (int)Math.Ceiling(a.Pos.Z + 3 * a.R); z++)
+                            {
+                                if (z >= Dim.Z || z < 0)
+                                    continue;
+                                for (int y = (int)Math.Floor(a.Pos.Y - 3 * a.R); y <= (int)Math.Ceiling(a.Pos.Y + 3 * a.R); y++)
+                                {
+                                    if (y >= Dim.Y || y < 0)
+                                        continue;
+                                    for (int x = (int)Math.Floor(a.Pos.X - 3 * a.R); x <= (int)Math.Ceiling(a.Pos.X + 3 * a.R); x++)
+                                    {
+                                        if (x >= Dim.X || x < 0)
+                                            continue;
+                                        double rOld = Math.Pow(z - a.Pos.Z, 2) + Math.Pow(y - a.Pos.Y, 2) + Math.Pow(x - a.Pos.X, 2);
+                                        double rNew = Math.Pow(z - newPos.Z, 2) + Math.Pow(y - newPos.Y, 2) + Math.Pow(x - newPos.X, 2);
+                                        currentAgreementNew -= EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4));
+                                        CurrentAtomSpreadData[z][Dim.X * y + x] -= (float)(a.Intensity * Math.Exp(-rOld / Math.Pow(a.R, 2)));
+
+                                        CurrentAtomSpreadData[z][Dim.X * y + x] += (float)(a.Intensity * Math.Exp(-rNew / Math.Pow(a.R, 2)));
+                                        currentAgreementNew += EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4));
+                                        CurrentAtomSpreadData[z][Dim.X * y + x] -= (float)(a.Intensity * Math.Exp(-rNew / Math.Pow(a.R, 2)));
+                                        CurrentAtomSpreadData[z][Dim.X * y + x] += (float)(a.Intensity * Math.Exp(-rOld / Math.Pow(a.R, 2)));
+                                    }
+
+                                }
+                            }
+                            if (currAgreement - currentAgreementNew > 0)
+                                diff += new float3(dx, dy, dz) * (float)(currAgreement - currentAgreementNew);
+                        }
+                    }
+                }
+                return diff;
+            }
+
+            if(false)
+            {
+                /* Calculate forces on each atom and save as force images */
                 Image forceImX = new Image(Dim);
                 Image forceImY = new Image(Dim);
                 Image forceImZ = new Image(Dim);
@@ -522,15 +598,9 @@ namespace FlexibleRefinement.Util
                 forceImZ.WriteMRC($@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\movement\forceImZ.mrc");
 
             }
-            
-            CurrentCorrelation(out float sumAs, out float sumIs, out float sumAI);
+
             foreach (var atom in atoms)
             {
-                /*float3 intensityForce = IntensityF(atom.Pos);
-                float intensityLength = intensityForce.Length();*/
-
-                
-                
                 float3 distForce = new float3(0);
                 if (atom.Neighbours.Count == 0)
                 {   //Make sure that a single atom will not loose the connection to the rest
@@ -540,7 +610,7 @@ namespace FlexibleRefinement.Util
 
                 distForce = DistF(atom) * distScale;
 
-                float3 corrForce = CorrForce(atom, sumAs, sumIs, sumAI) * corrScale;
+                float3 corrForce = getKLForce(atom, currentAgreement) * corrScale;
 
                 if (normalizeForce)
                 {
@@ -558,22 +628,48 @@ namespace FlexibleRefinement.Util
                 float As0 = atom.Intensity * atom.Intensity;
                 float AI0 = atom.Intensity * getIntensity(atom.Pos);
 
-                if ((corrForce + distForce).Length() == 0)
-                    Console.WriteLine("Offset is 0");
                 float3 ds = corrForce + distForce;
+
+                if (ds.Length() == 0)
+                {
+                    //Console.WriteLine("Offset is 0");
+                    continue;
+                }
                 if (float.IsNaN(ds.X) || float.IsNaN(ds.Y) || float.IsNaN(ds.Z))
                 {
                     Console.WriteLine("Encountered NaN displacement");
                 }
-
+                float3 oldPos = atom.Pos;
                 MoveAtom(atom, corrForce + distForce);
+                float3 newPos = atom.Pos;
+                
+                
+                //contribution to agreement after moving
+                for (int z = (int)Math.Floor(atom.Pos.Z - 3 * atom.R); z <= (int)Math.Ceiling(atom.Pos.Z + 3 * atom.R); z++)
+                {
+                    if (z >= Dim.Z || z < 0)
+                        continue;
+                    for (int y = (int)Math.Floor(atom.Pos.Y - 3 * atom.R); y <= (int)Math.Ceiling(atom.Pos.Y + 3 * atom.R); y++)
+                    {
+                        if (y >= Dim.Y || y < 0)
+                            continue;
+                        for (int x = (int)Math.Floor(atom.Pos.X - 3 * atom.R); x <= (int)Math.Ceiling(atom.Pos.X + 3 * atom.R); x++)
+                        {
+                            if (x >= Dim.X || x < 0)
+                                continue;
+                            double rOld = Math.Pow(z - oldPos.Z, 2) + Math.Pow(y - oldPos.Y, 2) + Math.Pow(x - oldPos.X, 2);
+                            double rNew = Math.Pow(z - newPos.Z, 2) + Math.Pow(y - newPos.Y, 2) + Math.Pow(x - newPos.X, 2);
+                            currentAgreement -= EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4));
+                            CurrentAtomSpreadData[z][Dim.X * y + x] -= (float)(atom.Intensity * Math.Exp(-rOld / Math.Pow(atom.R, 2)));
 
-                //contribution to correlation after moving
-                float As1 = atom.Intensity * atom.Intensity;
-                float AI1 = atom.Intensity * getIntensity(atom.Pos);
+                            CurrentAtomSpreadData[z][Dim.X * y + x] += (float)(atom.Intensity * Math.Exp(-rNew / Math.Pow(atom.R, 2)));
+                            currentAgreement += EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4));
 
-                sumAs = sumAs - As0 + As1;
-                sumAI = sumAI - AI0 + AI1;
+                        }
+
+                    }
+                }
+
                 /* TODO: Not updating neighbours for now
                 List<Atom> newNeighbours = getNeighbours(atom, false);
 
@@ -818,6 +914,10 @@ namespace FlexibleRefinement.Util
                 }
                 i++;
             } while (checkedOne && i <= iLim);
+            if(minAtom == null)
+            {
+                ;
+            }
             return minAtom;
         }
 
@@ -905,6 +1005,8 @@ namespace FlexibleRefinement.Util
                     line = line.Substring(2);
                     result = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(s => float.Parse(s, CultureInfo.InvariantCulture.NumberFormat)).ToArray();
                     float3 pos = new float3(result[0], result[1], result[2]);
+                    if (getIntensity(pos) < 0)
+                        ;
                     atoms.Add(new Atom(pos, (float)(R0/2), getIntensity(pos)));
                 }
             }
