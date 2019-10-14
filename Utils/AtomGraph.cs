@@ -401,8 +401,8 @@ namespace FlexibleRefinement.Util
 
         public double getKL(int x, int y, int z, float[][] CurrentAtomSpread, float[][] EMIntensity)
         {
-            return EMIntensity[z][Dim.X * y + x]       * Math.Log(Math.Max(1e-4, Math.Round((EMIntensity[z][Dim.X * y + x]       + 1e-6) / (CurrentAtomSpread[z][Dim.X * y + x] + 1e-6), 4))) +
-                   CurrentAtomSpread[z][Dim.X * y + x] * Math.Log(Math.Max(1e-4, Math.Round((CurrentAtomSpread[z][Dim.X * y + x] + 1e-6) / (EMIntensity[z][Dim.X * y + x]       + 1e-6), 4)));
+            return EMIntensity[z][Dim.X * y + x] * Math.Log(Math.Max(1e-4, Math.Round((EMIntensity[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpread[z][Dim.X * y + x] + 1e-6), 4))); //+
+                   //CurrentAtomSpread[z][Dim.X * y + x] * Math.Log(Math.Max(1e-4, Math.Round((CurrentAtomSpread[z][Dim.X * y + x] + 1e-6) / (EMIntensity[z][Dim.X * y + x]       + 1e-6), 4)));
         }
 
         public double getCurrentAgreement(float[][] CurrentAtomSpreadData)
