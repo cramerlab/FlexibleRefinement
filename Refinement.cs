@@ -857,13 +857,14 @@ namespace FlexibleRefinement
 
 
             Image[] TarIms = Helper.ArrayOfFunction(i => sampleRates[i] == 1 ? tarIm.GetCopy() : ImageProcessor.Downsample(tarIm, sampleRates[i]), steps);
+            //TarIms[0].WriteMRC($@"{trial}\{sampleRates[0]}_TarIm.mrc");
             Image[] TarMasks = Helper.ArrayOfFunction(i => sampleRates[i] == 1 ? tarMask.GetCopy() : ImageProcessor.Downsample(tarMask, sampleRates[i]), steps);
             for (int k = 0; k < steps; k++)
             {
-                Image tmp = TarIms[k].AsConvolvedGaussian(0.5f);
-                TarIms[k].Dispose();
-                ImageProcessor.Normalize01(tmp);
-                TarIms[k] = tmp;
+                //Image tmp = TarIms[k].AsConvolvedGaussian(0.5f);
+                //TarIms[k].Dispose();
+                ImageProcessor.Normalize01(TarIms[k]);
+                //TarIms[k] = tmp;
                 TarMasks[k] = TarIms[k].GetCopy();
                 TarMasks[k].Binarize(0.4f);
             }
@@ -1266,7 +1267,7 @@ namespace FlexibleRefinement
             Directory.SetCurrentDirectory(rootDir);
 
 
-            int it = 100;
+            int it = 100;/*
             Image im = Image.FromFile(@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\trial10000\4_StartIm.mrc");
             ImageProcessor.Normalize01(im);
 
@@ -1275,7 +1276,7 @@ namespace FlexibleRefinement
 
             Image mask = Image.FromFile(@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\trial10000\4_StartMask.mrc");
             Image tarMask = Image.FromFile(@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\trial10000\4_TarMask.mrc");
-
+            */
             //AtomGraph graph = new AtomGraph(im, mask, (int)(10000.0/64.0));
             //AtomGraph tarGraph = new AtomGraph(tarIm, tarMask, (int)(10000.0 / 64.0));
 
@@ -1285,7 +1286,7 @@ namespace FlexibleRefinement
 
             //graph.moveAtoms();
 
-            GridSearchParams(rootDir + "startIm_fromGraph.mrc", rootDir + "startMask_fromGraph.mrc", rootDir + $"TargetIm_fromGraph{it}.mrc", rootDir + $"TargetMask_fromGraph{it}.mrc", rootDir + "startGraph.xyz", rootDir + $"TargetGraph{it}.xyz",rootDir + "gtDisplacements.txt", "trial10000", 10000);
+            GridSearchParams(rootDir + "startIm_fromGraph.mrc", rootDir + "startMask_fromGraph.mrc", rootDir + $"TargetIm_fromGraph{it}.mrc", rootDir + $"TargetMask_fromGraph{it}.mrc", rootDir + "startGraph.xyz", rootDir + $"TargetGraph{it}.xyz",rootDir + "gtDisplacements.txt", "current_trial10000", 10000);
 
             //GridSearchParams(8);
             /*for (int c = 8; c < 9; c++)

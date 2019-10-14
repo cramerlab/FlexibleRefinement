@@ -431,9 +431,10 @@ namespace FlexibleRefinement.Util
                 {
                     for (int x = 0; x < Dim.X; x++)
                     {
-                        if (double.IsNaN(EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4))))
+                        if (double.IsNaN(EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Max(1e-4, Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4)))) || double.IsNaN(CurrentAtomSpreadData[z][Dim.X * y + x] * Math.Log(Math.Max(1e-4, Math.Round((CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6) / (EMIntensitiesData[z][Dim.X * y + x] + 1e-6), 4)))))
                             ;
-                        currentAgreement += EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4));
+                        /*EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Max(1e-4, Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4))) + */
+                        currentAgreement += CurrentAtomSpreadData[z][Dim.X * y + x] * Math.Log(Math.Max(1e-4, Math.Round((CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6) / (EMIntensitiesData[z][Dim.X * y + x] + 1e-6), 4)));
                     }
                 }
             }
@@ -448,32 +449,32 @@ namespace FlexibleRefinement.Util
             float[][] CurrentAtomSpreadData = CurrentAtomSpread.GetHost(Intent.Write);
 
             /* Calculate current atom representation */
-            /*
-            foreach (var atom in atoms)
-            {
-                for (int z = (int)Math.Floor(atom.Pos.Z - 3 * atom.R); z <= (int)Math.Ceiling(atom.Pos.Z + 3 * atom.R); z++)
-                {
-                    if (z >= Dim.Z || z < 0)
-                        continue;
-                    for (int y = (int)Math.Floor(atom.Pos.Y - 3 * atom.R); y <= (int)Math.Ceiling(atom.Pos.Y + 3 * atom.R); y++)
-                    {
-                        if (y >= Dim.Y || y < 0)
-                            continue;
-                        for (int x = (int)Math.Floor(atom.Pos.X - 3 * atom.R); x <= (int)Math.Ceiling(atom.Pos.X + 3 * atom.R); x++)
+                        /*
+                        foreach (var atom in atoms)
                         {
-                            if (x >= Dim.X || x < 0)
-                                continue;
-                            double r = Math.Pow(z - atom.Pos.Z, 2) + Math.Pow(y - atom.Pos.Y, 2) + Math.Pow(x - atom.Pos.X, 2);
+                            for (int z = (int)Math.Floor(atom.Pos.Z - 3 * atom.R); z <= (int)Math.Ceiling(atom.Pos.Z + 3 * atom.R); z++)
+                            {
+                                if (z >= Dim.Z || z < 0)
+                                    continue;
+                                for (int y = (int)Math.Floor(atom.Pos.Y - 3 * atom.R); y <= (int)Math.Ceiling(atom.Pos.Y + 3 * atom.R); y++)
+                                {
+                                    if (y >= Dim.Y || y < 0)
+                                        continue;
+                                    for (int x = (int)Math.Floor(atom.Pos.X - 3 * atom.R); x <= (int)Math.Ceiling(atom.Pos.X + 3 * atom.R); x++)
+                                    {
+                                        if (x >= Dim.X || x < 0)
+                                            continue;
+                                        double r = Math.Pow(z - atom.Pos.Z, 2) + Math.Pow(y - atom.Pos.Y, 2) + Math.Pow(x - atom.Pos.X, 2);
 
-                            CurrentAtomSpreadData[z][Dim.X * y + x] += (float)(atom.Intensity * Math.Exp(-r / Math.Pow(atom.R, 2)));
+                                        CurrentAtomSpreadData[z][Dim.X * y + x] += (float)(atom.Intensity * Math.Exp(-r / Math.Pow(atom.R, 2)));
+                                    }
+
+                                }
+                            }
                         }
-
-                    }
-                }
-            }
-            */
-            /* Calculate current KL divergence value */
-            double currentAgreement = 0;
+                        */
+                        /* Calculate current KL divergence value */
+                        double currentAgreement = 0;
             /*
             for (int z = 0; z < Dim.Z; z++)
             {
