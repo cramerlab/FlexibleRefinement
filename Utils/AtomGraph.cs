@@ -399,6 +399,12 @@ namespace FlexibleRefinement.Util
 
         }
 
+        public double getKL(int x, int y, int z, float[][] CurrentAtomSpread, float[][] EMIntensity)
+        {
+            return EMIntensity[z][Dim.X * y + x]       * Math.Log(Math.Max(1e-4, Math.Round((EMIntensity[z][Dim.X * y + x]       + 1e-6) / (CurrentAtomSpread[z][Dim.X * y + x] + 1e-6), 4))) +
+                   CurrentAtomSpread[z][Dim.X * y + x] * Math.Log(Math.Max(1e-4, Math.Round((CurrentAtomSpread[z][Dim.X * y + x] + 1e-6) / (EMIntensity[z][Dim.X * y + x]       + 1e-6), 4)));
+        }
+
         public double getCurrentAgreement(float[][] CurrentAtomSpreadData)
         {
             float[][] EMIntensitiesData = EMIntensities.GetHost(Intent.Read);
@@ -431,10 +437,10 @@ namespace FlexibleRefinement.Util
                 {
                     for (int x = 0; x < Dim.X; x++)
                     {
-                        if (double.IsNaN(EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Max(1e-4, Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4)))) || double.IsNaN(CurrentAtomSpreadData[z][Dim.X * y + x] * Math.Log(Math.Max(1e-4, Math.Round((CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6) / (EMIntensitiesData[z][Dim.X * y + x] + 1e-6), 4)))))
-                            ;
+                        /*if (double.IsNaN(EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Max(1e-4, Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4)))) || double.IsNaN(CurrentAtomSpreadData[z][Dim.X * y + x] * Math.Log(Math.Max(1e-4, Math.Round((CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6) / (EMIntensitiesData[z][Dim.X * y + x] + 1e-6), 4)))))
+                            ;*/
                         /*EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Max(1e-4, Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4))) + */
-                        currentAgreement += CurrentAtomSpreadData[z][Dim.X * y + x] * Math.Log(Math.Max(1e-4, Math.Round((CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6) / (EMIntensitiesData[z][Dim.X * y + x] + 1e-6), 4)));
+                        currentAgreement += getKL(x, y, z, CurrentAtomSpreadData, EMIntensitiesData);
                     }
                 }
             }
@@ -518,11 +524,11 @@ namespace FlexibleRefinement.Util
                                             continue;
                                         double rOld = Math.Pow(z - a.Pos.Z, 2) + Math.Pow(y - a.Pos.Y, 2) + Math.Pow(x - a.Pos.X, 2);
                                         double rNew = Math.Pow(z - newPos.Z, 2) + Math.Pow(y - newPos.Y, 2) + Math.Pow(x - newPos.X, 2);
-                                        currentAgreementNew -= EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4));
+                                        currentAgreementNew -= getKL(x, y, z, CurrentAtomSpreadData, EMIntensitiesData);
                                         CurrentAtomSpreadData[z][Dim.X * y + x] -= (float)(a.Intensity * Math.Exp(-rOld / Math.Pow(a.R, 2)));
 
                                         CurrentAtomSpreadData[z][Dim.X * y + x] += (float)(a.Intensity * Math.Exp(-rNew / Math.Pow(a.R, 2)));
-                                        currentAgreementNew += EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4));
+                                        currentAgreementNew += getKL(x, y, z, CurrentAtomSpreadData, EMIntensitiesData);
                                         CurrentAtomSpreadData[z][Dim.X * y + x] -= (float)(a.Intensity * Math.Exp(-rNew / Math.Pow(a.R, 2)));
                                         CurrentAtomSpreadData[z][Dim.X * y + x] += (float)(a.Intensity * Math.Exp(-rOld / Math.Pow(a.R, 2)));
                                     }
@@ -660,11 +666,11 @@ namespace FlexibleRefinement.Util
                                 continue;
                             double rOld = Math.Pow(z - oldPos.Z, 2) + Math.Pow(y - oldPos.Y, 2) + Math.Pow(x - oldPos.X, 2);
                             double rNew = Math.Pow(z - newPos.Z, 2) + Math.Pow(y - newPos.Y, 2) + Math.Pow(x - newPos.X, 2);
-                            currentAgreement -= EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4));
+                            currentAgreement -= getKL(x,y,z,CurrentAtomSpreadData, EMIntensitiesData);
                             CurrentAtomSpreadData[z][Dim.X * y + x] -= (float)(atom.Intensity * Math.Exp(-rOld / Math.Pow(atom.R, 2)));
 
                             CurrentAtomSpreadData[z][Dim.X * y + x] += (float)(atom.Intensity * Math.Exp(-rNew / Math.Pow(atom.R, 2)));
-                            currentAgreement += EMIntensitiesData[z][Dim.X * y + x] * Math.Log(Math.Round((EMIntensitiesData[z][Dim.X * y + x] + 1e-6) / (CurrentAtomSpreadData[z][Dim.X * y + x] + 1e-6), 4));
+                            currentAgreement += getKL(x, y, z, CurrentAtomSpreadData, EMIntensitiesData);
 
                         }
 
