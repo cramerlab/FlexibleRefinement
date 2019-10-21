@@ -828,7 +828,7 @@ namespace FlexibleRefinement
             int[] numIterations = new int[steps] { 50, 50, 50 };
             int[] sampledCounts = Helper.ArrayOfFunction(i => (int)(targetCount / Math.Pow(sampleRates[i],3)), steps);
 
-            float[] corrScales = Helper.ArrayOfFunction(k => (float)(k + 1), 20);
+            float[] corrScales = new float[1] { 1 };// Helper.ArrayOfFunction(k => (float)(k + 1), 20);
             float[] distScales = Helper.ArrayOfFunction(k => (float)(k + 1), 20);
             bool[] normalizings = new bool[] { /*true,*/ false };
 
@@ -914,15 +914,17 @@ namespace FlexibleRefinement
 
 
             DateTime begin = DateTime.UtcNow;
-            Helper.ForCPU(0, 20, 20, null, (k, id, ts) =>
-            {
-            /*foreach (var corrScale in corrScales)
+            /*Helper.ForCPU(0, corrScales.Count(), 20, null, (k, id, ts) =>
             {*/
-                float corrScale = corrScales[k];
+            foreach (var corrScale in corrScales)
+            {
+                //float corrScale = corrScales[k];
 
-                foreach (var distScale in distScales)
+                //foreach (var distScale in distScales)
+                Helper.ForCPU(0, distScales.Count(), 20, null, (d, id, ts) =>
                 {
-                    foreach (var normalizing in normalizings)
+                    float distScale = distScales[d];
+                foreach (var normalizing in normalizings)
                     {
                         if (File.Exists($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz"))
                             continue;
@@ -937,9 +939,9 @@ namespace FlexibleRefinement
                         localStartGraph.save($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz");
                     }
 
-                }
+                }, null);
 
-            }, null);
+            }//, null);
             DateTime end = DateTime.UtcNow;
             System.Console.WriteLine($"Total Elapsed Time: {(end - begin).Milliseconds} ms");
             #endregion
@@ -1006,12 +1008,16 @@ namespace FlexibleRefinement
                 Directory.CreateDirectory($@"{trial}\StepTwo");
             }
             begin = DateTime.UtcNow;
-            Helper.ForCPU(0, 20, 20, null, (k, id, ts) =>
+            //Helper.ForCPU(0, corrScales.Count(), 20, null, (k, id, ts) =>
+            foreach(var corrScale in corrScales)
             {
-                float corrScale = corrScales[k];
+                //float corrScale = corrScales[k];
 
-                foreach (var distScale in distScales)
+                //foreach (var distScale in distScales)
+                Helper.ForCPU(0, distScales.Count(), 20, null, (d, id, ts) =>
                 {
+                    float distScale = distScales[d];
+
                     foreach (var normalizing in normalizings)
                     {
                         if (File.Exists($@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz"))
@@ -1030,9 +1036,9 @@ namespace FlexibleRefinement
                         
                     }
 
-                }
+                }, null);
 
-            }, null);
+            }//, null);
             end = DateTime.UtcNow;
             System.Console.WriteLine($"Second Step Total Elapsed Time: {(end - begin).Milliseconds} ms");
             #endregion
@@ -1095,13 +1101,15 @@ namespace FlexibleRefinement
                 Directory.CreateDirectory($@"{trial}\StepThree");
             }
             begin = DateTime.UtcNow;
-            Helper.ForCPU(0, 20, 20, null, (k, id, ts) =>
-            /*foreach (var corrScale in corrScales)*/
+            //Helper.ForCPU(0, corrScales.Count(), 20, null, (k, id, ts) =>
+            foreach (var corrScale in corrScales)
             {
-                float corrScale = corrScales[k];
+                //float corrScale = corrScales[k];
 
-                foreach (var distScale in distScales)
+                //foreach (var distScale in distScales)
+                Helper.ForCPU(0, distScales.Count(), 20, null, (d, id, ts) =>
                 {
+                    float distScale = distScales[d];
                     foreach (var normalizing in normalizings)
                     {
                         if (File.Exists($@"{trial}\StepThree\{sampleRates[2]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz"))
@@ -1119,9 +1127,9 @@ namespace FlexibleRefinement
                         localStartGraph.save($@"{trial}\StepThree\{sampleRates[2]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz");
                     }
 
-                }
+                }, null);
 
-            }, null);
+            }//, null);
             end = DateTime.UtcNow;
             System.Console.WriteLine($"Third Step Total Elapsed Time: {(end - begin).Milliseconds} ms");
             #endregion

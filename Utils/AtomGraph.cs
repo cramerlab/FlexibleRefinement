@@ -826,12 +826,14 @@ namespace FlexibleRefinement.Util
         private float getIntensity(float3 pos)
         {
             float[] output = new float[1];
-            CPU.EvalEinspline3(einSpline, new float[] { (float)(pos.Z / Dim.Z), (float)(pos.Y / Dim.Y), (float)(pos.X / Dim.X) }, 1, output);
-            return output[0];
+            return EMIntensities.GetInterpolatedValue(pos);
+            // CPU.EvalEinspline3(einSpline, new float[] { (float)(pos.Z / Dim.Z), (float)(pos.Y / Dim.Y), (float)(pos.X / Dim.X) }, 1, output);
+            // return output[0];
         }
 
         private float[] getIntensity(float3[] pos)
         {
+            /*
             float[] output = new float[pos.Length];
             float[] input = new float[pos.Length * 3];
             for (int i = 0; i < pos.Length; i++)
@@ -841,7 +843,8 @@ namespace FlexibleRefinement.Util
                 input[i*3 + 2] = pos[i].X/Dim.X;
             }
             CPU.EvalEinspline3(einSpline, input, pos.Length, output);
-            return output;
+            return output;*/
+            return Helper.ArrayOfFunction(i => EMIntensities.GetInterpolatedValue(pos[i]), pos.Count());
         }
 
         private IntPtr ImageToSpline(Image im)

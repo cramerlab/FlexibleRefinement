@@ -2,6 +2,7 @@
 using Warp.Tools;
 using Warp;
 using FlexibleRefinement.Util;
+using System.IO;
 
 namespace CreateArtificialDensity
 {
@@ -76,8 +77,11 @@ namespace CreateArtificialDensity
         }
 
 
-        static void simulate()
+        static void simulate(String outdir)
         {
+            if (!Directory.Exists(outdir))
+                Directory.CreateDirectory(outdir);
+
             /* 
              * Create an artificial density representing a stick and one representing an arc. However, the two are generated so seperately that there is no 1 to 1 mapping between stick and arc atoms
              * 
@@ -133,36 +137,36 @@ namespace CreateArtificialDensity
             }
              , null);
 
-            volStick.WriteMRC("StickVolume_Created.mrc");
+            volStick.WriteMRC($@"{outdir}\StickVolume_Created.mrc");
 
             float3[][] gradStick = ImageProcessor.getGradient(volStick);
             float[][] gradDataStick = Helper.ArrayOfFunction(z => Helper.ArrayOfFunction(i => (gradStick[z][i].Length()), dims.X * dims.Y), dims.Z);
             Image gradImStick = new Image(gradDataStick, dims);
-            gradImStick.WriteMRC("StickGrad_Created.mrc");
+            gradImStick.WriteMRC($@"{outdir}\StickGrad_Created.mrc");
 
             Image maskStick = volStick.GetCopy();
             maskStick.Binarize((float)(1 / Math.E));
-            maskStick.WriteMRC("StickMask_Created.mrc");
+            maskStick.WriteMRC($@"{outdir}\StickMask_Created.mrc");
 
             float RAtomStick, RAtomArc;
             float3[] atomsStick = PhysicsHelper.FillWithEquidistantPoints(maskStick, 1000, out RAtomStick);
 
-            volArc.WriteMRC("ArcVolume_Created.mrc");
+            volArc.WriteMRC($@"{outdir}\ArcVolume_Created.mrc");
 
             float3[][] gradArc = ImageProcessor.getGradient(volArc);
             float[][] gradDataArc = Helper.ArrayOfFunction(z => Helper.ArrayOfFunction(i => (gradArc[z][i].Length()), dims.X * dims.Y), dims.Z);
             Image gradImArc = new Image(gradDataArc, dims);
-            gradImArc.WriteMRC("ArcGrad_Created.mrc");
+            gradImArc.WriteMRC($@"{outdir}\ArcGrad_Created.mrc");
 
             Image maskArc = volArc.GetCopy();
             maskArc.Binarize((float)(1 / Math.E));
-            maskArc.WriteMRC("ArcMask_Created.mrc");
-            return;
+            maskArc.WriteMRC($@"{outdir}\ArcMask_Created.mrc");
+           
             float3[] atomsArc = PhysicsHelper.FillWithEquidistantPoints(maskArc, 1000, out RAtomArc);
             float RAtomStickS = (float)Math.Pow(RAtomStick, 2), RAtomArcS = (float)Math.Pow(RAtomArc / 2, 2);
             volStickData = volAtomsStick.GetHost(Intent.Write);
             volArcData = volAtomsArc.GetHost(Intent.Write);
-            /*
+            
             Helper.ForCPU(0, dims.Z, 20, null, (z, id, ts) =>
             {
                 for (int y = 0; y < dims.Y; y++)
@@ -186,11 +190,11 @@ namespace CreateArtificialDensity
                     }
                 }
             }, null);
-            volAtomsStick.WriteMRC("StickVolume_Atoms.mrc");
-            volAtomsArc.WriteMRC("ArcVolume_Atoms.mrc");
-            */
+            volAtomsStick.WriteMRC($@"{outdir}\StickVolume_Atoms.mrc");
+            volAtomsArc.WriteMRC($@"{outdir}\ArcVolume_Atoms.mrc");
 
 
+            return;
             AtomGraph graph = new AtomGraph(atomsArc, Helper.ArrayOfFunction(i => RAtomStick, atomsArc.Length), dims);
             float3[][] forces = graph.CalculateForces(gradArc);
             float[][] normForce = Helper.ArrayOfFunction(z => Helper.ArrayOfFunction(i => (forces[z][i].Length()), dims.X * dims.Y), dims.Z);
@@ -253,8 +257,8 @@ namespace CreateArtificialDensity
 
         static void Main(string[] args)
         {
-            
-            Simulation.simulatePulledToy();
+            simulate(@"D:\Software\FlexibleRefinement\bin\Debug\Stick2Arc");
+            //Simulation.simulatePulledToy();
             //String rootDir = @"D:\Software\FlexibleRefinement\bin\Debug\lennardJones\bombarded";
             //simulateRotated(8, rootDir, "", (im) => { middleHole(im, 4.0f); });
         }
