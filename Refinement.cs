@@ -845,29 +845,15 @@ namespace FlexibleRefinement
 
 
 
-            Image[] StartIms = Helper.ArrayOfFunction(i => sampleRates[i] == 1 ? startIm.GetCopy() : ImageProcessor.Downsample(startIm, sampleRates[i]), steps);
-            Image[] StartMasks = Helper.ArrayOfFunction(i => sampleRates[i] == 1 ? startMask.GetCopy() : ImageProcessor.Downsample(startMask, sampleRates[i]), steps);
-            for (int k = 0; k < steps; k++)
-            {
-                ImageProcessor.Normalize01(StartIms[k]);
-                StartMasks[k] = StartIms[k].GetCopy();
-                StartMasks[k].Binarize(0.4f);
-            }
-            AtomGraph[] StartGraphs = Helper.ArrayOfFunction(i => sampleRates[i] == 1 ? new AtomGraph(StartGraph, startIm):new AtomGraph(StartIms[i], StartMasks[i], sampledCounts[i]), steps);
+            Image[] StartIms = Helper.ArrayOfFunction(i => true ? startIm.GetCopy() : ImageProcessor.Downsample(startIm, sampleRates[i]), steps);
+            Image[] StartMasks = Helper.ArrayOfFunction(i => true ? startMask.GetCopy() : ImageProcessor.Downsample(startMask, sampleRates[i]), steps);
 
+            AtomGraph[] StartGraphs = Helper.ArrayOfFunction(i => sampleRates[i]==1 ? new AtomGraph(StartGraph, startIm):new AtomGraph(StartIms[i], StartMasks[i], sampledCounts[i]), steps);
 
-            Image[] TarIms = Helper.ArrayOfFunction(i => sampleRates[i] == 1 ? tarIm.GetCopy() : ImageProcessor.Downsample(tarIm, sampleRates[i]), steps);
+            Image[] TarIms = Helper.ArrayOfFunction(i => tarIm.GetCopy(), steps);
             //TarIms[0].WriteMRC($@"{trial}\{sampleRates[0]}_TarIm.mrc");
-            Image[] TarMasks = Helper.ArrayOfFunction(i => sampleRates[i] == 1 ? tarMask.GetCopy() : ImageProcessor.Downsample(tarMask, sampleRates[i]), steps);
-            for (int k = 0; k < steps; k++)
-            {
-                //Image tmp = TarIms[k].AsConvolvedGaussian(0.5f);
-                //TarIms[k].Dispose();
-                ImageProcessor.Normalize01(TarIms[k]);
-                //TarIms[k] = tmp;
-                TarMasks[k] = TarIms[k].GetCopy();
-                TarMasks[k].Binarize(0.4f);
-            }
+            Image[] TarMasks = Helper.ArrayOfFunction(i => tarMask.GetCopy(), steps);
+
             String line;
             System.IO.StreamReader file = new System.IO.StreamReader(GtDisplacements);
             List<float3> gtDisplList = new List<float3>();
@@ -893,14 +879,17 @@ namespace FlexibleRefinement
             {
                 //StartIms[i] = StartGraphs[i].Repr(1.0);
                 //TarIms[i] = TargetGraphs[i].Repr(1.0);
-                StartIms[i].WriteMRC($@"{trial}\{sampleRates[i]}_StartIm.mrc");
+                /*StartIms[i].WriteMRC($@"{trial}\{sampleRates[i]}_StartIm.mrc");
                 TarIms[i].WriteMRC($@"{trial}\{sampleRates[i]}_TarIm.mrc");
 
                 StartMasks[i].WriteMRC($@"{trial}\{sampleRates[i]}_StartMask.mrc");
                 TarMasks[i].WriteMRC($@"{trial}\{sampleRates[i]}_TarMask.mrc");
-
+                */
                 StartGraphs[i].save($@"{trial}\{sampleRates[i]}_StartGraph.xyz");
+                StartGraphs[i].Repr(1.0).WriteMRC($@"{trial}\{sampleRates[i]}_StartGraph.mrc");
+
                 TargetGraphs[i].save($@"{trial}\{sampleRates[i]}_TargetGraph.xyz");
+                TargetGraphs[i].Repr(1.0).WriteMRC($@"{trial}\{sampleRates[i]}_TargetGraph.mrc");
             }
             
 
@@ -910,7 +899,6 @@ namespace FlexibleRefinement
             {
                 Directory.CreateDirectory($@"{trial}\StepOne");
             }
-            TarIms[0].WriteMRC($@"{trial}\StepOne\{sampleRates[0]}_TarIm.mrc");
 
 
             DateTime begin = DateTime.UtcNow;
@@ -937,13 +925,14 @@ namespace FlexibleRefinement
                             localStartGraph.save($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_it{i + 1}.xyz");
                         }
                         localStartGraph.save($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz");
+                        localStartGraph.save($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.graph");
                     }
 
                 }, null);
 
             }//, null);
             DateTime end = DateTime.UtcNow;
-            System.Console.WriteLine($"Total Elapsed Time: {(end - begin).Milliseconds} ms");
+            System.Console.WriteLine($"1st Step Total Elapsed Time: {(end - begin).Hours} h {(end - begin).Minutes} m {(end - begin).Seconds} s {(end - begin).Milliseconds} ms");
             #endregion
 
             /* Evaluate first step */
@@ -956,7 +945,7 @@ namespace FlexibleRefinement
                 {
                     foreach (var normalizing in normalizings)
                     {
-                        AtomGraph localGraph = new AtomGraph($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz", TarIms[0]);
+                        AtomGraph localGraph = new AtomGraph($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.graph", TarIms[0]);
                         /*double displRMSD = 0.0;
                         for (int i = 0; i < localGraph.Atoms.Count(); i++)
                         {
@@ -1033,14 +1022,14 @@ namespace FlexibleRefinement
                             localStartGraph.save($@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_it{i + 1}.xyz");
                         }
                         localStartGraph.save($@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz");
-                        
+                        localStartGraph.save($@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.graph");
                     }
 
                 }, null);
 
             }//, null);
             end = DateTime.UtcNow;
-            System.Console.WriteLine($"Second Step Total Elapsed Time: {(end - begin).Milliseconds} ms");
+            System.Console.WriteLine($"Second Step Total Elapsed Time: {(end - begin).Hours} h {(end - begin).Minutes} m {(end - begin).Seconds} s {(end - begin).Milliseconds} ms");
             #endregion
             /* Evaluate second step */
 
@@ -1052,7 +1041,7 @@ namespace FlexibleRefinement
                 {
                     foreach (var normalizing in normalizings)
                     {
-                        AtomGraph localGraph = new AtomGraph($@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz", TarIms[1]);
+                        AtomGraph localGraph = new AtomGraph($@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.graph", TarIms[1]);
                         /*double displRMSD = 0.0;
                         for (int i = 0; i < localGraph.Atoms.Count(); i++)
                         {
@@ -1085,7 +1074,7 @@ namespace FlexibleRefinement
             #region ThirdStep
             String fromSecondGraphFileStart = $@"{trial}\{sampleRates[1]}_StartGraph.xyz";
             AtomGraph fromSecondGraphStart = new AtomGraph(fromSecondGraphFileStart, TarIms[1]);
-            String fromSecondGraphFileFinal = $@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{minCorrScales[1]}_{minDistScales[1]}_{minNormalizings[1]}_final.xyz";
+            String fromSecondGraphFileFinal = $@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{minCorrScales[1]}_{minDistScales[1]}_{minNormalizings[1]}_final.graph";
             AtomGraph fromSecondGraphFinal = new AtomGraph(fromSecondGraphFileFinal, TarIms[1]);
 
             displacements = new List<float3>(fromSecondGraphFinal.Atoms.Count);
@@ -1131,7 +1120,7 @@ namespace FlexibleRefinement
 
             }//, null);
             end = DateTime.UtcNow;
-            System.Console.WriteLine($"Third Step Total Elapsed Time: {(end - begin).Milliseconds} ms");
+            System.Console.WriteLine($"Third Step Total Elapsed Time: {(end - begin).Hours} h {(end - begin).Minutes} m {(end - begin).Seconds} s {(end - begin).Milliseconds} ms");
             #endregion
             /* Evaluate third step */
 

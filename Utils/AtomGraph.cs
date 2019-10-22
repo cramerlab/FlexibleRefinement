@@ -955,7 +955,7 @@ namespace FlexibleRefinement.Util
             atomSpread = Helper.ArrayOfFunction(i => Math.Exp(-Math.Pow(i*stepSize/r,2)), (int)(Math.Round(r / stepSize, 0)));
         }
 
-        public AtomGraph(String filename, Image intensities)
+        public AtomGraph(String filename, Image intensities, float scaleFactor=1.0f)
         {
             int counter = 0;
             string line;
@@ -969,7 +969,7 @@ namespace FlexibleRefinement.Util
             atoms = new List<Atom>();
             // Read the file and display it line by line.  
             System.IO.StreamReader file = new System.IO.StreamReader(filename);
-            Dim = intensities.Dims;
+            Dim = intensities.Dims * 1/scaleFactor;
             if (filename.EndsWith(".graph"))
             {
                 int[] temp;
