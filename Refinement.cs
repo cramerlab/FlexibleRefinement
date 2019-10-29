@@ -946,6 +946,10 @@ namespace FlexibleRefinement
                     foreach (var normalizing in normalizings)
                     {
                         AtomGraph localGraph = new AtomGraph($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.graph", TarIms[0]);
+                        if (!File.Exists($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.mrc"))
+                        {
+                            localGraph.Repr(1.0d, true).WriteMRC($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.mrc");
+                        }
                         /*double displRMSD = 0.0;
                         for (int i = 0; i < localGraph.Atoms.Count(); i++)
                         {
@@ -1009,7 +1013,7 @@ namespace FlexibleRefinement
 
                     foreach (var normalizing in normalizings)
                     {
-                        if (File.Exists($@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz"))
+                        if (File.Exists($@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.graph"))
                             continue;
                         int i = 0;
                         AtomGraph localStartGraph = new AtomGraph($@"{trial}\{sampleRates[1]}_StartGraph.xyz", StartIms[1]);
@@ -1042,6 +1046,10 @@ namespace FlexibleRefinement
                     foreach (var normalizing in normalizings)
                     {
                         AtomGraph localGraph = new AtomGraph($@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.graph", TarIms[1]);
+                        if (!File.Exists($@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.mrc"))
+                        {
+                            localGraph.Repr(1.0d, true).WriteMRC($@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.mrc");
+                        }
                         /*double displRMSD = 0.0;
                         for (int i = 0; i < localGraph.Atoms.Count(); i++)
                         {
@@ -1094,19 +1102,19 @@ namespace FlexibleRefinement
             foreach (var corrScale in corrScales)
             {
                 //float corrScale = corrScales[k];
-
                 //foreach (var distScale in distScales)
                 Helper.ForCPU(0, distScales.Count(), 20, null, (d, id, ts) =>
                 {
                     float distScale = distScales[d];
                     foreach (var normalizing in normalizings)
                     {
-                        if (File.Exists($@"{trial}\StepThree\{sampleRates[2]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz"))
+                        if (File.Exists($@"{trial}\StepThree\{sampleRates[2]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.graph"))
                             continue;
                         int i = 0;
                         AtomGraph localStartGraph = new AtomGraph($@"{trial}\{sampleRates[2]}_StartGraph.xyz", StartIms[2]);
                         localStartGraph.setPositions(fromSecondGraphStart, displacements);
                         localStartGraph.save($@"{trial}\StepThree\{sampleRates[2]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_it{0}.xyz");
+                        localStartGraph.save($@"{trial}\StepThree\{sampleRates[2]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_it{0}.graph");
                         localStartGraph.setEMIntensities(TarIms[2]);
                         for (; i < numIterations[2]; i++)
                         {
@@ -1114,6 +1122,7 @@ namespace FlexibleRefinement
                             localStartGraph.save($@"{trial}\StepThree\{sampleRates[2]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_it{i + 1}.xyz");
                         }
                         localStartGraph.save($@"{trial}\StepThree\{sampleRates[2]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz");
+                        localStartGraph.save($@"{trial}\StepThree\{sampleRates[2]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.graph");
                     }
 
                 }, null);
@@ -1132,7 +1141,11 @@ namespace FlexibleRefinement
                 {
                     foreach (var normalizing in normalizings)
                     {
-                        AtomGraph localGraph = new AtomGraph($@"{trial}\StepThree\{sampleRates[2]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz", TarIms[2]);
+                        AtomGraph localGraph = new AtomGraph($@"{trial}\StepThree\{sampleRates[2]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.graph", TarIms[2]);
+                        if (!File.Exists($@"{trial}\StepThree\{sampleRates[2]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.mrc"))
+                        {
+                            localGraph.Repr(1.0d, true).WriteMRC($@"{trial}\StepThree\{sampleRates[2]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.mrc");
+                        }
                         /*double displRMSD = 0.0;
                         for (int i = 0; i < localGraph.Atoms.Count(); i++)
                         {
@@ -1256,7 +1269,7 @@ namespace FlexibleRefinement
 
         static void Main(string[] args)
         {
-            String rootDir = @"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\";
+            String rootDir = @"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_Modulated\100\";
             if (!Directory.Exists(rootDir))
             {
                 Directory.CreateDirectory(rootDir);
@@ -1283,7 +1296,7 @@ namespace FlexibleRefinement
 
             //graph.moveAtoms();
 
-            GridSearchParams(rootDir + "startIm_fromGraph.mrc", rootDir + "startMask_fromGraph.mrc", rootDir + $"TargetIm_fromGraph{it}.mrc", rootDir + $"TargetMask_fromGraph{it}.mrc", rootDir + "startGraph.xyz", rootDir + $"TargetGraph{it}.xyz",rootDir + "gtDisplacements.txt", "current_trial10000", 10000);
+            GridSearchParams(rootDir + "startIm.mrc", rootDir + "startMask.mrc", rootDir + $"TargetIm_fromGraph{it}.mrc", rootDir + $"TargetMask_fromGraph{it}.mrc", rootDir + "startGraph.xyz", rootDir + $"TargetGraph{it}.xyz",rootDir + "gtDisplacements.txt", "current_trial10000", 10000);
 
             //GridSearchParams(8);
             /*for (int c = 8; c < 9; c++)

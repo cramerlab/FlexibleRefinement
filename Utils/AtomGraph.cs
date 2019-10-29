@@ -353,7 +353,27 @@ namespace FlexibleRefinement.Util
 
         public void moveAtoms(float3[][] forcefield)
         {
+            Image xForce = new Image(Dim);
+            Image yForce = new Image(Dim);
+            Image zForce = new Image(Dim);
 
+            float[][] xForceData = xForce.GetHost(Intent.Write);
+            float[][] yForceData = yForce.GetHost(Intent.Write);
+            float[][] zForceData = zForce.GetHost(Intent.Write);
+            for (int z = 0; z < Dim.Z; z++)
+            {
+                for (int x = 0; x < Dim.X; x++)
+                {
+                    for (int y = 0; y < Dim.Y; y++)
+                    {
+                        xForceData[z][y * Dim.X + x] = forcefield[z][y * Dim.X + x].X;
+                        yForceData[z][y * Dim.X + x] = forcefield[z][y * Dim.X + x].Y;
+                        zForceData[z][y * Dim.X + x] = forcefield[z][y * Dim.X + x].Z;
+                    }
+                }
+            }
+
+            /*
             float[] xForce = new float[Dim.Elements()];
             float[] yForce = new float[Dim.Elements()];
             float[] zForce = new float[Dim.Elements()];
@@ -377,20 +397,17 @@ namespace FlexibleRefinement.Util
             IntPtr xForceSpline = CPU.CreateEinspline3(xForce, Dim, new float3(0));
             IntPtr yForceSpline = CPU.CreateEinspline3(yForce, Dim, new float3(0));
             IntPtr zForceSpline = CPU.CreateEinspline3(zForce, Dim, new float3(0));
-
+            */
             float[] tmp = new float[1];
 
             foreach (var atom in Atoms)
             {
 
                 float3 force = new float3(0);
-                CPU.EvalEinspline3(xForceSpline, new float[] { (float)(atom.Pos.Z / Dim.Z), (float)(atom.Pos.Y / Dim.Y), (float)(atom.Pos.X / Dim.X) }, 1, tmp);
-                force.X = tmp[0];
 
-                CPU.EvalEinspline3(yForceSpline, new float[] { (float)(atom.Pos.Z / Dim.Z), (float)(atom.Pos.Y / Dim.Y), (float)(atom.Pos.X / Dim.X) }, 1, tmp);
-                force.Y = tmp[0];
-                CPU.EvalEinspline3(zForceSpline, new float[] { (float)(atom.Pos.Z / Dim.Z), (float)(atom.Pos.Y / Dim.Y), (float)(atom.Pos.X / Dim.X) }, 1, tmp);
-                force.Z = tmp[0];
+                force.X = xForce.GetInterpolatedValue(atom.Pos);
+                force.Y = yForce.GetInterpolatedValue(atom.Pos);
+                force.Z = zForce.GetInterpolatedValue(atom.Pos);
 
                 float3 distForce = DistF(atom);
                 MoveAtom(atom, force + distForce);
@@ -648,6 +665,8 @@ namespace FlexibleRefinement.Util
                 }
                 float3 oldPos = atom.Pos;
                 MoveAtom(atom, corrForce + distForce);
+                if (atom.Pos.X == float.NaN || atom.Pos.Y == float.NaN || atom.Pos.Z == float.NaN)
+                    ;
                 float3 newPos = atom.Pos;
                 
                 
@@ -875,8 +894,61 @@ namespace FlexibleRefinement.Util
 
         public Atom GetClosestAtom(Atom a)
         {
-            return GetClosestAtom(a.Pos);
+            float3 pos = a.Pos;
+            int3 gridPos = new int3((int)(pos.X / gridSpacing.X), (int)(pos.Y / gridSpacing.Y), (int)(pos.Z / gridSpacing.Z));
+            GridCell start = grid[gridPos.Z][gridPos.Y * gridSize.X + gridPos.X];
+            bool checkedOne;
+            int i = 0;
+            int iLim = int.MaxValue;
+            float minDist = float.PositiveInfinity;
+            Atom minAtom = null;
+            do
+            {
+                checkedOne = false;
+                for (int dz = -i; dz <= i; dz++)
+                {
+                    if (gridPos.Z + dz >= gridSize.Z)
+                        continue;
+                    for (int dy = -i; dy <= i; dy++)
+                    {
+                        if (gridPos.Y + dy >= gridSize.Y)
+                            continue;
+                        for (int dx = -i; dx <= i; dx++)
+                        {
+                            if (gridPos.X + dx >= gridSize.X)
+                                continue;
+                            if (!(Math.Abs(dx) == i || Math.Abs(dy) == i || Math.Abs(dz) == i))
+                                continue;
+                            GridCell curr = grid[gridPos.Z + dz][(gridPos.Y + dy) * gridSize.X + gridPos.X + dx];
+                            checkedOne = true; //GridCells could be found
+                            if (curr.Atoms.Count > 0)
+                            {
+                                
+                                foreach (var btom in curr.Atoms)
+                                {
+                                    if (btom.ObjectID == a.ObjectID)
+                                        continue;
+                                    iLim = Math.Min(iLim, i + 1); // In current cubic layer there are atoms, therefore we can terminate with next layer
+                                    float dist = (btom.Pos - pos).Length();
+                                    if (dist < minDist)
+                                    {
+                                        minAtom = btom;
+                                        minDist = dist;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                i++;
+            } while (checkedOne && i <= iLim);
+            if (minAtom == null)
+            {
+                ;
+            }
+            return minAtom;
         }
+    
 
         public Atom GetClosestAtom(float3 pos)
         {
@@ -943,6 +1015,8 @@ namespace FlexibleRefinement.Util
                 float3 displacement = displ[other.Atoms.IndexOf(nN)] * scaleFactor;
 
                 atom.Pos = atom.Pos + displacement;
+                if (atom.Pos.X == float.NaN)
+                    ;
                 Debug.Assert(atom.Pos.X <= Dim.X || atom.Pos.Y <= Dim.Y || atom.Pos.Z <= Dim.Z);
 
             }

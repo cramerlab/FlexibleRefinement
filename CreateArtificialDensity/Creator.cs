@@ -257,7 +257,12 @@ namespace CreateArtificialDensity
 
         static void Main(string[] args)
         {
-            simulate(@"D:\Software\FlexibleRefinement\bin\Debug\Stick2Arc");
+            int3 dim = new int3(100, 100, 100);
+            float[][] noiseData = Simulation.simplexPerlinNoise(1, dim);
+            Image noise = new Image(noiseData, dim);
+            noise.WriteMRC(@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_Modulated\100\perlinNoise.mrc");
+            Simulation.simulatePulledToyModulated();
+            //simulate(@"D:\Software\FlexibleRefinement\bin\Debug\Stick2Arc");
             //Simulation.simulatePulledToy();
             //String rootDir = @"D:\Software\FlexibleRefinement\bin\Debug\lennardJones\bombarded";
             //simulateRotated(8, rootDir, "", (im) => { middleHole(im, 4.0f); });

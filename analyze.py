@@ -237,7 +237,7 @@ def downsampledRotationExp(step="StepThree", c=10):
 '''
 
 def forceFieldExp(step="StepThree"):
-    basepath = r"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\current_trial10000"
+    basepath = r"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_modulated\100\current_trial10000"
 
     if step == "StepOne":
         factor = 4
