@@ -921,7 +921,7 @@ namespace FlexibleRefinement
                         localStartGraph.setEMIntensities(TarIms[0]);
                         for (; i < numIterations[0]; i++)
                         {
-                            localStartGraph.moveAtoms(corrScale, distScale, normalizing);
+                            localStartGraph.moveAtoms(corrScale, distScale, normalizing, 0.1f*sampleRates[0]);
                             localStartGraph.save($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_it{i + 1}.xyz");
                         }
                         localStartGraph.save($@"{trial}\StepOne\{sampleRates[0]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz");
@@ -1022,7 +1022,7 @@ namespace FlexibleRefinement
                         localStartGraph.setEMIntensities(TarIms[1]);
                         for (; i < numIterations[1]; i++)
                         {
-                            localStartGraph.moveAtoms(corrScale, distScale, normalizing);
+                            localStartGraph.moveAtoms(corrScale, distScale, normalizing, 0.1f * sampleRates[1]);
                             localStartGraph.save($@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_it{i + 1}.xyz");
                         }
                         localStartGraph.save($@"{trial}\StepTwo\{sampleRates[1]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz");
@@ -1118,7 +1118,7 @@ namespace FlexibleRefinement
                         localStartGraph.setEMIntensities(TarIms[2]);
                         for (; i < numIterations[2]; i++)
                         {
-                            localStartGraph.moveAtoms(corrScale, distScale, normalizing);
+                            localStartGraph.moveAtoms(corrScale, distScale, normalizing, 0.1f * sampleRates[2]);
                             localStartGraph.save($@"{trial}\StepThree\{sampleRates[2]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_it{i + 1}.xyz");
                         }
                         localStartGraph.save($@"{trial}\StepThree\{sampleRates[2]}_Rotate_PI_{corrScale:#.#}_{distScale:#.#}_{normalizing}_final.xyz");

@@ -315,15 +315,13 @@ namespace FlexibleRefinement.Util
         }
 
 
-        private void MoveAtom(Atom atom, float3 ds)
+        private void MoveAtom(Atom atom, float3 ds, double movementCutoff = 0.1)
         {
             int3 gridPosBefore = new int3((int)(atom.Pos.X / gridSpacing.X), (int)(atom.Pos.Y / gridSpacing.Y), (int)(atom.Pos.Z / gridSpacing.Z));
             GridCell gridCellBefore = grid[gridPosBefore.Z][gridPosBefore.Y * gridSize.X + gridPosBefore.X];
 
             double delta = Math.Sqrt(Math.Pow(ds.X, 2) + Math.Pow(ds.Y, 2) + Math.Pow(ds.Z, 2));
 
-           
-            double movementCutoff = 0.1;
             if (delta > movementCutoff)
             {
                 ds = new float3((float)(movementCutoff * (ds.X / delta)), (float)(movementCutoff * (ds.Y / delta)), (float)(movementCutoff * (ds.Z / delta)));
@@ -464,13 +462,12 @@ namespace FlexibleRefinement.Util
             return currentAgreement;
         }
 
-        public void moveAtoms(float corrScale = 20.0f, float distScale = 1.0f, bool normalizeForce = true)
+        public void moveAtoms(float corrScale = 20.0f, float distScale = 1.0f, bool normalizeForce = true, float displ = 0.1f)
         {
             Image CurrentAtomSpread = new Image(Dim);
             
             float[][] EMIntensitiesData = EMIntensities.GetHost(Intent.Read);
             float[][] CurrentAtomSpreadData = CurrentAtomSpread.GetHost(Intent.Write);
-
             /* Calculate current atom representation */
                         /*
                         foreach (var atom in atoms)
@@ -524,7 +521,7 @@ namespace FlexibleRefinement.Util
                         for (int dx = -1; dx <= 1; dx++)
                         {
                             double currentAgreementNew = currAgreement;
-                            float3 newPos = new float3(a.Pos.X + dx * 0.1f, a.Pos.Y + dy * 0.1f, a.Pos.Z + dz * 0.1f);
+                            float3 newPos = new float3(a.Pos.X + dx * displ, a.Pos.Y + dy * displ, a.Pos.Z + dz * displ);
                             if (newPos.X < 0 || newPos.X >= Dim.X || newPos.Y < 0 || newPos.Y >= Dim.Y || newPos.Z < 0 || newPos.Z >= Dim.Z)
                                 continue;
                             for (int z = (int)Math.Floor(a.Pos.Z - 3 * a.R); z <= (int)Math.Ceiling(a.Pos.Z + 3 * a.R); z++)
@@ -580,7 +577,7 @@ namespace FlexibleRefinement.Util
                             for (int dx = -1; dx <= 1; dx++)
                             {
                                 double currentAgreementNew = currentAgreement;
-                                float3 newPos = new float3(atom.Pos.X + dx * 0.1f, atom.Pos.Y + dy * 0.1f, atom.Pos.Z + dz * 0.1f);
+                                float3 newPos = new float3(atom.Pos.X + dx * displ, atom.Pos.Y + dy * displ, atom.Pos.Z + dz * displ);
                                 if (newPos.X < 0 || newPos.X >= Dim.X || newPos.Y < 0 || newPos.Y >= Dim.Y || newPos.Z < 0 || newPos.Z >= Dim.Z)
                                     continue;
                                 for (int z = (int)Math.Floor(atom.Pos.Z - 3 * atom.R); z <= (int)Math.Ceiling(atom.Pos.Z + 3 * atom.R); z++)
@@ -664,7 +661,7 @@ namespace FlexibleRefinement.Util
                     Console.WriteLine("Encountered NaN displacement");
                 }
                 float3 oldPos = atom.Pos;
-                MoveAtom(atom, corrForce + distForce);
+                MoveAtom(atom, corrForce + distForce, displ);
                 if (atom.Pos.X == float.NaN || atom.Pos.Y == float.NaN || atom.Pos.Z == float.NaN)
                     ;
                 float3 newPos = atom.Pos;
