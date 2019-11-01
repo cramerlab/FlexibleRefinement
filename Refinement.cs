@@ -825,7 +825,7 @@ namespace FlexibleRefinement
             }
             const int steps = 3;
             float[] sampleRates = new float[steps] { 4, 2, 1 };
-            int[] numIterations = new int[steps] { 50, 50, 50 };
+            int[] numIterations = new int[steps] { 30, 10, 10 };
             int[] sampledCounts = Helper.ArrayOfFunction(i => (int)(targetCount / Math.Pow(sampleRates[i],3)), steps);
 
             float[] corrScales = new float[1] { 1 };// Helper.ArrayOfFunction(k => (float)(k + 1), 20);

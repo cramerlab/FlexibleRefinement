@@ -613,7 +613,7 @@ namespace FlexibleRefinement.Util
 
             AtomGraph targetGraph = new AtomGraph($@"{outdir}\StartGraph.graph", startIm);
 
-            int it = 100;
+            int it = 200;
             for (int i = 0; i < it; i++)
             {
                 targetGraph.moveAtoms(forceField);
@@ -627,7 +627,6 @@ namespace FlexibleRefinement.Util
                     AddText(fs, $"{targetGraph.Atoms[i].Pos.X - startGraph.Atoms[i].Pos.X} {targetGraph.Atoms[i].Pos.Y - startGraph.Atoms[i].Pos.Y} {targetGraph.Atoms[i].Pos.Z - startGraph.Atoms[i].Pos.Z}\n".Replace(',', '.'));
                 }
             }
-
 
             targetGraph.save($@"{outdir}\TargetGraph{it}.xyz");
             Image tarIm = targetGraph.Repr(1d);

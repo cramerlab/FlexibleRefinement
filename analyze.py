@@ -48,13 +48,16 @@ def getCenters(fileName):
 def plotDisplacements(fileFrom, fileTo):
     gtStartCenters = getCenters(fileFrom)
     gtEndCenters = getCenters(fileTo)
-    X = gtStartCenters[::5,0]
-    Y = gtStartCenters[::5, 1]
-    Z = gtStartCenters[::5, 2]
+
+    t = 20
+
+    X = gtStartCenters[::t, 0]
+    Y = gtStartCenters[::t, 1]
+    Z = gtStartCenters[::t, 2]
     directions = gtEndCenters - gtStartCenters
-    U = directions[::5,0]
-    V = directions[::5, 1]
-    W = directions[::5, 2]
+    U = directions[::t, 0]
+    V = directions[::t, 1]
+    W = directions[::t, 2]
     fig = plt.figure()
     ax = fig.gca(projection='3d')
     ax.quiver(X, Y, Z, U, V, W)
@@ -300,8 +303,63 @@ def forceFieldExp(step="StepThree"):
     print("Done: {} ({} %) NotDone: {} ({} %)".format(done, done/(done+notDone)*100, notDone,
                                                       notDone/(done+notDone)*100))
 
+
+def iterationTest(gtStartFile, gtEndFile, itPrefix, numIt):
+    gtStartCenters = getCenters(gtStartFile)
+    gtEndCenters = getCenters(gtEndFile)
+    displacementMeans = []
+    missingMeans = []
+    for i in range(numIt):
+        itCenters = getCenters(itPrefix + "{}.xyz".format(i+1))
+        displacement = np.linalg.norm(itCenters - gtStartCenters, axis=1)
+        displacementMeans.append(np.sqrt(np.mean(displacement**2)))
+        missing = np.linalg.norm(gtEndCenters - itCenters, axis=1)
+        missingMeans.append(np.sqrt(np.mean(missing**2)))
+
+    return displacementMeans, missingMeans
+    print("done")
+
+
 if __name__ == "__main__":
-    for s in ['StepOne', 'StepTwo', 'StepThree']:
-        forceFieldExp(step=s)
+    #plotDisplacements(fileFrom=r"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_Modulated\100\current_trial10000\1_StartGraph.xyz", fileTo=r"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_Modulated\100\current_trial10000\1_TargetGraph.xyz")
+
+    displacementMeans, missingMeans = iterationTest(gtStartFile=r"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_Modulated\100\current_trial10000\4_StartGraph.xyz",
+                  gtEndFile=r"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_Modulated\100\current_trial10000\4_TargetGraph.xyz",
+                  itPrefix=r"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_Modulated\100\current_trial10000\StepOne\4_Rotate_PI_1_19_False_it",
+                  numIt=50)
+    plt.figure()
+    plt.plot(displacementMeans, label="displacementMeans")
+    plt.plot(missingMeans, label="missingMeans")
+    plt.legend()
+    plt.title("StepOne")
+
+    displacementMeans, missingMeans = iterationTest(
+        gtStartFile=r"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_Modulated\100\current_trial10000\2_StartGraph.xyz",
+        gtEndFile=r"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_Modulated\100\current_trial10000\2_TargetGraph.xyz",
+        itPrefix=r"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_Modulated\100\current_trial10000\StepTwo\2_Rotate_PI_1_18_False_it",
+        numIt=50)
+
+    plt.figure()
+    plt.plot(displacementMeans, label="displacementMeans")
+    plt.plot(missingMeans, label="missingMeans")
+    plt.legend()
+    plt.title("StepTwo")
+
+    displacementMeans, missingMeans = iterationTest(
+        gtStartFile=r"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_Modulated\100\current_trial10000\1_StartGraph.xyz",
+        gtEndFile=r"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_Modulated\100\current_trial10000\1_TargetGraph.xyz",
+        itPrefix=r"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_Modulated\100\current_trial10000\StepThree\1_Rotate_PI_1_13_False_it",
+        numIt=50)
+
+    plt.figure()
+    plt.plot(displacementMeans, label="displacementMeans")
+    plt.plot(missingMeans, label="missingMeans")
+    plt.legend()
+    plt.title("StepThree")
+
+    plt.show()
+
+    #for s in ['StepOne', 'StepTwo', 'StepThree']:
+    #    forceFieldExp(step=s)
     #downsampledRotationExp(step="StepThree", c=8)
-    print("foo")
+    #print("foo")
