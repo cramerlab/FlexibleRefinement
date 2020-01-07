@@ -32,23 +32,23 @@ namespace FlexibleRefinement
         static void Main(string[] args)
         {
 
-            String outdir = @"D:\Software\FlexibleRefinement\bin\Debug\Refinement\";
+            String outdir = @"D:\Software\FlexibleRefinement\bin\Debug\Refinement\current";
             if (!Directory.Exists(outdir))
             {
                 Directory.CreateDirectory(outdir);
             }
 
-
+            String indir = $@"D:\Software\FlexibleRefinement\bin\Debug\Toy_Modulated\lowHighMix\current";
 
 
             Star TableIn = new Star(@"D:\florian_debug\particles.star");
             CTF[] CTFParams = TableIn.GetRelionCTF();
 
 
-            Image inputVol = Image.FromFile($@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_Modulated\100\startIm.mrc");
-            Image inputMask = Image.FromFile($@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_Modulated\100\startMask.mrc");
+            Image inputVol = Image.FromFile($@"{indir}\startIm.mrc");
+            Image inputMask = Image.FromFile($@"{indir}\startMask.mrc");
 
-            AtomGraph graph = new AtomGraph(@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_Modulated\100\StartGraph.graph", inputVol);
+            AtomGraph graph = new AtomGraph($@"{indir}\StartGraph.graph", inputVol);
             Projector proj = new Projector(inputVol, 2);
             Projector maskProj = new Projector(inputMask, 2);
 
@@ -92,8 +92,8 @@ namespace FlexibleRefinement
                             (uint)ProjectorParticles.ElementsSliceReal,
                             (uint)angles.Count());
 
-            ProjectorParticles.WriteMRC($@"{outdir}ProjectorParticles.mrc");
-            ProjectorMasks.WriteMRC($@"{outdir}ProjectorMasks.mrc");
+            ProjectorParticles.WriteMRC($@"{outdir}\ProjectorParticles.mrc");
+            ProjectorMasks.WriteMRC($@"{outdir}\ProjectorMasks.mrc");
 
             int numPseudoparticles = numParticles;
             Image PseudoProjectorParticles = new Image(new int3(ProjectorParticles.Dims.X, ProjectorParticles.Dims.Y, numPseudoparticles));
@@ -127,9 +127,9 @@ namespace FlexibleRefinement
             {
                 GetProjection(PseudoProjector, PseudoProjectorParticles.GetHost(Intent.Write)[k], PseudoProjectorParticlesNorm.GetHost(Intent.Write)[k], angles[k] * Helper.ToDeg, 0.0f, 0.0f);
             }
-
-            int numIt = 10;
-            float[] itCorrs = new float[numIt+1];
+            PseudoProjectorParticles.WriteMRC($@"{outdir}\PseudoProjectorParticles.mrc");
+            int numIt = 20;
+            float[][] itCorrs = Helper.ArrayOfFunction(i => new float[numPseudoparticles], numIt + 1);
             float[] err = new float[numIt];
             float[][] diff = Helper.ArrayOfFunction(i => new float[graph.Atoms.Count()], numIt);
             float[] newIntensities = new float[graph.Atoms.Count()];
@@ -140,7 +140,7 @@ namespace FlexibleRefinement
             }
             {
                 float[] correlation = ImageProcessor.correlate(PseudoProjectorParticles, PseudoProjectorCurrProjections, ProjectorMasks);
-                itCorrs[0] = correlation[0];
+                itCorrs[0] = correlation;
             }
             PseudoProjectorCurrProjections.WriteMRC($@"{outdir}\Projections_it0.mrc");
 
@@ -154,7 +154,7 @@ namespace FlexibleRefinement
                     GetProjection(PseudoReconstructor, PseudoProjectorCurrProjections.GetHost(Intent.Write)[l], null, angles[l] * Helper.ToDeg, 0.0f, 0.0f);
                 }
                 float[] correlation = ImageProcessor.correlate(PseudoProjectorParticles, PseudoProjectorCurrProjections, ProjectorMasks);
-                itCorrs[k + 1] = correlation[0];
+                itCorrs[k + 1] = correlation;
                 PseudoProjectorCurrProjections.WriteMRC($@"{outdir}\Projections_it{k+1}.mrc");
 
                 GetIntensities(PseudoReconstructor, newIntensities);
@@ -165,7 +165,7 @@ namespace FlexibleRefinement
 
             }
 
-            using (System.IO.StreamWriter file = new System.IO.StreamWriter($@"{outdir}itErr.txt"))
+            using (System.IO.StreamWriter file = new System.IO.StreamWriter($@"{outdir}\itDiffs.txt"))
             {
                 for (int k = 0; k < numIt; k++)
                 {
@@ -177,13 +177,33 @@ namespace FlexibleRefinement
                 }
             }
 
-            using (System.IO.StreamWriter file = new System.IO.StreamWriter($@"{outdir}itCorrs.txt"))
+
+            using (System.IO.StreamWriter file = new System.IO.StreamWriter($@"{outdir}\itErrs.txt"))
             {
-                file.WriteLine($"{itCorrs[0]}");
                 for (int k = 0; k < numIt; k++)
                 {
                     file.WriteLine($"it: {k}");
-                    file.WriteLine($"{itCorrs[k + 1]}");
+                    file.WriteLine($"{err[k]}");
+                }
+            }
+
+
+            using (System.IO.StreamWriter file = new System.IO.StreamWriter($@"{outdir}\itCorrs.txt"))
+            {
+                for (int l = 0; l < numParticles - 1; l++)
+                {
+                    file.Write($"{itCorrs[0][l]}, ");
+                }
+                file.Write($"{itCorrs[0][numParticles - 1]}\n");
+
+                for (int k = 0; k < numIt; k++)
+                {
+                    file.WriteLine($"it: {k}");
+                    for (int l = 0; l < numParticles-1; l++)
+                    {
+                        file.Write($"{itCorrs[k + 1][l]}, ");
+                    }
+                    file.Write($"{itCorrs[k + 1][numParticles-1]}\n");
                 }
             }
 
@@ -192,8 +212,8 @@ namespace FlexibleRefinement
 
             graphAfter.SetAtomIntensities(newIntensities);
 
-            graphBefore.Repr(1.0d).WriteMRC($"{outdir}GraphBefore.mrc");
-            graphAfter.Repr(1.0d).WriteMRC($"{outdir}GraphAfter.mrc");
+            graphBefore.Repr(1.0d).WriteMRC($@"{outdir}\GraphBefore.mrc");
+            graphAfter.Repr(1.0d).WriteMRC($@"{outdir}\GraphAfter.mrc");
 
             PseudoProjectorParticles.WriteMRC($@"{outdir}\PseudoProjectorParticles.mrc");
             /* Create CTFs*/

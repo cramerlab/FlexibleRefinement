@@ -33,6 +33,154 @@ namespace FlexibleRefinement.Util
             return grad;
         }
 
+
+        public static float[] correlate(Image A, Image B, Image mask)
+        {
+            float[] result = new float[A.Dims.Z];
+            IntPtr d_result = GPU.MallocDeviceFromHost(result, A.Dims.Z);
+            GPU.CorrelateRealspace(A.GetDevice(Intent.Read), B.GetDevice(Intent.Read), new int3(A.Dims.X, A.Dims.Y, 1), mask.GetDevice(Intent.Read), d_result, (uint)A.Dims.Z);
+            GPU.CopyDeviceToHost(d_result, result, A.Dims.Z);
+            return result;
+                /*
+            A = A.GetCopyGPU();
+            B = B.GetCopyGPU();
+            A.Normalize();
+            B.Normalize();
+            A.Multiply(B);
+            float[] AElementsSlices = new float[A.Dims.Z];
+            float[] AElementsSlicesInv = new float[A.Dims.Z];
+            float[] BElementsSlices = new float[B.Dims.Z];
+            float[] BElementsSlicesInv = new float[B.Dims.Z];
+            if (mask != null)
+            {
+                A.Multiply(mask);
+                B.Multiply(mask);
+                Image maskSum = mask.AsSum2D();
+                for (int i = 0; i < A.Dims.Z; i++)
+                {
+                    AElementsSlices[i] = maskSum.GetHost(Intent.Read)[i][0];
+                    AElementsSlicesInv[i] = 1.0f / maskSum.GetHost(Intent.Read)[i][0];
+                    BElementsSlices[i] = maskSum.GetHost(Intent.Read)[i][0];
+                    BElementsSlicesInv[i] = 1.0f / maskSum.GetHost(Intent.Read)[i][0];
+                }
+            }
+            else
+            {
+                for (int i = 0; i < A.Dims.Z; i++)
+                {
+                    AElementsSlices[i] = A.DimsSlice.Elements();
+                    AElementsSlicesInv[i] = 1.0f / A.DimsSlice.Elements();
+                    BElementsSlices[i] = B.DimsSlice.Elements();
+                    BElementsSlicesInv[i] = 1.0f / B.DimsSlice.Elements();
+                }
+            }
+
+            
+            float[] AElementsSlices = new float[A.Dims.Z];
+            float[] AElementsSlicesInv = new float[A.Dims.Z];
+            float[] BElementsSlices = new float[B.Dims.Z];
+            float[] BElementsSlicesInv = new float[B.Dims.Z];
+            if (mask != null)
+            {
+                A.Multiply(mask);
+                B.Multiply(mask);
+                Image maskSum = mask.AsSum2D();
+                for (int i = 0; i < A.Dims.Z; i++)
+                {
+                    AElementsSlices[i] = maskSum.GetHost(Intent.Read)[i][0];
+                    AElementsSlicesInv[i] = 1.0f/maskSum.GetHost(Intent.Read)[i][0];
+                    BElementsSlices[i] = maskSum.GetHost(Intent.Read)[i][0];
+                    BElementsSlicesInv[i] = 1.0f/maskSum.GetHost(Intent.Read)[i][0];
+                }
+            }
+            else
+            {
+                for (int i = 0; i < A.Dims.Z; i++)
+                {
+                    AElementsSlices[i] = A.DimsSlice.Elements();
+                    AElementsSlicesInv[i] = 1.0f/A.DimsSlice.Elements();
+                    BElementsSlices[i] = B.DimsSlice.Elements();
+                    BElementsSlicesInv[i] = 1.0f/B.DimsSlice.Elements();
+                }
+            }
+
+            Image A_mean = new Image(new int3(A.Dims.Z,1,1));
+
+            GPU.Sum(A.GetDevice(Intent.Read), A_mean.GetDevice(Intent.Write), (uint)A.ElementsSliceReal, (uint)A.Dims.Z);
+
+            Image A_mean_sqrd = A_mean.GetCopyGPU();
+            A_mean_sqrd.Multiply(A_mean_sqrd); // (\Sum_i a_i)^2
+            Image A_sqrd = A.GetCopyGPU();
+            A_sqrd.Multiply(A_sqrd);    // (a_i)^2
+
+            Image B_mean = B.AsSum2D();
+            Image B_mean_sqrd = B_mean.GetCopyGPU();
+            B_mean_sqrd.Multiply(B_mean_sqrd);
+            Image B_sqrd = B.GetCopyGPU();
+            B_sqrd.Multiply(B_sqrd);
+
+
+            A_mean.Multiply(AElementsSlicesInv);    //\frac 1 n \Sum_i a_i
+            B_mean.Multiply(BElementsSlicesInv);    //\frac 1 n \Sum_i b_i
+
+            A.Add(-A_mean.GetHost(Intent.Read)[0][0]);     // a_i - \frac 1 n \Sum_i a_i
+            B.Add(-B_mean.GetHost(Intent.Read)[0][0]);     // b_i - \frac 1 n \Sum_i b_i
+            Image numerator = A.GetCopyGPU();
+            numerator.Multiply(B);                          // (a_i - \frac 1 n \Sum_i a_i) (b_i - \frac 1 n \Sum_i b_i)
+            Image t_numerator = numerator.AsSum2D();
+            numerator.Dispose();
+            numerator = t_numerator; // \Sum_i ((a_i - \frac 1 n \Sum_i a_i) (b_i - \frac 1 n \Sum_i b_i))
+            numerator.Multiply(AElementsSlicesInv); // \frac 1 n \Sum_i ((a_i - \frac 1 n \Sum_i a_i) (b_i - \frac 1 n \Sum_i b_i))
+
+            //denominator
+
+            Image A_std = A_sqrd.AsSum2D();                 // \Sum_i (a_i)^2
+
+            A_std.Multiply(AElementsSlices);              // n \Sum_i (a_i)^2
+
+            A_std.Subtract(A_mean_sqrd);                    // n \Sum_i (a_i)^2- ( \Sum a_i )^2
+
+            float tmp = A_std.GetHost(Intent.Read)[0][0];
+            A_std.GetHost(Intent.Write)[0][0] = (float)Math.Sqrt(tmp);  // \sqrt{n \Sum_i (a_i)^2- ( \Sum a_i )^2}
+
+            A_std.Multiply(AElementsSlicesInv);                   // \frac 1 n \sqrt{n \Sum_i (a_i)^2- ( \Sum a_i )^2} = \sqrt{\frac n n^2 \Sum_i (a_i)^2- ( \frac 1 n \Sum a_i )^2} = \sqrt{E[x^2]-(E[x])^2}
+
+
+            Image B_std = B_sqrd.AsSum2D();
+
+            B_std.Multiply(BElementsSlices);
+
+            B_std.Subtract(B_mean_sqrd);
+
+            tmp = B_std.GetHost(Intent.Read)[0][0];
+            B_std.GetHost(Intent.Write)[0][0] = (float)Math.Sqrt(tmp);
+
+            B_std.Multiply(BElementsSlicesInv);
+
+            Image denominator = A_std.GetCopyGPU();
+            denominator.Multiply(B_std);
+
+            Image res_im = numerator.GetCopyGPU();
+            res_im.Divide(denominator);
+
+            float[] result = res_im.GetHostContinuousCopy();
+            A.Dispose();
+            B.Dispose();
+
+            A_mean.Dispose();
+            A_mean_sqrd.Dispose();
+            A_sqrd.Dispose();
+            B_mean.Dispose();
+            B_mean_sqrd.Dispose();
+            B_sqrd.Dispose();
+            numerator.Dispose();
+            A_std.Dispose();
+            B_std.Dispose();
+            denominator.Dispose();
+            res_im.Dispose();
+            return result;*/
+        }
+
         public static void Normalize01(Image im)
         {
 

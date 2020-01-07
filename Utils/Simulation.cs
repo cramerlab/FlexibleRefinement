@@ -512,7 +512,7 @@ namespace FlexibleRefinement.Util
 
         public static void simulatePulledToyModulated()
         {
-            String outdir = $@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_Modulated\100\";
+            String outdir = $@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_Modulated\100\currentInput";
             if (!Directory.Exists(outdir))
             {
                 Directory.CreateDirectory(outdir);
@@ -603,9 +603,9 @@ namespace FlexibleRefinement.Util
                     }
                 }
             }
-            //forceImX.WriteMRC($@"{outdir}\forceImX.mrc");
-            //forceImY.WriteMRC($@"{outdir}\forceImY.mrc");
-            //forceImZ.WriteMRC($@"{outdir}\forceImZ.mrc");
+            forceImX.WriteMRC($@"{outdir}\forceImX.mrc");
+            forceImY.WriteMRC($@"{outdir}\forceImY.mrc");
+            forceImZ.WriteMRC($@"{outdir}\forceImZ.mrc");
             AtomGraph startGraph = new AtomGraph(startIm, startMask, nonZero);
             startGraph.save($@"{outdir}\StartGraph.xyz");
             startGraph.save($@"{outdir}\StartGraph.graph");
@@ -613,7 +613,7 @@ namespace FlexibleRefinement.Util
 
             AtomGraph targetGraph = new AtomGraph($@"{outdir}\StartGraph.graph", startIm);
 
-            int it = 200;
+            int it = 100;
             for (int i = 0; i < it; i++)
             {
                 targetGraph.moveAtoms(forceField);
@@ -629,11 +629,152 @@ namespace FlexibleRefinement.Util
             }
 
             targetGraph.save($@"{outdir}\TargetGraph{it}.xyz");
+            targetGraph.save($@"{outdir}\TargetGraph{it}.graph");
             Image tarIm = targetGraph.Repr(1d);
             tarIm.WriteMRC($@"{outdir}\TargetIm_fromGraph{it}.mrc");
             tarIm.Binarize((float)(1.0f / Math.E));
             tarIm.WriteMRC($@"{outdir}\TargetMask_fromGraph{it}.mrc");
         }
+        public static void simulateLowFreqHighFreqNoiseMix()
+        {
+            String outdir = $@"D:\Software\FlexibleRefinement\bin\Debug\Toy_Modulated\lowHighMix\current";
+            if (!Directory.Exists(outdir))
+            {
+                Directory.CreateDirectory(outdir);
+            }
+            int3 Dims = new int3(100);
+            Image startIm = new Image(Dims);
+            float[][] startImData = startIm.GetHost(Intent.Write);
 
+            double r = 4;
+            double R = 10;
+            int3[] mids = new int3[3] { new int3(30, 50, 50), new int3(50, 50, 50), new int3(70, 50, 50) };
+            double phi = 0.0;
+            double theta = 0.0;
+            foreach (var mid in mids)
+            {
+                for (r = 0; r < 4; r += 0.1)
+                {
+                    for (phi = 0; phi <= 2 * Math.PI; phi += 0.1)
+                    {
+                        for (theta = 0; theta <= 2 * Math.PI; theta += 0.1)
+                        {
+                            float3 vecR = new float3((float)((R + r * Math.Cos(phi)) * Math.Cos(theta)), (float)((R + r * Math.Cos(phi)) * Math.Sin(theta)), (float)(r * Math.Sin(phi)));
+                            int3 pos = new int3(mid.X + (int)Math.Round(vecR.X, 0), mid.Y + (int)Math.Round(vecR.Y, 0), mid.Z + (int)Math.Round(vecR.Z, 0));
+                            startImData[pos.Y][pos.Z * Dims.X + pos.X] = 1.0f;
+                        }
+                    }
+                }
+            }
+            startIm = startIm.AsConvolvedGaussian(1.0f);
+            float[][] highNoiseData = Simulation.simplexPerlinNoise(1, Dims);
+            Image highNoise = new Image(highNoiseData, Dims);
+
+
+            int3 midNoiseDim = new int3(Dims.X / 5, Dims.Y / 5, Dims.Z);
+            float[][] midNoiseData = Simulation.simplexPerlinNoise(1, midNoiseDim);
+            Image midNoise = new Image(midNoiseData, midNoiseDim);
+            midNoise = midNoise.AsScaled(new int2(Dims.X, Dims.Y));
+
+            int3 lowNoiseDim = new int3(Dims.X / 10, Dims.Y / 10, Dims.Z);
+            float[][] lowNoiseData = Simulation.simplexPerlinNoise(1, lowNoiseDim);
+            Image lowNoise = new Image(lowNoiseData, lowNoiseDim);
+            lowNoise = lowNoise.AsScaled(new int2(Dims.X, Dims.Y));
+
+            Image startMask = startIm.GetCopy();
+            startMask.Binarize((float)(1 / Math.E));
+            startMask.WriteMRC($@"{outdir}\startMask.mrc");
+            lowNoise.WriteMRC($@"{outdir}\lowNoise.mrc");
+            highNoise.WriteMRC($@"{outdir}\highNoise.mrc");
+            midNoise.WriteMRC($@"{outdir}\midNoise.mrc");
+
+
+            startIm.Multiply(lowNoise);
+            startIm.Multiply(midNoise);
+            startIm.Multiply(highNoise);
+            startIm.WriteMRC($@"{outdir}\startIm.mrc");
+
+            int nonZero = (int)(Math.Round(startMask.AsSum3D().GetHost(Intent.Read)[0][0], 0));
+
+            float3[][] forceField = Helper.ArrayOfFunction(i => new float3[Dims.X * Dims.Y], Dims.Z);
+            Image forceImX = new Image(Dims);
+            Image forceImY = new Image(Dims);
+            Image forceImZ = new Image(Dims);
+            float[][] forceImXData = forceImX.GetHost(Intent.Write);
+            float[][] forceImYData = forceImY.GetHost(Intent.Write);
+            float[][] forceImZData = forceImZ.GetHost(Intent.Write);
+            for (int z = 0; z < Dims.Z; z++)
+            {
+                for (int y = 0; y < Dims.Y; y++)
+                {
+                    for (int x = 0; x < Dims.X; x++)
+                    {
+                        forceField[z][y * Dims.X + x] = new float3(0);
+
+                        //if (x > refDownsampled.Dims.X/2.0f && y > refDownsampled.Dims.Y/2.0f && z > refDownsampled.Dims.Z/2.0f)
+                        //{
+                        float3 dir = new float3(x - Dims.X / 2.0f, y - Dims.Y / 2.0f, z - Dims.Z / 2.0f);
+                        if (dir.Y < 0 && dir.X > 0)
+                        {
+                            ;
+                        }
+                        //order: \rho, \theta, \phi
+                        dir.Z = 0.0f;
+                        float3 sphericDir = new float3(dir.Length(), (float)Math.Acos(dir.Z / dir.Length()), (float)Math.Atan2(dir.Y, dir.X));
+                        if (float.IsNaN(sphericDir.Y))
+                            sphericDir.Y = 0;
+                        if (float.IsNaN(sphericDir.Z))
+                            sphericDir.Z = 0;
+                        r = dir.Length();
+                        if (r > 0.0 && Math.Abs(sphericDir.Z) <= Math.PI / 2)
+                        {
+                            sphericDir.Z = (float)(sphericDir.Z + Math.PI / 2);
+                            sphericDir.Y = (float)(Math.PI / 2);
+                            float tmpX = (float)(sphericDir.X * Math.Sin(sphericDir.Y) * Math.Cos(sphericDir.Z));
+                            float tmpY = (float)(sphericDir.X * Math.Sin(sphericDir.Y) * Math.Sin(sphericDir.Z));
+                            float tmpZ = 0;//(float)(sphericDir.X * Math.Cos(sphericDir.Y));
+                            forceField[z][y * Dims.X + x] = (new float3(tmpX, tmpY, tmpZ)) * 0.5f;
+                            forceImXData[z][y * Dims.X + x] = forceField[z][y * Dims.X + x].X;
+                            forceImYData[z][y * Dims.X + x] = forceField[z][y * Dims.X + x].Y;
+                            forceImZData[z][y * Dims.X + x] = forceField[z][y * Dims.X + x].Z;
+                        }
+
+                        //}
+
+                    }
+                }
+            }
+            forceImX.WriteMRC($@"{outdir}\forceImX.mrc");
+            forceImY.WriteMRC($@"{outdir}\forceImY.mrc");
+            forceImZ.WriteMRC($@"{outdir}\forceImZ.mrc");
+            AtomGraph startGraph = new AtomGraph(startIm, startMask, nonZero);
+            startGraph.save($@"{outdir}\StartGraph.xyz");
+            startGraph.save($@"{outdir}\StartGraph.graph");
+            startGraph.Repr(1.0d).WriteMRC($@"{outdir}\StartIm_fromGraph.mrc");
+
+            AtomGraph targetGraph = new AtomGraph($@"{outdir}\StartGraph.graph", startIm);
+
+            int it = 100;
+            for (int i = 0; i < it; i++)
+            {
+                targetGraph.moveAtoms(forceField);
+            }
+
+
+            using (FileStream fs = File.Create($@"{outdir}\gtDisplacements.txt"))
+            {
+                for (int i = 0; i < startGraph.Atoms.Count; i++)
+                {
+                    AddText(fs, $"{targetGraph.Atoms[i].Pos.X - startGraph.Atoms[i].Pos.X} {targetGraph.Atoms[i].Pos.Y - startGraph.Atoms[i].Pos.Y} {targetGraph.Atoms[i].Pos.Z - startGraph.Atoms[i].Pos.Z}\n".Replace(',', '.'));
+                }
+            }
+
+            targetGraph.save($@"{outdir}\TargetGraph{it}.xyz");
+            targetGraph.save($@"{outdir}\TargetGraph{it}.graph");
+            Image tarIm = targetGraph.Repr(1d);
+            tarIm.WriteMRC($@"{outdir}\TargetIm_fromGraph{it}.mrc");
+            tarIm.Binarize((float)(1.0f / Math.E));
+            tarIm.WriteMRC($@"{outdir}\TargetMask_fromGraph{it}.mrc");
+        }
     }
 }

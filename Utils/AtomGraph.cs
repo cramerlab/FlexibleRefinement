@@ -16,6 +16,16 @@ namespace FlexibleRefinement.Util
     {
         private static int LifetimeObjectCounter = 0;
         public readonly int ObjectID = -1;
+
+        public Atom(Atom other)
+        {
+            ObjectID = LifetimeObjectCounter++;
+            pos = other.Pos;
+            r = other.R;
+            neighbours = new List<Atom>();
+            intensity = other.Intensity;
+        }
+
         public Atom(float3 p, float radius, float intense = 1.0f)
         {
             ObjectID = LifetimeObjectCounter++;
@@ -79,6 +89,29 @@ namespace FlexibleRefinement.Util
         float R0_6;
         double[] atomSpread;
 
+        private int3 Dim;
+
+        public float[] GetAtomPositions()
+        {
+            float[] positions = new float[Atoms.Count() * 3];
+            for (int i = 0; i < Atoms.Count; i++)
+            {
+                positions[i * 3] = Atoms[i].Pos.X;
+                positions[i * 3+1] = Atoms[i].Pos.Y;
+                positions[i * 3+2] = Atoms[i].Pos.Z;
+            }
+            return positions;
+        }
+
+        public float[] GetAtomIntensities()
+        {
+            return Helper.ArrayOfFunction(i=>Atoms[i].Intensity, Atoms.Count());
+        }
+
+        public void SetAtomIntensities(float[] newIntensities)
+        {
+            Helper.ArrayOfFunction(i => Atoms[i].Intensity= newIntensities[i], Atoms.Count());
+        }
 
         public float3[][] CalculateForces(float3[][] grad)
         {
@@ -113,7 +146,6 @@ namespace FlexibleRefinement.Util
             EMIntensities = intensities.GetCopy();
             einSpline = ImageToSpline(EMIntensities);
         }
-
 
         public Image Repr(int threads = 1)
         {
@@ -187,7 +219,6 @@ namespace FlexibleRefinement.Util
             return rep;
         }
 
-
         private float3 DistF(float3 r1, float3 r2)
         {
 
@@ -231,7 +262,6 @@ namespace FlexibleRefinement.Util
 
             return force;
         }
-
 
         private float3 IntensityF(float3 pos)
         {
@@ -313,7 +343,6 @@ namespace FlexibleRefinement.Util
             sumIs = tmp.AsSum3D().GetHost(Intent.Read)[0][0];
             tmp.Dispose();
         }
-
 
         private void MoveAtom(Atom atom, float3 ds, double movementCutoff = 0.1)
         {
@@ -400,16 +429,17 @@ namespace FlexibleRefinement.Util
 
             foreach (var atom in Atoms)
             {
+                if (atom.Pos.X > Dim.X / 2 - 5)
+                {
+                    float3 force = new float3(0);
 
-                float3 force = new float3(0);
+                    force.X = xForce.GetInterpolatedValue(atom.Pos);
+                    force.Y = yForce.GetInterpolatedValue(atom.Pos);
+                    force.Z = zForce.GetInterpolatedValue(atom.Pos);
 
-                force.X = xForce.GetInterpolatedValue(atom.Pos);
-                force.Y = yForce.GetInterpolatedValue(atom.Pos);
-                force.Z = zForce.GetInterpolatedValue(atom.Pos);
-
-                float3 distForce = DistF(atom);
-                MoveAtom(atom, force + distForce);
-
+                    float3 distForce = DistF(atom);
+                    MoveAtom(atom, force + distForce);
+                }
             }
 
         }
@@ -717,7 +747,6 @@ namespace FlexibleRefinement.Util
             }
         }
 
-
         public void moveAtoms(float3[][] forces, float scale = 1.0f)
         {
 
@@ -811,10 +840,6 @@ namespace FlexibleRefinement.Util
             }
             return neighbours;
         }
-
-
-
-        private int3 Dim;
 
         //initialize placement of atoms in grid cells
         private void InitializeAtomGrid(float3[] atomCenters, float[] atomRadius, float[] atomIntensities = null)
@@ -944,8 +969,7 @@ namespace FlexibleRefinement.Util
                 ;
             }
             return minAtom;
-        }
-    
+        } 
 
         public Atom GetClosestAtom(float3 pos)
         {
@@ -1024,6 +1048,25 @@ namespace FlexibleRefinement.Util
             double r = Atoms[0].R;
             double stepSize = 0.0001;
             atomSpread = Helper.ArrayOfFunction(i => Math.Exp(-Math.Pow(i*stepSize/r,2)), (int)(Math.Round(r / stepSize, 0)));
+        }
+
+        public AtomGraph(AtomGraph other)
+        {
+
+            Dim = other.Dim;
+            gridSize = other.gridSize;
+            gridSpacing = other.gridSpacing;
+            neigbourCutoff = other.neigbourCutoff;
+            R0 = other.R0;
+            R0_6 = other.R0_6;
+            EMIntensities = other.EMIntensities.GetCopy();
+            InitializeAtomGrid(Helper.ArrayOfFunction(i => other.Atoms[i].Pos, other.Atoms.Count()),
+                               Helper.ArrayOfFunction(i => other.Atoms[i].R, other.Atoms.Count()),
+                               Helper.ArrayOfFunction(i => other.Atoms[i].Intensity, other.Atoms.Count()));
+
+            
+
+
         }
 
         public AtomGraph(String filename, Image intensities, float scaleFactor=1.0f)
