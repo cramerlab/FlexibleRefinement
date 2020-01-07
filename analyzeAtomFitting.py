@@ -286,6 +286,13 @@ def forceFieldExp(step="StepThree"):
                 #        distScale,
                 #        norm))
                 #plt.close(fig)
+
+                x = 4
+                y = 6
+                z=5
+                if (x, y, z) == (4, 6, 8):
+                    print("Cooler")
+
                 offsets = endCenters - gtEndCenters
                 offNorm = np.linalg.norm(offsets, axis=1)
                 offMean = np.sqrt(np.mean(offNorm**2))
