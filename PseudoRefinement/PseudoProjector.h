@@ -92,6 +92,10 @@ public:
 		gaussianProjectionTable2 *= gaussianProjectionTable;
 	};
 
+	DOUBLE * getGaussianTable() {
+		return gaussianProjectionTable.vdata;
+	}
+
 	DOUBLE ART_single_image(const MultidimArray<DOUBLE> &Iexp, DOUBLE rot, DOUBLE tilt, DOUBLE psi, DOUBLE shiftX, DOUBLE shiftY);
 
 	DOUBLE ART_multi_Image_step(std::vector< MultidimArray<DOUBLE> > Iexp, std::vector<float3> angles, DOUBLE shiftX, DOUBLE shiftY);
