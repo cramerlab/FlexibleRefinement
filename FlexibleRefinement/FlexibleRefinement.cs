@@ -127,8 +127,9 @@ namespace FlexibleRefinement
             float sigma = 0.8f;
 
             //int2 gaussTableLayout = new int2(2 * factor * (int)Math.Ceiling(Math.Sqrt(2) * 4 * sigma), 1);
-            int2 gaussTableLayout = new int2(factor * 100 + 2, 1);
-            Image CTFCoordsGauss = GetCTFCoords(new int2(gaussTableLayout.X, gaussTableLayout.Y), new int2(particleRes.X, factor*particleRes.Y), 1.0f);
+            int2 gaussTableLayout = new int2(factor * particleRes.X + 2, 1);
+
+            Image CTFCoordsGauss = GetCTFCoords(new int2(gaussTableLayout.X, gaussTableLayout.Y), new int2(particleRes.X, particleRes.Y), 1.0f);
             Image CTFsGauss = new Image(new int3(gaussTableLayout.X, gaussTableLayout.Y, numParticles), true);
             GPU.CreateCTF(CTFsGauss.GetDevice(Intent.Write),
                             CTFCoordsGauss.GetDevice(Intent.Read),
@@ -136,314 +137,28 @@ namespace FlexibleRefinement
                             CTFParams.Select(p => p.ToStruct()).ToArray(),
                             false,
                             (uint)numParticles);
-            CTFsGauss.WriteMRC($@"{outdir}\CTFsGauss.mrc");
-            using (System.IO.StreamWriter file = new System.IO.StreamWriter($@"{outdir}\CTFsGauss.txt"))
-            {
-                for (int zz = 0; zz < 1; zz++)
-                {
-                    float[][] tmp = CTFsGauss.GetHost(Intent.Read);
-                    int yy = 0;
-                    int xx = 0;
-                    for (xx = 0; xx < CTFsGauss.DimsFT.X - 1; xx++)
-                    {
-                        file.Write($"{(tmp[zz][yy * CTFsGauss.DimsFT.X + xx]).ToString(nfi)}\t");
-                    }
-                    file.WriteLine($"{(tmp[zz][yy * CTFsGauss.DimsFT.X + xx]).ToString(nfi)}");
-                }
-            }
-
-            Image CTFCoords1D = GetCTFCoords(new int2(particleRes.X, 1), new int2(particleRes.X, 1), 1.0f);
-            Image CTFs1D = new Image(new int3(particleRes.X, 1, numParticles), true);
-            GPU.CreateCTF(CTFs1D.GetDevice(Intent.Write),
-                            CTFCoords1D.GetDevice(Intent.Read),
-                            (uint)CTFCoords1D.ElementsSliceComplex,
-                            CTFParams.Select(p => p.ToStruct()).ToArray(),
-                            false,
-                            (uint)numParticles);
-            CTFsGauss.WriteMRC($@"{outdir}\CTFs1D.mrc");
-            using (System.IO.StreamWriter file = new System.IO.StreamWriter($@"{outdir}\CTFs1D.txt"))
-            {
-                for (int zz = 0; zz < 1; zz++)
-                {
-                    float[][] tmp = CTFs1D.GetHost(Intent.Read);
-                    int yy = 0;
-                    int xx = 0;
-                    for (xx = 0; xx < CTFs1D.DimsFT.X - 1; xx++)
-                    {
-                        file.Write($"{(tmp[zz][yy * CTFs1D.DimsFT.X + xx]).ToString(nfi)}\t");
-                    }
-                    file.WriteLine($"{(tmp[zz][yy * CTFs1D.DimsFT.X + xx]).ToString(nfi)}");
-                }
-            }
 
             Image Gauss = new Image(new int3(gaussTableLayout.X, gaussTableLayout.Y, numParticles));
-
-
             Gauss.TransformValues((x, y, z, v) => (float)(Math.Exp(-0.5*Math.Pow(((float)(x-gaussTableLayout.X/2)/factor) / sigma, 2))));
-            //GaussAFT.TransformValues((x, y, z, v) => (float)(Math.Sqrt(Math.PI) * sigma * Math.Exp(-Math.PI*Math.Pow(CTFCoords1DData[0][y*2] * sigma, 2))));
-
-            
-
-            using (System.IO.StreamWriter file = new System.IO.StreamWriter($@"{outdir}\GaussTable.txt"))
-            {
-                int yy = 0;
-                int xx = 0;
-                for (int zz = 0; zz < 1; zz++)
-                {
-                    for (xx = 0; xx < Gauss.Dims.X-1; xx++)
-                    {
-                        file.Write($"{(Gauss.GetHost(Intent.Read)[zz][yy * Gauss.Dims.X + xx]).ToString(nfi)}\t");
-                    }
-                    file.WriteLine($"{(Gauss.GetHost(Intent.Read)[zz][yy * Gauss.Dims.X + xx]).ToString(nfi)}");
-                }
-            }
 
             Image GaussFT = Gauss.AsFFT();
-            using (System.IO.StreamWriter file = new System.IO.StreamWriter($@"{outdir}\GaussTableFT.txt"))
-            {
-                int yy = 0;
-                int xx = 0;
-                for (int zz = 0; zz < 1; zz++)
-                {
-                    for (xx = 0; xx < GaussFT.DimsFT.X - 1; xx++)
-                    {
-                        file.Write($"{(GaussFT.GetHost(Intent.Read)[zz][2*(yy * GaussFT.DimsFT.X + xx)]).ToString(nfi)}\t");
-                    }
-                    file.WriteLine($"{(GaussFT.GetHost(Intent.Read)[zz][2*(yy * GaussFT.DimsFT.X + xx)]).ToString(nfi)}");
-                }
-
-            }
-
             Image GaussIFT = GaussFT.AsIFFT(false, 0, true);
-            using (System.IO.StreamWriter file = new System.IO.StreamWriter($@"{outdir}\GaussTableIFT.txt"))
-            {
-                int yy = 0;
-                int xx = 0;
-                for (int zz = 0; zz < 1; zz++)
-                {
-                    for (xx = 0; xx < Gauss.Dims.X - 1; xx++)
-                    {
-                        file.Write($"{(GaussIFT.GetHost(Intent.Read)[zz][yy * GaussIFT.Dims.X + xx]).ToString(nfi)}\t");
-                    }
-                    file.WriteLine($"{(GaussIFT.GetHost(Intent.Read)[zz][yy * GaussIFT.Dims.X + xx]).ToString(nfi)}");
-                }
-
-            }
-            
-            Image testImage = new Image(new int3(100, 1, numParticles));
-
-
-
             GaussFT.Multiply(CTFsGauss);
             Image GaussConvolved = GaussFT.AsIFFT(false, 0, true);
-            GaussConvolved.WriteMRC($@"{outdir}\GaussConvolved.mrc");
-            using (System.IO.StreamWriter file = new System.IO.StreamWriter($@"{outdir}\GaussTableConvolved.txt"))
-            {
-                int yy = 0;
-                int xx = 0;
-                for (int zz = 0; zz < 1; zz++)
-                {
-                    for (xx = 0; xx < Gauss.Dims.X - 1; xx++)
-                    {
-                        file.Write($"{(GaussConvolved.GetHost(Intent.Read)[zz][yy * GaussConvolved.Dims.X + xx]).ToString(nfi)}\t");
-                    }
-                    file.WriteLine($"{(GaussConvolved.GetHost(Intent.Read)[zz][yy * GaussConvolved.Dims.X + xx]).ToString(nfi)}");
-                }
 
+            float[] gaussConvolvedFlat = Gauss.GetHostContinuousCopy();
+            float[][] gaussConvolved = Helper.ArrayOfFunction(i =>
+            {
+                float[] inner = new float[gaussTableLayout.X / 2];
+                for (int j = 0; j < gaussTableLayout.X / 2; j++)
+                {
+                    inner[j] = gaussConvolvedFlat[gaussTableLayout.X * i + gaussTableLayout.X/2 + j];
+                }
+                return inner;
             }
-
-            testImage.TransformValues((x, y, z, v) => {
-                int2 center = new int2(50, (int)(testImage.Dims.Y / 2.0f));
-
-                double r = Math.Sqrt(Math.Pow(x - center.X, 2) + 0);
-                if (r <= sigma * 4)
-                {
-                    int idx = (int)Math.Round(r * factor);
-                    return Gauss.GetHost(Intent.Read)[z][gaussTableLayout.X / 2 + idx];
-                }
-                else return 0;
-            });
-            testImage.WriteMRC($@"{outdir}\testImageSelfConstructed.mrc");
-
-            using (System.IO.StreamWriter file = new System.IO.StreamWriter($@"{outdir}\testImageSelfConstructed.txt"))
-            {
-                int yy = (int)(testImage.Dims.Y/2.0f);
-                int xx = 0;
-                for (int zz = 0; zz < 1; zz++)
-                {
-                    for (xx = 0; xx < testImage.Dims.X - 1; xx++)
-                    {
-                        file.Write($"{(testImage.GetHost(Intent.Read)[zz][yy * testImage.Dims.X + xx]).ToString(nfi)}\t");
-                    }
-                    file.WriteLine($"{(testImage.GetHost(Intent.Read)[zz][yy * testImage.Dims.X + xx]).ToString(nfi)}");
-                }
-
-            }
-
-            Image testImageFT = testImage.AsFFT();
-
-            using (System.IO.StreamWriter file = new System.IO.StreamWriter($@"{outdir}\testImageFT.txt"))
-            {
-                int yy = 0;
-                int xx = 0;
-                for (int zz = 0; zz < 1; zz++)
-                {
-                    for (xx = 0; xx < testImageFT.DimsFT.X - 1; xx++)
-                    {
-                        file.Write($"{(testImageFT.GetHost(Intent.Read)[zz][yy * testImageFT.Dims.X + xx]).ToString(nfi)}\t");
-                    }
-                    file.WriteLine($"{(testImageFT.GetHost(Intent.Read)[zz][yy * testImageFT.Dims.X + xx]).ToString(nfi)}");
-                }
-
-            }
-
-            testImageFT.WriteMRC($@"{outdir}\testImageFT.mrc");
-            testImageFT.Multiply(CTFs1D);
-            Image testImageConvolved = testImageFT.AsIFFT(false, 0, true);
-            testImageConvolved.WriteMRC($@"{outdir}\testImageConvolved.mrc");
+            , numParticles);
 
 
-            using (System.IO.StreamWriter file = new System.IO.StreamWriter($@"{outdir}\testImageConvolved.txt"))
-            {
-                int yy = (int)(testImage.Dims.Y / 2.0f);
-                int xx = 0;
-                for (int zz = 0; zz < 1; zz++)
-                {
-                    for (xx = 0; xx < testImageConvolved.Dims.X - 1; xx++)
-                    {
-                        file.Write($"{(testImageConvolved.GetHost(Intent.Read)[zz][yy * testImageConvolved.Dims.X + xx]).ToString(nfi)}\t");
-                    }
-                    file.WriteLine($"{(testImageConvolved.GetHost(Intent.Read)[zz][yy * testImageConvolved.Dims.X + xx]).ToString(nfi)}");
-                }
-
-            }
-
-
-            Image testImageConvolvedSelf = new Image(testImage.Dims);
-            testImageConvolvedSelf.TransformValues((x, y, z, v) => {
-                int2 center = new int2(50, (int)(testImage.Dims.Y / 2.0f));
-
-                double r = Math.Sqrt(Math.Pow(x - center.X, 2) + Math.Pow(y - center.Y, 2));
-                int idx = (int)Math.Round(r * factor);
-                if (idx < GaussConvolved.Dims.X)
-                {
-                    
-
-                    return GaussConvolved.GetHost(Intent.Read)[z][gaussTableLayout.X / 2 + idx];
-                }
-                else return 0;
-            });
-            testImageConvolvedSelf.WriteMRC($@"{outdir}\testImageConvolvedSelf.mrc");
-
-            using (System.IO.StreamWriter file = new System.IO.StreamWriter($@"{outdir}\testImageConvolvedSelf.txt"))
-            {
-                int yy = (int)(testImage.Dims.Y / 2.0f);
-                int xx = 0;
-                for (int zz = 0; zz < 1; zz++)
-                {
-                    for (xx = 0; xx < testImageConvolvedSelf.Dims.X - 1; xx++)
-                    {
-                        file.Write($"{(testImageConvolvedSelf.GetHost(Intent.Read)[zz][yy * testImageConvolvedSelf.Dims.X + xx]).ToString(nfi)}\t");
-                    }
-                    file.WriteLine($"{(testImageConvolvedSelf.GetHost(Intent.Read)[zz][yy * testImageConvolvedSelf.Dims.X + xx]).ToString(nfi)}");
-                }
-
-            }
-
-            Image testImage2 = new Image(new int3(100, 100, numParticles));
-            testImage2.TransformValues((x, y, z, v) =>
-            {
-                int2 center = new int2(25, 50);
-                int2 center2 = new int2(75, 50);
-                double res = 0.0;
-                double r1 = Math.Sqrt(Math.Pow(x - center.X, 2) + Math.Pow(y - center.Y, 2));
-                int idx1 = (int)Math.Round(r1 * factor);
-                if (idx1 < Gauss.Dims.X/2)
-                {
-                    res += Gauss.GetHost(Intent.Read)[z][gaussTableLayout.X / 2 + idx1];
-                }
-
-                double r2 = Math.Sqrt(Math.Pow(x - center2.X, 2) + Math.Pow(y - center2.Y, 2));
-                int idx2 = (int)Math.Round(r2 * factor);
-                if (idx2 < Gauss.Dims.X/2)
-                {
-                    res += Gauss.GetHost(Intent.Read)[z][gaussTableLayout.X / 2 + idx2];
-                }
-                return (float)res;
-
-            });
-            Image testImage2SelfConvolved = new Image(new int3(100, 100, numParticles));
-            testImage2SelfConvolved.TransformValues((x, y, z, v) =>
-            {
-                int2 center = new int2(25, 50);
-                int2 center2 = new int2(75, 50);
-                double res = 0.0;
-                double r1 = Math.Sqrt(Math.Pow(x - center.X, 2) + Math.Pow(y - center.Y, 2));
-                int idx1 = (int)Math.Round(r1 * factor);
-                if (idx1 < GaussConvolved.Dims.X / 2)
-                {
-                    res += GaussConvolved.GetHost(Intent.Read)[z][gaussTableLayout.X / 2 + idx1];
-                }
-
-                double r2 = Math.Sqrt(Math.Pow(x - center2.X, 2) + Math.Pow(y - center2.Y, 2));
-                int idx2 = (int)Math.Round(r2 * factor);
-                if (idx2 < GaussConvolved.Dims.X / 2)
-                {
-                    res += GaussConvolved.GetHost(Intent.Read)[z][gaussTableLayout.X / 2 + idx2];
-                }
-                return (float)res;
-
-            });
-
-            Image testImage2FT = testImage2.AsFFT();
-            testImage2FT.Multiply(CTFs);
-
-            Image testImage2Convolved = testImage2FT.AsIFFT(false, 0, true);
-
-            using (System.IO.StreamWriter file = new System.IO.StreamWriter($@"{outdir}\testImage2.txt"))
-            {
-                int yy = (int)(testImage2.Dims.Y / 2.0f);
-                int xx = 0;
-                for (int zz = 0; zz < 1; zz++)
-                {
-                    for (xx = 0; xx < testImage2.Dims.X - 1; xx++)
-                    {
-                        file.Write($"{(testImage2.GetHost(Intent.Read)[zz][yy * testImage2.Dims.X + xx]).ToString(nfi)}\t");
-                    }
-                    file.WriteLine($"{(testImage2.GetHost(Intent.Read)[zz][yy * testImage2.Dims.X + xx]).ToString(nfi)}");
-                }
-
-            }
-
-            using (System.IO.StreamWriter file = new System.IO.StreamWriter($@"{outdir}\testImage2Convolved.txt"))
-            {
-                int yy = (int)(testImage2Convolved.Dims.Y / 2.0f);
-                int xx = 0;
-                for (int zz = 0; zz < 1; zz++)
-                {
-                    for (xx = 0; xx < testImage2Convolved.Dims.X - 1; xx++)
-                    {
-                        file.Write($"{(testImage2Convolved.GetHost(Intent.Read)[zz][yy * testImage2Convolved.Dims.X + xx]).ToString(nfi)}\t");
-                    }
-                    file.WriteLine($"{(testImage2Convolved.GetHost(Intent.Read)[zz][yy * testImage2Convolved.Dims.X + xx]).ToString(nfi)}");
-                }
-
-            }
-
-            using (System.IO.StreamWriter file = new System.IO.StreamWriter($@"{outdir}\testImage2SelfConvolved.txt"))
-            {
-                int yy = (int)(testImage2SelfConvolved.Dims.Y / 2.0f);
-                int xx = 0;
-                for (int zz = 0; zz < 1; zz++)
-                {
-                    for (xx = 0; xx < testImage2SelfConvolved.Dims.X - 1; xx++)
-                    {
-                        file.Write($"{(testImage2SelfConvolved.GetHost(Intent.Read)[zz][yy * testImage2.Dims.X + xx]).ToString(nfi)}\t");
-                    }
-                    file.WriteLine($"{(testImage2SelfConvolved.GetHost(Intent.Read)[zz][yy * testImage2.Dims.X + xx]).ToString(nfi)}");
-                }
-
-            }
 
             float3[] angles = new float3[numAngles];
             {
