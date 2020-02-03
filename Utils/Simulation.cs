@@ -642,13 +642,13 @@ namespace FlexibleRefinement.Util
             {
                 Directory.CreateDirectory(outdir);
             }
-            int3 Dims = new int3(100);
+            int3 Dims = new int3(60);
             Image startIm = new Image(Dims);
             float[][] startImData = startIm.GetHost(Intent.Write);
 
             double r = 4;
             double R = 10;
-            int3[] mids = new int3[3] { new int3(30, 50, 50), new int3(50, 50, 50), new int3(70, 50, 50) };
+            int3[] mids = new int3[3] { new int3(Dims.X / 2 - Dims.X / 5, Dims.Y / 2, Dims.Z / 2), new int3(Dims.X / 2, Dims.Y / 2, Dims.Z / 2), new int3(Dims.X / 2 + Dims.X / 5, Dims.Y / 2, Dims.Z / 2) };
             double phi = 0.0;
             double theta = 0.0;
             foreach (var mid in mids)
