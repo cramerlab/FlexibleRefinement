@@ -56,17 +56,17 @@ plt.title("GaussTableFT")
 plt.plot(arr[::1])
 
 '''
-arr = np.loadtxt(os.path.join("bin", "Debug", "Refinement", "current", "testImage2.txt"), delimiter="\t")
+arr = np.loadtxt(os.path.join("bin", "Debug", "Refinement", "20200127_9204feb", "testImage2.txt"), delimiter="\t")
 plt.figure()
 plt.title("testImage2")
 plt.plot(arr[:])
 
 
-arr = np.loadtxt(os.path.join("bin", "Debug", "Refinement", "current", "testImage2SelfConvolved.txt"), delimiter="\t")
+arr = np.loadtxt(os.path.join("bin", "Debug", "Refinement", "20200127_9204feb", "testImage2SelfConvolved.txt"), delimiter="\t")
 plt.figure()
 plt.title("testImage2SelfConvolved")
 plt.plot(arr[:])
-arr = np.loadtxt(os.path.join("bin", "Debug", "Refinement", "current", "testImage2Convolved.txt"), delimiter="\t")
+arr = np.loadtxt(os.path.join("bin", "Debug", "Refinement", "20200127_9204feb", "testImage2Convolved.txt"), delimiter="\t")
 plt.figure()
 plt.title("testImage2Convolved")
 plt.plot(arr[:])

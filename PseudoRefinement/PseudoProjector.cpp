@@ -56,6 +56,38 @@ void PseudoProjector::project_Pseudo(DOUBLE * out, DOUBLE * out_nrm,
 	this->project_Pseudo(proj, proj_nrm,	EulerMat, shiftX, shiftY,direction);
 }
 
+void PseudoProjector::project_PseudoCTF(DOUBLE * out, DOUBLE * out_nrm, DOUBLE *gaussTable, DOUBLE * gaussTable2,
+	float3 Euler, DOUBLE shiftX, DOUBLE shiftY,
+	int direction)
+{
+	DOUBLE * tableTmp = gaussianProjectionTable.vdata;
+	DOUBLE * tableTmp2 = gaussianProjectionTable2.vdata;
+
+	gaussianProjectionTable.vdata = gaussTable;
+	gaussianProjectionTable2.vdata = gaussTable2;
+
+	MultidimArray<DOUBLE> proj = MultidimArray<DOUBLE>(this->Dims.z, this->Dims.y, this->Dims.x);
+	proj.data = out;
+	proj.xinit = shiftX;
+	proj.yinit = shiftY;
+	proj.destroyData = false;
+	
+	MultidimArray<DOUBLE> proj_nrm = MultidimArray<DOUBLE>(this->Dims.z, this->Dims.y, this->Dims.x);
+	if (out_nrm != NULL)
+	{
+		proj_nrm.data = out_nrm;
+		proj_nrm.destroyData = NULL;
+	}
+	proj_nrm.xinit = shiftX;
+	proj_nrm.yinit = shiftY;
+	
+	Matrix2D<DOUBLE> EulerMat = Matrix2D<DOUBLE>();
+	Euler_angles2matrix(Euler.x, Euler.y, Euler.z, EulerMat);
+	
+	
+	this->project_Pseudo(proj, proj_nrm,	EulerMat, shiftX, shiftY,direction);
+}
+
  /** Projection of a pseudoatom volume */
 void PseudoProjector::project_Pseudo(
 	MultidimArray<DOUBLE> &proj, MultidimArray<DOUBLE> &norm_proj,
@@ -197,12 +229,12 @@ DOUBLE PseudoProjector::ART_single_image(const MultidimArray<DOUBLE> &Iexp, DOUB
 {
 	MultidimArray<DOUBLE> Itheo, Icorr, Idiff;
 	Itheo.initZeros(Iexp);
-	Icorr.initZeros(Iexp);
+	Icorr.resize(Iexp);
 	Matrix2D<DOUBLE> Euler;
 	Euler_angles2matrix(rot, tilt, psi, Euler);
 	this->project_Pseudo(Itheo, Icorr,
 		Euler, shiftX, shiftY, PSEUDO_FORWARD);
-	Idiff.initZeros(Iexp);
+	Idiff.resize(Iexp);
 
 	DOUBLE mean_error = 0;
 	FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY2D(Iexp)
@@ -221,6 +253,30 @@ DOUBLE PseudoProjector::ART_single_image(const MultidimArray<DOUBLE> &Iexp, DOUB
 	this->project_Pseudo(Itheo, Icorr,
 		Euler, shiftX, shiftY, PSEUDO_BACKWARD);
 	return mean_error;
+}
+
+DOUBLE PseudoProjector::ART_multi_Image_step(DOUBLE * Iexp, float3 * angles, DOUBLE *gaussTables, DOUBLE *gaussTables2, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages) {
+
+	std::vector < MultidimArray<DOUBLE> > Images;
+	DOUBLE itError = 0.0;
+	
+	for (size_t i = 0; i < numImages; i++)
+	{
+		DOUBLE * tableTmp = gaussianProjectionTable.vdata;
+		DOUBLE * tableTmp2 = gaussianProjectionTable2.vdata;
+
+		gaussianProjectionTable.vdata = gaussTables + i * (Dims.x / 2 + 1);
+		gaussianProjectionTable2.vdata = gaussTables2 + i * (Dims.x / 2 + 1);
+		MultidimArray<DOUBLE> tmp = MultidimArray<DOUBLE>(Dims.z, Dims.y, Dims.x);
+		tmp.data = Iexp + i * (Dims.x*Dims.y);
+		tmp.destroyData = false;
+		itError += ART_single_image(tmp, angles[i].x, angles[i].y, angles[i].z, shiftX, shiftY);
+
+		gaussianProjectionTable.vdata = tableTmp;
+		gaussianProjectionTable2.vdata = tableTmp2;
+
+	}
+	return itError;
 }
 
 DOUBLE PseudoProjector::ART_multi_Image_step(DOUBLE * Iexp, float3 * angles, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages) {
