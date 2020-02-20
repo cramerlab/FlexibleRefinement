@@ -635,19 +635,19 @@ namespace FlexibleRefinement.Util
             tarIm.Binarize((float)(1.0f / Math.E));
             tarIm.WriteMRC($@"{outdir}\TargetMask_fromGraph{it}.mrc");
         }
-        public static void simulateLowFreqHighFreqNoiseMix()
+        public static void simulateLowFreqHighFreqNoiseMix(int3 Dims)
         {
-            String outdir = $@"D:\Software\FlexibleRefinement\bin\Debug\Toy_Modulated\lowHighMix\current";
+            String outdir = $@"D:\Software\FlexibleRefinement\bin\Debug\Toy_Modulated\lowHighMix\current_{Dims.X}_{Dims.Y}";
             if (!Directory.Exists(outdir))
             {
                 Directory.CreateDirectory(outdir);
             }
-            int3 Dims = new int3(60);
+            
             Image startIm = new Image(Dims);
             float[][] startImData = startIm.GetHost(Intent.Write);
-
-            double r = 4;
-            double R = 10;
+            int numAtoms = 500;
+            double r = Dims.X/50;
+            double R = Dims.X/10;
             int3[] mids = new int3[3] { new int3(Dims.X / 2 - Dims.X / 5, Dims.Y / 2, Dims.Z / 2), new int3(Dims.X / 2, Dims.Y / 2, Dims.Z / 2), new int3(Dims.X / 2 + Dims.X / 5, Dims.Y / 2, Dims.Z / 2) };
             double phi = 0.0;
             double theta = 0.0;
@@ -747,7 +747,7 @@ namespace FlexibleRefinement.Util
             forceImX.WriteMRC($@"{outdir}\forceImX.mrc");
             forceImY.WriteMRC($@"{outdir}\forceImY.mrc");
             forceImZ.WriteMRC($@"{outdir}\forceImZ.mrc");
-            AtomGraph startGraph = new AtomGraph(startIm, startMask, nonZero);
+            AtomGraph startGraph = new AtomGraph(startIm, startMask, nonZero, numAtoms);
             startGraph.save($@"{outdir}\StartGraph.xyz");
             startGraph.save($@"{outdir}\StartGraph.graph");
             startGraph.Repr(1.0d).WriteMRC($@"{outdir}\StartIm_fromGraph.mrc");

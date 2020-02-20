@@ -13,6 +13,8 @@
 #include "liblion.h"
 #include "Types.h"
 
+#define GAUSS_FACTOR 30
+
 using namespace relion;
 
 /** Matrix element: Element access
@@ -62,8 +64,10 @@ public:
 	// Atomic weights
 	std::vector< DOUBLE > atomWeight;
 	double sigma;
+	double tableLength;
 	double lambdaART;
 	int3 Dims;
+	bool gauss2D;
 
 	PseudoProjector(int3 dims, DOUBLE *atomPositions, DOUBLE *atomWeights, DOUBLE sigma, unsigned int nAtoms):Dims(dims), sigma(sigma), lambdaART(0.1){
 		atomPosition = std::vector<Matrix1D<DOUBLE>>();
@@ -83,29 +87,27 @@ public:
 		
 		
 		DOUBLE sigma4 = 4 * sigma;
-		gaussianProjectionTable = Matrix1D<DOUBLE>(CEIL(sigma4*sqrt(2) * 1000));
-		gaussianProjectionTable2 = Matrix1D<DOUBLE>(CEIL(sigma4*sqrt(2) * 1000));
+		tableLength = sigma4;
+		gaussianProjectionTable = Matrix1D<DOUBLE>(CEIL(sigma4*sqrt(2) * GAUSS_FACTOR + 1));
+		gaussianProjectionTable2 = Matrix1D<DOUBLE>(CEIL(sigma4*sqrt(2) * GAUSS_FACTOR + 1));
 		FOR_ALL_ELEMENTS_IN_MATRIX1D(gaussianProjectionTable)
-			gaussianProjectionTable(i) = gaussian1D(i / 1000.0, sigma);
+			gaussianProjectionTable(i) = gaussian1D(i / ((float)GAUSS_FACTOR), sigma);
 		gaussianProjectionTable *= gaussian1D(0, sigma);
 		gaussianProjectionTable2 = gaussianProjectionTable;
 		gaussianProjectionTable2 *= gaussianProjectionTable;
 	};
 
-	DOUBLE * getGaussianTable() {
-		return gaussianProjectionTable.vdata;
-	}
 
 	DOUBLE ART_single_image(const MultidimArray<DOUBLE> &Iexp, DOUBLE rot, DOUBLE tilt, DOUBLE psi, DOUBLE shiftX, DOUBLE shiftY);
 
 	DOUBLE ART_multi_Image_step(std::vector< MultidimArray<DOUBLE> > Iexp, std::vector<float3> angles, DOUBLE shiftX, DOUBLE shiftY);
-	DOUBLE ART_multi_Image_step(DOUBLE * Iexp, float3 * angles, DOUBLE *gaussTables, DOUBLE *gaussTables2, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages);
+	DOUBLE ART_multi_Image_step(DOUBLE * Iexp, float3 * angles, DOUBLE *gaussTables, DOUBLE *gaussTables2, DOUBLE border, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages);
 	DOUBLE ART_multi_Image_step(DOUBLE * Iexp, float3 * angles, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages);
 
 	void project_Pseudo(MultidimArray<DOUBLE> &proj, MultidimArray<DOUBLE> &norm_proj,
 		Matrix2D<DOUBLE> &Euler, DOUBLE shiftX, DOUBLE shiftY,
 		int direction);
-	void project_PseudoCTF(DOUBLE * out, DOUBLE * out_nrm, DOUBLE *gaussTable, DOUBLE * gaussTable2,
+	void project_PseudoCTF(DOUBLE * out, DOUBLE * out_nrm, DOUBLE *gaussTable, DOUBLE * gaussTable2, DOUBLE border,
 		float3 Euler, DOUBLE shiftX, DOUBLE shiftY,
 		int direction);
 	void project_Pseudo(DOUBLE * out,

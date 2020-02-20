@@ -56,13 +56,14 @@ void PseudoProjector::project_Pseudo(DOUBLE * out, DOUBLE * out_nrm,
 	this->project_Pseudo(proj, proj_nrm,	EulerMat, shiftX, shiftY,direction);
 }
 
-void PseudoProjector::project_PseudoCTF(DOUBLE * out, DOUBLE * out_nrm, DOUBLE *gaussTable, DOUBLE * gaussTable2,
+void PseudoProjector::project_PseudoCTF(DOUBLE * out, DOUBLE * out_nrm, DOUBLE *gaussTable, DOUBLE * gaussTable2, DOUBLE border,
 	float3 Euler, DOUBLE shiftX, DOUBLE shiftY,
 	int direction)
 {
 	DOUBLE * tableTmp = gaussianProjectionTable.vdata;
 	DOUBLE * tableTmp2 = gaussianProjectionTable2.vdata;
-
+	double oldBorder = this->tableLength;
+	this->tableLength = border;
 	gaussianProjectionTable.vdata = gaussTable;
 	gaussianProjectionTable2.vdata = gaussTable2;
 
@@ -86,6 +87,9 @@ void PseudoProjector::project_PseudoCTF(DOUBLE * out, DOUBLE * out_nrm, DOUBLE *
 	
 	
 	this->project_Pseudo(proj, proj_nrm,	EulerMat, shiftX, shiftY,direction);
+	gaussianProjectionTable.vdata = tableTmp;
+	gaussianProjectionTable2.vdata = tableTmp2;
+	this->tableLength = oldBorder;
 }
 
  /** Projection of a pseudoatom volume */
@@ -97,7 +101,7 @@ void PseudoProjector::project_Pseudo(
 	// Project all pseudo atoms ............................................
 	int numAtoms = atomPosition.size();
 	Matrix1D<DOUBLE> actprj(3);
-	double sigma4 = 4 * sigma;
+	double sigma4 = this->tableLength;
 	Matrix1D<DOUBLE> actualAtomPosition;
 
 	for (int n = 0; n < numAtoms; n++)
@@ -166,7 +170,7 @@ void PseudoProjector::project_Pseudo(
 					DOUBLE x_diff2 = x - XX(actprj);
 					x_diff2 = x_diff2 * x_diff2;
 					DOUBLE r = sqrt(x_diff2 + y_diff2);
-					DOUBLE didx = r * 1000;
+					DOUBLE didx = r * GAUSS_FACTOR;
 					int idx = ROUND(didx);
 					DOUBLE a = VEC_ELEM(gaussianProjectionTable, idx);
 					DOUBLE a2 = VEC_ELEM(gaussianProjectionTable2, idx);
@@ -175,7 +179,9 @@ void PseudoProjector::project_Pseudo(
 					if (condition)
 						std::cout << "=" << a << " , " << a2;
 #endif
-
+					if (a < 0 || a>2) {
+						bool is = true;
+					}
 					if (direction == PSEUDO_FORWARD)
 					{
 						A2D_ELEM(proj, y, x) += weight * a;
@@ -229,7 +235,7 @@ DOUBLE PseudoProjector::ART_single_image(const MultidimArray<DOUBLE> &Iexp, DOUB
 {
 	MultidimArray<DOUBLE> Itheo, Icorr, Idiff;
 	Itheo.initZeros(Iexp);
-	Icorr.resize(Iexp);
+	Icorr.initZeros(Iexp);
 	Matrix2D<DOUBLE> Euler;
 	Euler_angles2matrix(rot, tilt, psi, Euler);
 	this->project_Pseudo(Itheo, Icorr,
@@ -255,7 +261,7 @@ DOUBLE PseudoProjector::ART_single_image(const MultidimArray<DOUBLE> &Iexp, DOUB
 	return mean_error;
 }
 
-DOUBLE PseudoProjector::ART_multi_Image_step(DOUBLE * Iexp, float3 * angles, DOUBLE *gaussTables, DOUBLE *gaussTables2, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages) {
+DOUBLE PseudoProjector::ART_multi_Image_step(DOUBLE * Iexp, float3 * angles, DOUBLE *gaussTables, DOUBLE *gaussTables2, DOUBLE tableLength, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages) {
 
 	std::vector < MultidimArray<DOUBLE> > Images;
 	DOUBLE itError = 0.0;
@@ -265,8 +271,10 @@ DOUBLE PseudoProjector::ART_multi_Image_step(DOUBLE * Iexp, float3 * angles, DOU
 		DOUBLE * tableTmp = gaussianProjectionTable.vdata;
 		DOUBLE * tableTmp2 = gaussianProjectionTable2.vdata;
 
-		gaussianProjectionTable.vdata = gaussTables + i * (Dims.x / 2 + 1);
-		gaussianProjectionTable2.vdata = gaussTables2 + i * (Dims.x / 2 + 1);
+		gaussianProjectionTable.vdata = gaussTables + i * (GAUSS_FACTOR * Dims.x / 2 );
+		gaussianProjectionTable2.vdata = gaussTables2 + i * (GAUSS_FACTOR * Dims.x / 2 );
+		double oldBorder = this->tableLength;
+		this->tableLength = tableLength;
 		MultidimArray<DOUBLE> tmp = MultidimArray<DOUBLE>(Dims.z, Dims.y, Dims.x);
 		tmp.data = Iexp + i * (Dims.x*Dims.y);
 		tmp.destroyData = false;
@@ -274,7 +282,7 @@ DOUBLE PseudoProjector::ART_multi_Image_step(DOUBLE * Iexp, float3 * angles, DOU
 
 		gaussianProjectionTable.vdata = tableTmp;
 		gaussianProjectionTable2.vdata = tableTmp2;
-
+		this->tableLength = oldBorder;
 	}
 	return itError;
 }
