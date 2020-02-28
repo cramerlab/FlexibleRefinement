@@ -36,6 +36,9 @@ namespace FlexibleRefinement
 
         [DllImport("PseudoRefinement.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "DoARTStepMovedCTF")]
         public static extern float DoARTStepMovedCTF(IntPtr proj, float[] Iexp, float3[] angles, float[] atomPositions, float[] GaussTables, float[] GaussTables2, float border, float shiftX, float shiftY, uint numImages);
+        
+        [DllImport("PseudoRefinement.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "DoARTStepMovedCTF_DB")]
+        public static extern float DoARTStepMovedCTF_DB(IntPtr proj, float[] Iexp, float[] Itheo, float[] Icorr, float[] Idiff, float3[] angles, float[] atomPositions, float[] GaussTables, float[] GaussTables2, float border, float shiftX, float shiftY, uint numImages);
 
         [DllImport("PseudoRefinement.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "GetIntensities")]
         public static extern void GetIntensities(IntPtr proj, float[] outp);
@@ -45,6 +48,40 @@ namespace FlexibleRefinement
 
         [DllImport("PseudoRefinement.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "getGaussianTableFull")]
         public static extern void getGaussianTableFull(float[] table, float sigma, int elements);
+
+
+        public static Image FFT_slices(Image im, int plan=0)
+        {
+            Image[] ims = Helper.ArrayOfFunction(z => new Image(im.GetHost(Intent.Read)[z], new int3(im.Dims.X, im.Dims.Y, 1)), im.Dims.Z);
+            Image[] FFTs = Helper.ArrayOfFunction(i => new Image(new int3(im.Dims.X, im.Dims.Y, 1), true, true, false), im.Dims.Z);
+            for (int slice = 0; slice < im.Dims.Z; slice++)
+            {
+                GPU.FFT(ims[slice].GetDevice(Intent.Read), FFTs[slice].GetDevice(Intent.Write), im.Dims.Slice(), 1, plan);
+                ims[slice].Dispose();
+                FFTs[slice].FreeDevice();
+            }
+            Image FFT = Image.Stack(FFTs);
+            FFT.FreeDevice();
+            return FFT;
+        }
+
+        public static Image IFFT_slices(Image im, int plan = 0, bool normalize = false)
+        {
+            if (im.IsHalf || !im.IsComplex || !im.IsFT)
+                throw new Exception("Data format not supported.");
+            Image[] ims = Helper.ArrayOfFunction(z => new Image(im.GetHost(Intent.Read)[z], new int3(im.Dims.X, im.Dims.Y, 1), true, true, false), im.Dims.Z);
+            Image[] IFFTs = Helper.ArrayOfFunction(i => new Image(new int3(im.Dims.X, im.Dims.Y, 1), false, false, false), im.Dims.Z);
+            for (int slice = 0; slice < im.Dims.Z; slice++)
+            {
+                GPU.IFFT(ims[slice].GetDevice(Intent.Read), IFFTs[slice].GetDevice(Intent.Write), im.Dims.Slice(), 1, plan, normalize);
+                ims[slice].Dispose();
+                IFFTs[slice].FreeDevice();
+            }
+            Image IFFT = Image.Stack(IFFTs);
+            IFFT.FreeDevice();
+            return IFFT;
+        }
+
 
 
         public static Image GetCTFCoords(int2 size, int2 originalSize, float pixelSize = 1, float pixelSizeDelta = 0, float pixelSizeAngle = 0)
@@ -83,18 +120,20 @@ namespace FlexibleRefinement
             NumberFormatInfo nfi = new NumberFormatInfo();
             nfi.NumberDecimalSeparator = ".";
             Random rand = new Random();
-            String outdir = @"D:\Software\FlexibleRefinement\bin\Debug\Refinement\current";
+
+            String inputName = "lowHighMix_small";
+
+            String outdir = $@"D:\Software\FlexibleRefinement\bin\Debug\Refinement\current\{inputName}";
+
             if (!Directory.Exists(outdir))
             {
                 Directory.CreateDirectory(outdir);
             }
-            int2 particleRes = new int2(100);
-            String indir = $@"D:\Software\FlexibleRefinement\bin\Debug\Toy_Modulated\lowHighMix\current_{particleRes.X}_{particleRes.Y}";
-
+            int2 particleRes = new int2(40);
+            String indir = $@"D:\Software\FlexibleRefinement\bin\Debug\Toy_Modulated\{inputName}\current_{particleRes.X}_{particleRes.Y}";
 
             Star TableIn = new Star(@"D:\florian_debug\particles.star");
             CTF[] CTFParams = TableIn.GetRelionCTF();
-
 
             Image inputVol = Image.FromFile($@"{indir}\startIm.mrc");
             Image inputMask = Image.FromFile($@"{indir}\startMask.mrc");
@@ -104,8 +143,7 @@ namespace FlexibleRefinement
             Projector proj = new Projector(inputVol, 2);
             Projector maskProj = new Projector(inputMask, 2);
 
-
-            int numParticles = 50;
+            int numParticles = 500;
             int numAngles = numParticles;
             int numAnglesX = (int)Math.Ceiling(Math.Pow(numAngles, 1.0d / 3.0d));
             int numAnglesY = (int)Math.Max(1, Math.Floor(Math.Pow(numAngles, 1.0d / 3.0d)));
@@ -134,13 +172,9 @@ namespace FlexibleRefinement
                             (uint)numParticles);
             CTFs.WriteMRC($@"{outdir}\CTFS.mrc");
             int factor = 30;
-            float sigma = 3.0f;
+            float sigma = graph.Atoms[0].R;
 
             //int2 gaussTableLayout = new int2(2 * factor * (int)Math.Ceiling(Math.Sqrt(2) * 4 * sigma), 1);
-            
-
-
-
 
             float3[] angles = new float3[numAngles];
             {
@@ -165,9 +199,9 @@ namespace FlexibleRefinement
             float[] projectionAngles = new float[numPseudoparticles * 3];
             for (int k = 0; k < numPseudoparticles; k++)
             {
-                projectionAngles[k] = angles[k].X;
-                projectionAngles[k + 1] = angles[k].Y;
-                projectionAngles[k + 2] = angles[k].Z;
+                projectionAngles[3 * k] = angles[k].X;
+                projectionAngles[3 * k + 1] = angles[k].Y;
+                projectionAngles[3 * k + 2] = angles[k].Z;
             }
             float[] atomPositions = graph.GetAtomPositions();
             float[] movedAtomPositions = graphMoved.GetAtomPositions();
@@ -182,12 +216,15 @@ namespace FlexibleRefinement
 
             Image ProjectorParticles = proj.ProjectToRealspace(particleRes, angles);
             Image ProjectorMasks = maskProj.ProjectToRealspace(particleRes, angles);
+            ProjectorParticles.FreeDevice();
+            ProjectorMasks.FreeDevice();
+
             ProjectorMasks.Binarize(0.9f);
             GPU.Normalize(ProjectorParticles.GetDevice(Intent.Read),
                             ProjectorParticles.GetDevice(Intent.Write),
                             (uint)ProjectorParticles.ElementsSliceReal,
                             (uint)angles.Count());
-
+            ProjectorParticles.FreeDevice();
             ProjectorParticles.WriteMRC($@"{outdir}\ProjectorParticles.mrc");
             ProjectorMasks.WriteMRC($@"{outdir}\ProjectorMasks.mrc");
 
@@ -243,7 +280,7 @@ namespace FlexibleRefinement
                 stopWatch.Start();
                 for (int k = 0; k < numIt; k++)
                 {
-                    itErrs[k] = DoARTStepMoved(Reconstructor, PseudoProjectorGTParticles.GetHostContinuousCopy(), Helper.ArrayOfFunction(kx => angles[kx] * Helper.ToDeg, numPseudoparticles), movedAtomPositions, 0.0f, 0.0f, (uint)numPseudoparticles);
+                    itErrs[k] = DoARTStep(Reconstructor, PseudoProjectorGTParticles.GetHostContinuousCopy(), Helper.ArrayOfFunction(kx => angles[kx] * Helper.ToDeg, numPseudoparticles), 0.0f, 0.0f, (uint)numPseudoparticles);
 
                     /* Get Current Projections */
                     for (int l = 0; l < numPseudoparticles; l++)
@@ -424,7 +461,7 @@ namespace FlexibleRefinement
             }
 
             int2 gaussTableLayout = new int2(factor * particleRes.X, factor * particleRes.Y);
-            float border = (float) (Math.Min(8*sigma, ProjectorParticles.Dims.X / 2 / Math.Sqrt(2)));
+            float border = (float) (Math.Min(3*sigma, ProjectorParticles.Dims.X / 2 / Math.Sqrt(2)));
             Image CTFCoordsGauss = GetCTFCoords(new int2(gaussTableLayout.X, gaussTableLayout.Y), new int2(particleRes.X, particleRes.Y), 1.0f);
             Image CTFsGauss = new Image(new int3(gaussTableLayout.X, gaussTableLayout.Y, numParticles), true);
             GPU.CreateCTF(CTFsGauss.GetDevice(Intent.Write),
@@ -433,17 +470,18 @@ namespace FlexibleRefinement
                             CTFParams.Select(p => p.ToStruct()).ToArray(),
                             false,
                             (uint)numParticles);
+            CTFCoordsGauss.Dispose();
             CTFsGauss.WriteMRC($@"{outdir}\CTFsGauss.mrc");
             Image Gauss = new Image(new int3(gaussTableLayout.X, gaussTableLayout.Y, numParticles));
-            Gauss.TransformValues((x, y, z, v) => (float)(1 / (2 * Math.PI * sigma * sigma) * Math.Exp(-0.5 * (Math.Pow((x - gaussTableLayout.X / 2.0) / (double)factor, 2) + Math.Pow((y - gaussTableLayout.Y / 2.0) / (double)factor,2) )/Math.Pow(sigma, 2.0))));
+            Gauss.TransformValues((x, y, z, v) => (float)Math.Exp(-0.5 * (Math.Pow((x - gaussTableLayout.X / 2.0) / (double)factor, 2) + Math.Pow((y - gaussTableLayout.Y / 2.0) / (double)factor,2) )/Math.Pow(sigma, 2.0)));
             Gauss.WriteMRC($@"{outdir}\Gauss.mrc");
-            Image GaussFT = Gauss.AsFFT();
-            Image GaussIFT = GaussFT.AsIFFT(false, 0, true);
+            Image GaussFT = FFT_slices(Gauss);
+            Image GaussIFT = IFFT_slices(GaussFT, 0, true);
             GaussFT.Multiply(CTFsGauss);
-            Image GaussConvolved = GaussFT.AsIFFT(false, 0, true);
+            Image GaussConvolved = IFFT_slices(GaussFT, 0, true);
             GaussConvolved.WriteMRC($@"{outdir}\GaussConvolved.mrc");
 
-            float[] gaussConvolvedFlat = GaussConvolved.GetHostContinuousCopy();
+            float[][] gaussConvolvedFlat = GaussConvolved.GetHost(Intent.Read);
             float[] gaussConvolved = new float[numParticles * factor * particleRes.X / 2];
             float[] gaussConvolved2 = new float[numParticles * factor * particleRes.X / 2];
             float[][] gaussConvolved_2D = Helper.ArrayOfFunction(i => new float[factor * particleRes.X / 2], numParticles);
@@ -452,30 +490,28 @@ namespace FlexibleRefinement
             {
                 for (int j = 0; j < gaussTableLayout.X / 2; j++)
                 {
-                    gaussConvolved[zz * gaussTableLayout.X / 2 + j] = gaussConvolvedFlat[gaussTableLayout.X * gaussTableLayout.Y * zz + gaussTableLayout.Y / 2 * gaussTableLayout.X + gaussTableLayout.X / 2 + j];
-                    gaussConvolved_2D[zz][j] = gaussConvolvedFlat[gaussTableLayout.X * gaussTableLayout.Y * zz + gaussTableLayout.Y/2*gaussTableLayout.X + gaussTableLayout.X / 2 + j];
-                    gaussConvolved2[zz * gaussTableLayout.X / 2 + j] = gaussConvolvedFlat[gaussTableLayout.X * gaussTableLayout.Y * zz + gaussTableLayout.Y / 2 * gaussTableLayout.X + gaussTableLayout.X / 2 + j] * gaussConvolvedFlat[gaussTableLayout.X * gaussTableLayout.Y * zz + gaussTableLayout.Y / 2 * gaussTableLayout.X + gaussTableLayout.X / 2 + j];
-                    gaussConvolved2_2D[zz][j] = gaussConvolvedFlat[gaussTableLayout.X * gaussTableLayout.Y * zz + gaussTableLayout.Y / 2 * gaussTableLayout.X + gaussTableLayout.X / 2 + j] * gaussConvolvedFlat[gaussTableLayout.X * gaussTableLayout.Y * zz + gaussTableLayout.Y / 2 * gaussTableLayout.X + gaussTableLayout.X / 2 + j];
+                    gaussConvolved[zz * gaussTableLayout.X / 2 + j] = gaussConvolvedFlat[zz][gaussTableLayout.Y / 2 * gaussTableLayout.X + gaussTableLayout.X / 2 + j];
+                    gaussConvolved_2D[zz][j] = gaussConvolvedFlat[zz][gaussTableLayout.Y/2*gaussTableLayout.X + gaussTableLayout.X / 2 + j];
+                    gaussConvolved2[zz * gaussTableLayout.X / 2 + j] = gaussConvolvedFlat[zz][gaussTableLayout.Y / 2 * gaussTableLayout.X + gaussTableLayout.X / 2 + j] * gaussConvolvedFlat[zz][gaussTableLayout.Y / 2 * gaussTableLayout.X + gaussTableLayout.X / 2 + j];
+                    gaussConvolved2_2D[zz][j] = gaussConvolvedFlat[zz][gaussTableLayout.Y / 2 * gaussTableLayout.X + gaussTableLayout.X / 2 + j] * gaussConvolvedFlat[zz][gaussTableLayout.Y / 2 * gaussTableLayout.X + gaussTableLayout.X / 2 + j];
                 }
             }
 
-            Image PseudoProjectorGTCTFMovedParticles = new Image(new int3(ProjectorParticles.Dims.X, ProjectorParticles.Dims.Y, numPseudoparticles));
+            Image PseudoProjectorGTCTFParticles = new Image(new int3(ProjectorParticles.Dims.X, ProjectorParticles.Dims.Y, numPseudoparticles));
             for (int k = 0; k < numPseudoparticles; k++)
             {
-                GetProjectionCTF(PseudoProjectorGTMoved, PseudoProjectorGTCTFMovedParticles.GetHost(Intent.Write)[k], null, gaussConvolved_2D[k], gaussConvolved2_2D[k],border, angles[k] * Helper.ToDeg, 0.0f, 0.0f);
+                GetProjectionCTF(PseudoProjectorGT, PseudoProjectorGTCTFParticles.GetHost(Intent.Write)[k], null, gaussConvolved_2D[k], gaussConvolved2_2D[k],border, angles[k] * Helper.ToDeg, 0.0f, 0.0f);
             }
-            PseudoProjectorGTCTFMovedParticles.WriteMRC($@"{outdir}\PseudoProjectorGTCTFMovedParticles.mrc");
+            PseudoProjectorGTCTFParticles.WriteMRC($@"{outdir}\PseudoProjectorGTCTFParticles.mrc");
 
-
-
-            Image GTMovedCTFParticles = new Image(PseudoProjectorGTMovedParticles.Dims);
+            Image GTCTFParticles = new Image(PseudoProjectorGTParticles.Dims);
             {
-                Image ftTmp = PseudoProjectorGTMovedParticles.AsFFT();
+                Image ftTmp = PseudoProjectorGTParticles.AsFFT();
                 ftTmp.Multiply(CTFs);
-                GTMovedCTFParticles = ftTmp.AsIFFT(false, 0, true);
+                GTCTFParticles = ftTmp.AsIFFT(false, 0, true);
             }
 
-            GTMovedCTFParticles.WriteMRC($@"{outdir}\PseudoProjectorGTMovedParticles_convolved.mrc");
+            GTCTFParticles.WriteMRC($@"{outdir}\GTCTFParticles.mrc");
             Image testImage2 = new Image(new int3(particleRes.X, particleRes.Y, numParticles));
             testImage2.TransformValues((x, y, z, v) =>
             {
@@ -535,56 +571,72 @@ namespace FlexibleRefinement
             testImage2.WriteMRC($@"{outdir}\TestImage2.mrc");
             testImage2SelfConvolved.WriteMRC($@"{outdir}\testImage2SelfConvolved.mrc");
             /* CTF Reconstruction */
-            if (!File.Exists($@"{outdir}\GraphAfterMovedCTFReconstruction.xyz"))
+            if (!File.Exists($@"{outdir}\GraphAfterCTFReconstruction.xyz"))
             {
                 float[][] itCorrsCTF = Helper.ArrayOfFunction(i => new float[numPseudoparticles], numIt + 1);
                 float[] itErrsCTF = new float[numIt];
                 float[][] itDiffsCTF = Helper.ArrayOfFunction(i => new float[graph.Atoms.Count()], numIt);
-
+                float[][] itintsCTF = Helper.ArrayOfFunction(i => new float[graph.Atoms.Count()], numIt + 1);
                 float[] outp = new float[PseudoProjectorGTParticles.Dims.Elements()];
                 float[] ctf = CTFs.GetHostContinuousCopy();
 
-
-
-                IntPtr MovedCTFPseudoProjector = EntryPoint(inputVol.Dims, atomPositions, realIntensities, graphMoved.Atoms[0].R, (uint)graphMoved.Atoms.Count());
-
+                IntPtr CTFPseudoreconstructor = EntryPoint(inputVol.Dims, atomPositions, startIntensities, graph.Atoms[0].R, (uint)graph.Atoms.Count());
 
                 // The current projections that the reconstruction gives
-                Image PseudoProjectorMovedCTFCurrProjections = new Image(new int3(ProjectorParticles.Dims.X, ProjectorParticles.Dims.Y, numPseudoparticles));
+                Image PseudoProjectorCTFCurrProjections = new Image(new int3(ProjectorParticles.Dims.X, ProjectorParticles.Dims.Y, numPseudoparticles));
 
                 IntPtr CTFPseudoReconstructor = EntryPoint(inputVol.Dims, atomPositions, startIntensities, graph.Atoms[0].R, (uint)graph.Atoms.Count());
                 for (int l = 0; l < numPseudoparticles; l++)
                 {
-                    GetProjectionCTF(MovedCTFPseudoProjector, PseudoProjectorMovedCTFCurrProjections.GetHost(Intent.Write)[l], null, gaussConvolved_2D[l], gaussConvolved2_2D[l], border, angles[l] * Helper.ToDeg, 0.0f, 0.0f);
+                    GetProjectionCTF(CTFPseudoreconstructor, PseudoProjectorCTFCurrProjections.GetHost(Intent.Write)[l], null, gaussConvolved, gaussConvolved2, border, angles[l] * Helper.ToDeg, 0.0f, 0.0f);
                 }
                 {
-                    float[] correlation = ImageProcessor.correlate(GTMovedCTFParticles, PseudoProjectorMovedCTFCurrProjections, ProjectorMasks);
+                    float[] correlation = ImageProcessor.correlate(GTCTFParticles, PseudoProjectorCTFCurrProjections, ProjectorMasks);
                     itCorrsCTF[0] = correlation;
                 }
-                PseudoProjectorMovedCTFCurrProjections.WriteMRC($@"{outdir}\CTFprojections_it0.mrc");
+                PseudoProjectorCTFCurrProjections.WriteMRC($@"{outdir}\CTFprojections_it0.mrc");
 
                 Stopwatch stopWatch = new Stopwatch();
                 stopWatch.Start();
+
+                float[] ItheoData = new float[GTCTFParticles.Dims.X * GTCTFParticles.Dims.Y * GTCTFParticles.Dims.Z];
+                float[] IcorrData = new float[GTCTFParticles.Dims.X * GTCTFParticles.Dims.Y * GTCTFParticles.Dims.Z];
+                float[] IdiffData = new float[GTCTFParticles.Dims.X * GTCTFParticles.Dims.Y * GTCTFParticles.Dims.Z];
+
+                GetIntensities(CTFPseudoreconstructor, newIntensities);
+                float tmp = newIntensities[0];
+                for (int idx = 0; idx < newIntensities.Count(); idx++)
+                {
+                    itintsCTF[0][idx] = newIntensities[idx];
+                }
                 // The actual reconstruction
                 for (int k = 0; k < numIt; k++)
                 {
-                    itErrsCTF[k] = DoARTStepMovedCTF(MovedCTFPseudoProjector, GTMovedCTFParticles.GetHostContinuousCopy(), Helper.ArrayOfFunction(kx => angles[kx] * Helper.ToDeg, numPseudoparticles), movedAtomPositions, gaussConvolved, gaussConvolved2, border, 0.0f, 0.0f, (uint)numPseudoparticles);
 
+                    itErrsCTF[k] = DoARTStepMovedCTF_DB(CTFPseudoreconstructor, GTCTFParticles.GetHostContinuousCopy(), ItheoData, IcorrData, IdiffData, Helper.ArrayOfFunction(kx => angles[kx] * Helper.ToDeg, numPseudoparticles), atomPositions, gaussConvolved, gaussConvolved2, border, 0.0f, 0.0f, (uint)numPseudoparticles);
+                    Image currentItheo = new Image(ItheoData, GTCTFParticles.Dims);
+                    Image currentIcorr = new Image(ItheoData, GTCTFParticles.Dims);
+                    Image currentIdiff = new Image(ItheoData, GTCTFParticles.Dims);
+                    currentItheo.WriteMRC($@"{outdir}\currentItheo_it{k + 1}.mrc");
+                    currentIcorr.WriteMRC($@"{outdir}\currentIcorr_it{k + 1}.mrc");
+                    currentIdiff.WriteMRC($@"{outdir}\currentIdiff_it{k + 1}.mrc");
                     /* Get Current Projections */
                     for (int l = 0; l < numPseudoparticles; l++)
                     {
-                        GetProjection(MovedCTFPseudoProjector, PseudoProjectorMovedCTFCurrProjections.GetHost(Intent.Write)[l], null, angles[l] * Helper.ToDeg, 0.0f, 0.0f);
+                        //GetProjection(MovedCTFPseudoProjector, PseudoProjectorMovedCTFCurrProjections.GetHost(Intent.Write)[l], null, angles[l] * Helper.ToDeg, 0.0f, 0.0f);
+                        GetProjectionCTF(CTFPseudoreconstructor, PseudoProjectorCTFCurrProjections.GetHost(Intent.Write)[l], null, gaussConvolved_2D[l], gaussConvolved2_2D[l], border, angles[l] * Helper.ToDeg, 0.0f, 0.0f);
                     }
-                    float[] correlation = ImageProcessor.correlate(PseudoProjectorGTParticles, PseudoProjectorMovedCTFCurrProjections, ProjectorMasks);
+                    float[] correlation = ImageProcessor.correlate(GTCTFParticles, PseudoProjectorCTFCurrProjections, ProjectorMasks);
                     itCorrsCTF[k + 1] = correlation;
-                    PseudoProjectorMovedCTFCurrProjections.WriteMRC($@"{outdir}\CTFprojections_it{k + 1}.mrc");
+                    PseudoProjectorCTFCurrProjections.WriteMRC($@"{outdir}\CTFprojections_it{k + 1}.mrc");
 
-                    GetIntensities(MovedCTFPseudoProjector, newIntensities);
+                    GetIntensities(CTFPseudoreconstructor, newIntensities);
+
                     for (int idx = 0; idx < newIntensities.Count(); idx++)
                     {
                         itDiffsCTF[k][idx] = newIntensities[idx] - realIntensities[idx];
+                        itintsCTF[k + 1][idx] = newIntensities[idx];
                     }
-
                 }
                 stopWatch.Stop();
                 TimeSpan ts = stopWatch.Elapsed;
@@ -603,6 +655,17 @@ namespace FlexibleRefinement
                     }
                 }
 
+                using (System.IO.StreamWriter file = new System.IO.StreamWriter($@"{outdir}\itIntsCTF.txt"))
+                {
+                    for (int k = 0; k < numIt; k++)
+                    {
+                        file.WriteLine($"it: {k}");
+                        for (int idx = 0; idx < newIntensities.Count(); idx++)
+                        {
+                            file.WriteLine($"{itintsCTF[k][idx]}");
+                        }
+                    }
+                }
 
                 using (System.IO.StreamWriter file = new System.IO.StreamWriter($@"{outdir}\itErrsCTF.txt"))
                 {
@@ -612,7 +675,6 @@ namespace FlexibleRefinement
                         file.WriteLine($"{itErrsCTF[k]}");
                     }
                 }
-
 
                 using (System.IO.StreamWriter file = new System.IO.StreamWriter($@"{outdir}\itCorrsCTF.txt"))
                 {
@@ -636,9 +698,9 @@ namespace FlexibleRefinement
 
                 targetGraph.SetAtomIntensities(newIntensities);
 
-                targetGraph.Repr(1.0d).WriteMRC($@"{outdir}\GraphAfterMovedCTFReconstruction.mrc");
-                targetGraph.save($@"{outdir}\GraphAfterMovedCTFReconstruction.graph");
-                targetGraph.save($@"{outdir}\GraphAfterMovedCTFReconstruction.xyz");
+                targetGraph.Repr(1.0d).WriteMRC($@"{outdir}\GraphAfterCTFReconstruction.mrc");
+                targetGraph.save($@"{outdir}\GraphAfterCTFReconstruction.graph");
+                targetGraph.save($@"{outdir}\GraphAfterCTFReconstruction.xyz");
 
             }
 

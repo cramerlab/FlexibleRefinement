@@ -69,6 +69,8 @@ public:
 	int3 Dims;
 	bool gauss2D;
 
+
+
 	PseudoProjector(int3 dims, DOUBLE *atomPositions, DOUBLE *atomWeights, DOUBLE sigma, unsigned int nAtoms):Dims(dims), sigma(sigma), lambdaART(0.1){
 		atomPosition = std::vector<Matrix1D<DOUBLE>>();
 		atomPosition.reserve(nAtoms);
@@ -91,18 +93,25 @@ public:
 		gaussianProjectionTable = Matrix1D<DOUBLE>(CEIL(sigma4*sqrt(2) * GAUSS_FACTOR + 1));
 		gaussianProjectionTable2 = Matrix1D<DOUBLE>(CEIL(sigma4*sqrt(2) * GAUSS_FACTOR + 1));
 		FOR_ALL_ELEMENTS_IN_MATRIX1D(gaussianProjectionTable)
-			gaussianProjectionTable(i) = gaussian1D(i / ((float)GAUSS_FACTOR), sigma);
+			gaussianProjectionTable(i) = this->gaussian1D(i / ((float)GAUSS_FACTOR), sigma);
 		gaussianProjectionTable *= gaussian1D(0, sigma);
 		gaussianProjectionTable2 = gaussianProjectionTable;
 		gaussianProjectionTable2 *= gaussianProjectionTable;
 	};
 
+	DOUBLE gaussian1D(DOUBLE x, DOUBLE sigma, DOUBLE mu=0)
+	{
+		x -= mu;
+		return exp(-0.5*((x / sigma)*(x / sigma)));
+	}
 
 	DOUBLE ART_single_image(const MultidimArray<DOUBLE> &Iexp, DOUBLE rot, DOUBLE tilt, DOUBLE psi, DOUBLE shiftX, DOUBLE shiftY);
+	DOUBLE ART_single_image(const MultidimArray<DOUBLE> &Iexp, MultidimArray<DOUBLE> &Itheo, MultidimArray<DOUBLE> &Icorr, MultidimArray<DOUBLE> &Idiff, DOUBLE rot, DOUBLE tilt, DOUBLE psi, DOUBLE shiftX, DOUBLE shiftY);
 
 	DOUBLE ART_multi_Image_step(std::vector< MultidimArray<DOUBLE> > Iexp, std::vector<float3> angles, DOUBLE shiftX, DOUBLE shiftY);
 	DOUBLE ART_multi_Image_step(DOUBLE * Iexp, float3 * angles, DOUBLE *gaussTables, DOUBLE *gaussTables2, DOUBLE border, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages);
 	DOUBLE ART_multi_Image_step(DOUBLE * Iexp, float3 * angles, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages);
+	DOUBLE ART_multi_Image_step_DB(DOUBLE * Iexp, DOUBLE * Itheo, DOUBLE * Icorr, DOUBLE * Idiff, float3 * angles, DOUBLE *gaussTables, DOUBLE *gaussTables2, DOUBLE tableLength, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages);
 
 	void project_Pseudo(MultidimArray<DOUBLE> &proj, MultidimArray<DOUBLE> &norm_proj,
 		Matrix2D<DOUBLE> &Euler, DOUBLE shiftX, DOUBLE shiftY,

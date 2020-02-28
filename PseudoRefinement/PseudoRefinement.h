@@ -16,6 +16,7 @@ extern "C" __declspec(dllexport) void __stdcall GetProjectionCTF(PseudoProjector
 
 extern "C" __declspec(dllexport) float __stdcall DoARTStepMoved(PseudoProjectorPTR proj, DOUBLE * Iexp, float3 * angles, float *atomPositions, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages);
 extern "C" __declspec(dllexport) float __stdcall DoARTStepMovedCTF(PseudoProjectorPTR proj, DOUBLE * Iexp, float3 * angles, float *atomPositions, DOUBLE * GaussTables, DOUBLE * GaussTables2, DOUBLE border, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages);
+extern "C" __declspec(dllexport) float __stdcall DoARTStepMovedCTF_DB(PseudoProjectorPTR proj, DOUBLE * Iexp, DOUBLE * Itheo, DOUBLE * Icorr, DOUBLE * Idiff, float3 * angles, float *atomPositions, DOUBLE * GaussTables, DOUBLE * GaussTables2, DOUBLE border, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages);
 
 extern "C" __declspec(dllexport) float __stdcall DoARTStep(PseudoProjectorPTR proj, DOUBLE * Iexp, float3 * angles, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages);
 

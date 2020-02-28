@@ -146,6 +146,31 @@ __declspec(dllexport) float __stdcall DoARTStepMovedCTF(PseudoProjectorPTR proj,
 	return ret;
 }
 
+
+__declspec(dllexport) float __stdcall DoARTStepMovedCTF_DB(PseudoProjectorPTR proj, DOUBLE * Iexp, DOUBLE * Itheo, DOUBLE * Icorr, DOUBLE * Idiff, float3 * angles, float *atomPositions, DOUBLE * GaussTables, DOUBLE * GaussTables2, DOUBLE border, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages) {
+
+	std::vector<Matrix1D<DOUBLE>>  prev = proj->atomPosition;
+
+	std::vector<Matrix1D<DOUBLE>>  newAtomPosition = std::vector<Matrix1D<DOUBLE>>();
+	newAtomPosition.reserve(prev.size());
+
+
+	for (size_t i = 0; i < prev.size(); i++)
+	{
+		Matrix1D<DOUBLE> tmp = Matrix1D<DOUBLE>(3);
+		XX(tmp) = atomPositions[i * 3];
+		YY(tmp) = atomPositions[i * 3 + 1];
+		ZZ(tmp) = atomPositions[i * 3 + 2];
+		newAtomPosition.push_back(tmp);
+
+	}
+
+	proj->atomPosition = newAtomPosition;
+	float ret = proj->ART_multi_Image_step_DB(Iexp, Itheo, Icorr, Idiff, angles, GaussTables, GaussTables2, border, shiftX, shiftY, numImages);
+	proj->atomPosition = prev;
+	return ret;
+}
+
 __declspec(dllexport) void __stdcall GetIntensities(PseudoProjectorPTR proj, float* outp) {
 	std::copy(proj->atomWeight.begin(), proj->atomWeight.begin() + proj->atomWeight.size(), outp);
 

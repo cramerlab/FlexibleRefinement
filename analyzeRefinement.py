@@ -4,8 +4,10 @@ import os
 import sys
 
 
+input = "lowHighMix_small"
+
 itErrsCTF = []
-with open(r"D:\Software\FlexibleRefinement\bin\Debug\Refinement\current\itErrsCTF.txt", "r") as errFile:
+with open(r"D:\Software\FlexibleRefinement\bin\Debug\Refinement\current\{}\itErrsCTF.txt".format(input), "r") as errFile:
     it = -1
     for line in errFile:
         line = line.strip()
@@ -20,7 +22,7 @@ with open(r"D:\Software\FlexibleRefinement\bin\Debug\Refinement\current\itErrsCT
 
 
 itDiffsCTF = []
-with open(r"D:\Software\FlexibleRefinement\bin\Debug\Refinement\current\itDiffsCTF.txt", "r") as errFile:
+with open(r"D:\Software\FlexibleRefinement\bin\Debug\Refinement\current\{}\itDiffsCTF.txt".format(input), "r") as errFile:
     it = -1
     for line in errFile:
         line = line.strip()
@@ -33,8 +35,8 @@ with open(r"D:\Software\FlexibleRefinement\bin\Debug\Refinement\current\itDiffsC
         err = np.sqrt(float(line.replace(",", '.'))**2)
         itDiffsCTF[it].append(err)
 
-itErrs = []
-with open(r"D:\Software\FlexibleRefinement\bin\Debug\Refinement\current\itErrsCTF.txt", "r") as errFile:
+itErrsMoved = []
+with open(r"D:\Software\FlexibleRefinement\bin\Debug\Refinement\current\{}\itErrsMoved.txt".format(input), "r") as errFile:
     it = -1
     for line in errFile:
         line = line.strip()
@@ -42,14 +44,13 @@ with open(r"D:\Software\FlexibleRefinement\bin\Debug\Refinement\current\itErrsCT
             continue
         if line.startswith("it"):
             it = it + 1
-            itErrs.append([])
+            itErrsMoved.append([])
             continue
         err = np.sqrt(float(line.replace(",", '.'))**2)
-        itErrs[it].append(err)
+        itErrsMoved[it].append(err)
 
-
-itDiffs = []
-with open(r"D:\Software\FlexibleRefinement\bin\Debug\Refinement\current\itDiffsCTF.txt", "r") as errFile:
+itCorrsCTF = []
+with open(r"D:\Software\FlexibleRefinement\bin\Debug\Refinement\current\{}\itCorrsCTF.txt".format(input), "r") as errFile:
     it = -1
     for line in errFile:
         line = line.strip()
@@ -57,29 +58,73 @@ with open(r"D:\Software\FlexibleRefinement\bin\Debug\Refinement\current\itDiffsC
             continue
         if line.startswith("it"):
             it = it + 1
-            itDiffs.append([])
+            itCorrsCTF.append([])
+            continue
+        for val in (line.replace(",", ".").split(" ")):
+            err = np.sqrt(float(val)**2)
+            itCorrsCTF[it].append(err)
+
+
+itDiffsMoved = []
+with open(r"D:\Software\FlexibleRefinement\bin\Debug\Refinement\current\{}\itDiffsMoved.txt".format(input), "r") as errFile:
+    it = -1
+    for line in errFile:
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith("it"):
+            it = it + 1
+            itDiffsMoved.append([])
             continue
         err = np.sqrt(float(line.replace(",", '.'))**2)
-        itDiffs[it].append(err)
+        itDiffsMoved[it].append(err)
+
+
+itCorrsMoved = []
+with open(r"D:\Software\FlexibleRefinement\bin\Debug\Refinement\current\{}\itCorrsMoved.txt".format(input), "r") as errFile:
+    it = -1
+    for line in errFile:
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith("it"):
+            it = it + 1
+            itCorrsMoved.append([])
+            continue
+        for val in (line.replace(",", ".").split(" ")):
+            err = np.sqrt(float(val)**2)
+            itCorrsMoved[it].append(err)
 
 plt.figure()
-plt.plot(itErrsCTF, "*")
+plt.boxplot(itErrsCTF, "*")
 plt.yscale('log')
 plt.title("itErrsCTF")
 
 plt.figure()
-plt.plot(itErrs, "*")
-plt.yscale('log')
-plt.title("itErrs")
-
-plt.figure()
-plt.figure()
-plt.boxplot(itDiffs)
-plt.yscale('log')
-plt.title("itDiffs")
-
-plt.figure()
 plt.boxplot(itDiffsCTF)
 plt.yscale('log')
+plt.title("itDiffsCTF")
+
+plt.figure()
+plt.boxplot(itCorrsCTF)
+plt.yscale('log')
+plt.title("itCorrsCTF")
+
+plt.figure()
+plt.boxplot(itErrsMoved, "*")
+plt.yscale('log')
+plt.title("itErrsMoved")
+
+plt.figure()
+plt.boxplot(itDiffsMoved)
+plt.yscale('log')
+plt.title("itDiffsMoved")
+
+plt.figure()
+plt.boxplot(itCorrsMoved)
+plt.yscale('log')
+plt.title("itCorrsMoved")
+
+
 plt.show()
 print("done")

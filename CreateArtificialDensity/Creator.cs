@@ -261,7 +261,7 @@ namespace CreateArtificialDensity
             //float[][] noiseData = Simulation.simplexPerlinNoise(1, dim);
             //Image noise = new Image(noiseData, dim);
             //noise.WriteMRC(@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_Modulated\100\perlinNoise.mrc");
-            Simulation.simulateLowFreqHighFreqNoiseMix(new int3(60));
+            Simulation.simulateSmallLowFreqHighFreqNoiseMix(new int3(40));
             //simulate(@"D:\Software\FlexibleRefinement\bin\Debug\Stick2Arc");
             //Simulation.simulatePulledToy();
             //String rootDir = @"D:\Software\FlexibleRefinement\bin\Debug\lennardJones\bombarded";

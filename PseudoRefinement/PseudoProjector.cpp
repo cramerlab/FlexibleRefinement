@@ -110,6 +110,11 @@ void PseudoProjector::project_Pseudo(
 		XX(actualAtomPosition) -= Dims.x / 2;
 		YY(actualAtomPosition) -= Dims.y / 2;
 		ZZ(actualAtomPosition) -= Dims.z / 2;
+
+		auto actualAtomPositionX = XX(actualAtomPosition);
+		auto actualAtomPositionY = YY(actualAtomPosition);
+		auto actualAtomPositionZ = ZZ(actualAtomPosition);
+
 		DOUBLE weight = atomWeight[n];
 		/*
 		for (int mode = 0; mode < lambdaSize; mode++)
@@ -125,6 +130,9 @@ void PseudoProjector::project_Pseudo(
 		XX(actprj) += Dims.x / 2;
 		YY(actprj) += Dims.y / 2;
 		ZZ(actprj) += Dims.z / 2;
+		auto actprjX = XX(actprj);
+		auto actprjY = YY(actprj);
+		auto actprjZ = ZZ(actprj);
 		XX(actprj) += shiftX;
 		YY(actprj) += shiftY;
 #ifdef DEBUG
@@ -199,6 +207,7 @@ void PseudoProjector::project_Pseudo(
 					}
 					else
 					{
+						auto tmp = A2D_ELEM(norm_proj, y, x);
 						vol_corr += A2D_ELEM(norm_proj, y, x) * a;
 #ifdef DEBUG
 
@@ -217,6 +226,7 @@ void PseudoProjector::project_Pseudo(
 			if (direction == PSEUDO_BACKWARD)
 			{
 				atomWeight[n] += vol_corr;
+				atomWeight[n] = atomWeight[n] > 0 ? atomWeight[n] : 0;
 #ifdef DEBUG
 
 				if (condition)
@@ -229,6 +239,43 @@ void PseudoProjector::project_Pseudo(
 			}
 		} // If not collapsed
 	}
+}
+
+DOUBLE PseudoProjector::ART_single_image(const MultidimArray<DOUBLE> &Iexp, MultidimArray<DOUBLE> &Itheo, MultidimArray<DOUBLE> &Icorr, MultidimArray<DOUBLE> &Idiff, DOUBLE rot, DOUBLE tilt, DOUBLE psi, DOUBLE shiftX, DOUBLE shiftY)
+{
+	Idiff.initZeros();
+	Itheo.initZeros();
+	Icorr.initZeros();
+	Matrix2D<DOUBLE> Euler;
+	Euler_angles2matrix(rot, tilt, psi, Euler);
+	this->project_Pseudo(Itheo, Icorr,
+		Euler, shiftX, shiftY, PSEUDO_FORWARD);
+	//Idiff.resize(Iexp);
+
+	DOUBLE mean_error = 0;
+	FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY2D(Iexp)
+	{
+		// Compute difference image and error
+		auto Iexp_i_j = DIRECT_A2D_ELEM(Iexp, i, j);
+		auto Itheo_i_j = DIRECT_A2D_ELEM(Itheo, i, j);
+
+		DIRECT_A2D_ELEM(Idiff, i, j) = DIRECT_A2D_ELEM(Iexp, i, j) - DIRECT_A2D_ELEM(Itheo, i, j);
+		mean_error += DIRECT_A2D_ELEM(Idiff, i, j) * DIRECT_A2D_ELEM(Idiff, i, j);
+
+		// Compute the correction image
+		auto Icorr_i_j_a = DIRECT_A2D_ELEM(Icorr, i, j);
+		DIRECT_A2D_ELEM(Icorr, i, j) = XMIPP_MAX(DIRECT_A2D_ELEM(Icorr, i, j), 1);
+
+		auto Icorr_i_j_b = XMIPP_MAX(DIRECT_A2D_ELEM(Icorr, i, j), 1);
+		auto Icorr_i_j_c = this->lambdaART * DIRECT_A2D_ELEM(Idiff, i, j) / DIRECT_A2D_ELEM(Icorr, i, j);
+		DIRECT_A2D_ELEM(Icorr, i, j) =
+			this->lambdaART * DIRECT_A2D_ELEM(Idiff, i, j) / DIRECT_A2D_ELEM(Icorr, i, j);
+	}
+	mean_error /= YXSIZE(Iexp);
+
+	this->project_Pseudo(Itheo, Icorr,
+		Euler, shiftX, shiftY, PSEUDO_BACKWARD);
+	return mean_error;
 }
 
 DOUBLE PseudoProjector::ART_single_image(const MultidimArray<DOUBLE> &Iexp, DOUBLE rot, DOUBLE tilt, DOUBLE psi, DOUBLE shiftX, DOUBLE shiftY)
@@ -246,11 +293,18 @@ DOUBLE PseudoProjector::ART_single_image(const MultidimArray<DOUBLE> &Iexp, DOUB
 	FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY2D(Iexp)
 	{
 		// Compute difference image and error
+		auto Iexp_i_j = DIRECT_A2D_ELEM(Iexp, i, j);
+		auto Itheo_i_j = DIRECT_A2D_ELEM(Itheo, i, j);
+
 		DIRECT_A2D_ELEM(Idiff, i, j) = DIRECT_A2D_ELEM(Iexp, i, j) - DIRECT_A2D_ELEM(Itheo, i, j);
 		mean_error += DIRECT_A2D_ELEM(Idiff, i, j) * DIRECT_A2D_ELEM(Idiff, i, j);
 
 		// Compute the correction image
+		auto Icorr_i_j_a = DIRECT_A2D_ELEM(Icorr, i, j);
 		DIRECT_A2D_ELEM(Icorr, i, j) = XMIPP_MAX(DIRECT_A2D_ELEM(Icorr, i, j), 1);
+		
+		auto Icorr_i_j_b = XMIPP_MAX(DIRECT_A2D_ELEM(Icorr, i, j), 1);
+		auto Icorr_i_j_c = this->lambdaART * DIRECT_A2D_ELEM(Idiff, i, j) / DIRECT_A2D_ELEM(Icorr, i, j);
 		DIRECT_A2D_ELEM(Icorr, i, j) =
 			this->lambdaART * DIRECT_A2D_ELEM(Idiff, i, j) / DIRECT_A2D_ELEM(Icorr, i, j);
 	}
@@ -279,6 +333,45 @@ DOUBLE PseudoProjector::ART_multi_Image_step(DOUBLE * Iexp, float3 * angles, DOU
 		tmp.data = Iexp + i * (Dims.x*Dims.y);
 		tmp.destroyData = false;
 		itError += ART_single_image(tmp, angles[i].x, angles[i].y, angles[i].z, shiftX, shiftY);
+
+		gaussianProjectionTable.vdata = tableTmp;
+		gaussianProjectionTable2.vdata = tableTmp2;
+		this->tableLength = oldBorder;
+	}
+	return itError;
+}
+
+DOUBLE PseudoProjector::ART_multi_Image_step_DB(DOUBLE * Iexp, DOUBLE * Itheo, DOUBLE * Icorr, DOUBLE * Idiff, float3 * angles, DOUBLE *gaussTables, DOUBLE *gaussTables2, DOUBLE tableLength, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages) {
+
+	std::vector < MultidimArray<DOUBLE> > Images;
+	DOUBLE itError = 0.0;
+
+	for (size_t i = 0; i < numImages; i++)
+	{
+		DOUBLE * tableTmp = gaussianProjectionTable.vdata;
+		DOUBLE * tableTmp2 = gaussianProjectionTable2.vdata;
+
+		gaussianProjectionTable.vdata = gaussTables + i * (GAUSS_FACTOR * Dims.x / 2);
+		gaussianProjectionTable2.vdata = gaussTables2 + i * (GAUSS_FACTOR * Dims.x / 2);
+		double oldBorder = this->tableLength;
+		this->tableLength = tableLength;
+		MultidimArray<DOUBLE> tmp = MultidimArray<DOUBLE>(1, Dims.y, Dims.x);
+		tmp.data = Iexp + i * (Dims.x*Dims.y);
+		tmp.destroyData = false;
+
+		MultidimArray<DOUBLE> tmp2 = MultidimArray<DOUBLE>(1, Dims.y, Dims.x);
+		tmp2.data = Itheo + i * (Dims.x*Dims.y);
+		tmp2.destroyData = false;
+
+		MultidimArray<DOUBLE> tmp3 = MultidimArray<DOUBLE>(1, Dims.y, Dims.x);
+		tmp3.data = Icorr + i * (Dims.x*Dims.y);
+		tmp3.destroyData = false;
+
+		MultidimArray<DOUBLE> tmp4 = MultidimArray<DOUBLE>(1, Dims.y, Dims.x);
+		tmp4.data = Idiff + i * (Dims.x*Dims.y);
+		tmp4.destroyData = false;
+
+		itError += ART_single_image(tmp, tmp2, tmp3, tmp4, angles[i].x, angles[i].y, angles[i].z, shiftX, shiftY);
 
 		gaussianProjectionTable.vdata = tableTmp;
 		gaussianProjectionTable2.vdata = tableTmp2;
