@@ -11,6 +11,8 @@ using Warp.Tools;
 using ProjClassifier.Tools;
 using FlexibleRefinement.Util;
 using System.Globalization;
+using System.Diagnostics;
+using CommandLine;
 
 namespace FlexibleRefinement
 {
@@ -1268,19 +1270,39 @@ namespace FlexibleRefinement
 
         }
 
-
-
+        static string MapPath = "";
+        static string MaskPath = "";
+        static string WorkingDirectory = "";
+        static int NThreads;
+        static int NAtoms;
         static void Main(string[] args)
         {
-            String rootDir = @"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_Modulated\100\";
-            if (!Directory.Exists(rootDir))
+            Options Options = new Options();
+            //if (!Debugger.IsAttached)
             {
-                Directory.CreateDirectory(rootDir);
+                ParserResult<Options> parseRes = Parser.Default.ParseArguments<Options>(args);
+                parseRes.WithNotParsed(i =>
+                {
+                    Environment.Exit(1);
+                });
+                parseRes.WithParsed<Options>(opts => Options = opts);
+                WorkingDirectory = Environment.CurrentDirectory + "/";
+
+                MapPath = Options.MapPath;
+                MaskPath = Options.MaskPath;
+                NAtoms = Options.NAtoms;
             }
-            Directory.SetCurrentDirectory(rootDir);
+
+            //String rootDir = @"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy_Modulated\100\";
+            //if (!Directory.Exists(rootDir))
+            //{
+            //    Directory.CreateDirectory(rootDir);
+            //}
+            //Directory.SetCurrentDirectory(rootDir);
 
 
-            int it = 100;/*
+            //int it = 100;
+            /*
             Image im = Image.FromFile(@"D:\Software\FlexibleRefinement\bin\Debug\PulledProtein\Toy\100\trial10000\4_StartIm.mrc");
             ImageProcessor.Normalize01(im);
 
@@ -1299,14 +1321,14 @@ namespace FlexibleRefinement
 
             //graph.moveAtoms();
 
-            GridSearchParams(rootDir + @"currentInput\startIm.mrc",
-                rootDir + $@"currentInput\startMask.mrc",
-                rootDir + $@"currentInput\TargetIm_fromGraph{it}.mrc",
-                rootDir + $@"currentInput\TargetMask_fromGraph{it}.mrc",
-                rootDir + $@"currentInput\startGraph.graph",
-                rootDir + $@"currentInput\TargetGraph{it}.graph",
-                rootDir + $@"currentInput\gtDisplacements.txt",
-                "current_trial10000", 10000);
+            //GridSearchParams(rootDir + @"currentInput\startIm.mrc",
+            //    rootDir + $@"currentInput\startMask.mrc",
+            //    rootDir + $@"currentInput\TargetIm_fromGraph{it}.mrc",
+            //    rootDir + $@"currentInput\TargetMask_fromGraph{it}.mrc",
+            //    rootDir + $@"currentInput\startGraph.graph",
+            //    rootDir + $@"currentInput\TargetGraph{it}.graph",
+            //    rootDir + $@"currentInput\gtDisplacements.txt",
+            //    "current_trial10000", 10000);
 
             //GridSearchParams(8);
             /*for (int c = 8; c < 9; c++)

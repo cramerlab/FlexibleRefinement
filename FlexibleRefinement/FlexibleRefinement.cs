@@ -135,7 +135,7 @@ namespace FlexibleRefinement
             Star TableIn = new Star(@"D:\florian_debug\particles.star");
             CTF[] CTFParams = TableIn.GetRelionCTF();
 
-            Image inputVol = Image.FromFile($@"{indir}\startIm.mrc");
+            Image inputVol = Image.FromFile($@"{indir}\startIm_fromGraph.mrc");
             Image inputMask = Image.FromFile($@"{indir}\startMask.mrc");
 
             AtomGraph graph = new AtomGraph($@"{indir}\StartGraph.graph", inputVol);
@@ -195,6 +195,8 @@ namespace FlexibleRefinement
                 }
             }
 
+            Image noise = new Image(Simulation.simplexPerlinNoise(1, new int3(particleRes.X, particleRes.Y, numParticles)), new int3(particleRes.X, particleRes.Y, numParticles));
+
             int numPseudoparticles = numParticles;
             float[] projectionAngles = new float[numPseudoparticles * 3];
             for (int k = 0; k < numPseudoparticles; k++)
@@ -241,6 +243,7 @@ namespace FlexibleRefinement
             {
                 GetProjection(PseudoProjectorGT, PseudoProjectorGTParticles.GetHost(Intent.Write)[k], null, angles[k] * Helper.ToDeg, 0.0f, 0.0f);
             }
+            PseudoProjectorGTParticles.Add(noise);
             PseudoProjectorGTParticles.WriteMRC($@"{outdir}\PseudoProjectorGTParticles.mrc");
 
             // The GT particles for the moved reconstruction
@@ -249,6 +252,7 @@ namespace FlexibleRefinement
             {
                 GetProjection(PseudoProjectorGTMoved, PseudoProjectorGTMovedParticles.GetHost(Intent.Write)[k], null, angles[k] * Helper.ToDeg, 0.0f, 0.0f);
             }
+            PseudoProjectorGTMovedParticles.Add(noise);
             PseudoProjectorGTMovedParticles.WriteMRC($@"{outdir}\PseudoProjectorGTMovedParticles.mrc");
 
 
@@ -477,7 +481,7 @@ namespace FlexibleRefinement
             Gauss.WriteMRC($@"{outdir}\Gauss.mrc");
             Image GaussFT = FFT_slices(Gauss);
             Image GaussIFT = IFFT_slices(GaussFT, 0, true);
-            GaussFT.Multiply(CTFsGauss);
+            GaussFT.Add(CTFsGauss);
             Image GaussConvolved = IFFT_slices(GaussFT, 0, true);
             GaussConvolved.WriteMRC($@"{outdir}\GaussConvolved.mrc");
 
@@ -502,6 +506,7 @@ namespace FlexibleRefinement
             {
                 GetProjectionCTF(PseudoProjectorGT, PseudoProjectorGTCTFParticles.GetHost(Intent.Write)[k], null, gaussConvolved_2D[k], gaussConvolved2_2D[k],border, angles[k] * Helper.ToDeg, 0.0f, 0.0f);
             }
+            PseudoProjectorGTCTFParticles.Add(noise);
             PseudoProjectorGTCTFParticles.WriteMRC($@"{outdir}\PseudoProjectorGTCTFParticles.mrc");
 
             Image GTCTFParticles = new Image(PseudoProjectorGTParticles.Dims);
@@ -510,7 +515,7 @@ namespace FlexibleRefinement
                 ftTmp.Multiply(CTFs);
                 GTCTFParticles = ftTmp.AsIFFT(false, 0, true);
             }
-
+            GTCTFParticles.Add(noise);
             GTCTFParticles.WriteMRC($@"{outdir}\GTCTFParticles.mrc");
             Image testImage2 = new Image(new int3(particleRes.X, particleRes.Y, numParticles));
             testImage2.TransformValues((x, y, z, v) =>
@@ -701,6 +706,8 @@ namespace FlexibleRefinement
                 targetGraph.Repr(1.0d).WriteMRC($@"{outdir}\GraphAfterCTFReconstruction.mrc");
                 targetGraph.save($@"{outdir}\GraphAfterCTFReconstruction.graph");
                 targetGraph.save($@"{outdir}\GraphAfterCTFReconstruction.xyz");
+
+
 
             }
 

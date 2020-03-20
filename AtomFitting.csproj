@@ -58,6 +58,9 @@
     <Reference Include="Accord.Math.Core">
       <HintPath>..\warp2\bin\Accord.Math.Core.dll</HintPath>
     </Reference>
+    <Reference Include="CommandLine">
+      <HintPath>packages\CommandLineParser.2.4.3\lib\netstandard2.0\CommandLine.dll</HintPath>
+    </Reference>
     <Reference Include="Helpers">
       <HintPath>..\project_classifier\bin\Debug\Helpers.dll</HintPath>
     </Reference>
@@ -79,6 +82,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Options.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>

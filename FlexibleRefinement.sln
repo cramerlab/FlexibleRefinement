@@ -25,6 +25,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlexibleRefinement", "Flexi
 		{6654EE55-B589-40BD-BFF9-1BCC0A6E9916} = {6654EE55-B589-40BD-BFF9-1BCC0A6E9916}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "volume_2_pseudoatoms", "volume_2_pseudoatoms\volume_2_pseudoatoms.vcxproj", "{1F65B879-7515-4136-8083-965162E5DB63}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -105,6 +107,16 @@ Global
 		{168D4E10-9809-49C7-B613-8ED231EFAB94}.Release|x64.Build.0 = Release|Any CPU
 		{168D4E10-9809-49C7-B613-8ED231EFAB94}.Release|x86.ActiveCfg = Release|Any CPU
 		{168D4E10-9809-49C7-B613-8ED231EFAB94}.Release|x86.Build.0 = Release|Any CPU
+		{1F65B879-7515-4136-8083-965162E5DB63}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{1F65B879-7515-4136-8083-965162E5DB63}.Debug|x64.ActiveCfg = Debug|x64
+		{1F65B879-7515-4136-8083-965162E5DB63}.Debug|x64.Build.0 = Debug|x64
+		{1F65B879-7515-4136-8083-965162E5DB63}.Debug|x86.ActiveCfg = Debug|Win32
+		{1F65B879-7515-4136-8083-965162E5DB63}.Debug|x86.Build.0 = Debug|Win32
+		{1F65B879-7515-4136-8083-965162E5DB63}.Release|Any CPU.ActiveCfg = Release|Win32
+		{1F65B879-7515-4136-8083-965162E5DB63}.Release|x64.ActiveCfg = Release|x64
+		{1F65B879-7515-4136-8083-965162E5DB63}.Release|x64.Build.0 = Release|x64
+		{1F65B879-7515-4136-8083-965162E5DB63}.Release|x86.ActiveCfg = Release|Win32
+		{1F65B879-7515-4136-8083-965162E5DB63}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
