@@ -25,10 +25,10 @@
 
 #include "filters.h"
 #include <list>
-#include <core/xmipp_fftw.h>
-#include "morphology.h"
-#include "wavelet.h"
-#include <data/fourier_filter.h>
+//#include <core/xmipp_fftw.h>
+//#include "morphology.h"
+//#include "wavelet.h"
+#include "fourier_filter.h"
 
 /* Subtract background ---------------------------------------------------- */
 void substractBackgroundPlane(MultidimArray<double> &I)
@@ -68,122 +68,122 @@ void substractBackgroundPlane(MultidimArray<double> &I)
 void substractBackgroundRollingBall(MultidimArray<double> &I, int radius)
 {
 
-    I.checkDimension(2);
+    //I.checkDimension(2);
 
-    // Build the ball
-    int arcTrimPer;
-    int shrinkFactor;
-    if (radius <= 10)
-    {
-        shrinkFactor = 1;
-        arcTrimPer = 24; // trim 24% in x and y
-    }
-    else if (radius <= 30)
-    {
-        shrinkFactor = 2;
-        arcTrimPer = 24; // trim 24% in x and y
-    }
-    else if (radius <= 100)
-    {
-        shrinkFactor = 4;
-        arcTrimPer = 32; // trim 32% in x and y
-    }
-    else
-    {
-        shrinkFactor = 8;
-        arcTrimPer = 40; // trim 40% in x and y
-    }
+    //// Build the ball
+    //int arcTrimPer;
+    //int shrinkFactor;
+    //if (radius <= 10)
+    //{
+    //    shrinkFactor = 1;
+    //    arcTrimPer = 24; // trim 24% in x and y
+    //}
+    //else if (radius <= 30)
+    //{
+    //    shrinkFactor = 2;
+    //    arcTrimPer = 24; // trim 24% in x and y
+    //}
+    //else if (radius <= 100)
+    //{
+    //    shrinkFactor = 4;
+    //    arcTrimPer = 32; // trim 32% in x and y
+    //}
+    //else
+    //{
+    //    shrinkFactor = 8;
+    //    arcTrimPer = 40; // trim 40% in x and y
+    //}
 
-    double smallballradius = radius / shrinkFactor;
-    if (smallballradius < 1)
-        smallballradius = 1;
-    double r2 = smallballradius * smallballradius;
-    int xtrim = (int) (arcTrimPer * smallballradius) / 100; // only use a patch of the rolling ball
-    int halfWidth = ROUND(smallballradius - xtrim);
-    int ballWidth = 2 * halfWidth + 1;
-    MultidimArray<double> ball(ballWidth, ballWidth);
-    ball.setXmippOrigin();
-    FOR_ALL_ELEMENTS_IN_ARRAY2D(ball)
-    {
-        double temp = r2 - i * i - j * j;
-        ball(i, j) = temp > 0. ? sqrt(temp) : 0.;
-    }
+    //double smallballradius = radius / shrinkFactor;
+    //if (smallballradius < 1)
+    //    smallballradius = 1;
+    //double r2 = smallballradius * smallballradius;
+    //int xtrim = (int) (arcTrimPer * smallballradius) / 100; // only use a patch of the rolling ball
+    //int halfWidth = ROUND(smallballradius - xtrim);
+    //int ballWidth = 2 * halfWidth + 1;
+    //MultidimArray<double> ball(ballWidth, ballWidth);
+    //ball.setXmippOrigin();
+    //FOR_ALL_ELEMENTS_IN_ARRAY2D(ball)
+    //{
+    //    double temp = r2 - i * i - j * j;
+    //    ball(i, j) = temp > 0. ? sqrt(temp) : 0.;
+    //}
 
-    // Shrink the image: each point in the shrinked image is the
-    // minimum of its neighbourhood
-    int sXdim = (XSIZE(I) + shrinkFactor - 1) / shrinkFactor;
-    int sYdim = (YSIZE(I) + shrinkFactor - 1) / shrinkFactor;
-    MultidimArray<double> shrinkI(sYdim, sXdim);
-    shrinkI.setXmippOrigin();
-    for (int ySmall = 0; ySmall < sYdim; ySmall++)
-    {
-        for (int xSmall = 0; xSmall < sXdim; xSmall++)
-        {
-            double minVal = 1e38;
-            for (int j = 0, y = shrinkFactor * ySmall;
-                 j < shrinkFactor && y < (int)YSIZE(I); j++, y++)
-                for (int k = 0, x = shrinkFactor * xSmall;
-                     k < shrinkFactor && x < (int)XSIZE(I); k++, x++)
-                {
-                    double thispixel = DIRECT_A2D_ELEM(I,y,x);
-                    if (thispixel < minVal)
-                        minVal = thispixel;
-                }
-            DIRECT_A2D_ELEM(shrinkI,ySmall,xSmall) = minVal;
-        }
-    }
+    //// Shrink the image: each point in the shrinked image is the
+    //// minimum of its neighbourhood
+    //int sXdim = (XSIZE(I) + shrinkFactor - 1) / shrinkFactor;
+    //int sYdim = (YSIZE(I) + shrinkFactor - 1) / shrinkFactor;
+    //MultidimArray<double> shrinkI(sYdim, sXdim);
+    //shrinkI.setXmippOrigin();
+    //for (int ySmall = 0; ySmall < sYdim; ySmall++)
+    //{
+    //    for (int xSmall = 0; xSmall < sXdim; xSmall++)
+    //    {
+    //        double minVal = 1e38;
+    //        for (int j = 0, y = shrinkFactor * ySmall;
+    //             j < shrinkFactor && y < (int)YSIZE(I); j++, y++)
+    //            for (int k = 0, x = shrinkFactor * xSmall;
+    //                 k < shrinkFactor && x < (int)XSIZE(I); k++, x++)
+    //            {
+    //                double thispixel = DIRECT_A2D_ELEM(I,y,x);
+    //                if (thispixel < minVal)
+    //                    minVal = thispixel;
+    //            }
+    //        DIRECT_A2D_ELEM(shrinkI,ySmall,xSmall) = minVal;
+    //    }
+    //}
 
-    // Now roll the ball
-    radius = ballWidth / 2;
-    MultidimArray<double> Irolled;
-    Irolled.resizeNoCopy(shrinkI);
-    Irolled.initConstant(-500);
-    for (int yb = -radius; yb < (int)YSIZE(shrinkI) + radius; yb++)
-    {
-        // Limits of the ball
-        int y0 = yb - radius;
-        if (y0 < 0)
-            y0 = 0;
-        int y0b = y0 - yb + radius; //y coordinate in the ball corresponding to y0
-        int yF = yb + radius;
-        if (yF >= (int)YSIZE(shrinkI))
-            yF = (int)YSIZE(shrinkI) - 1;
+    //// Now roll the ball
+    //radius = ballWidth / 2;
+    //MultidimArray<double> Irolled;
+    //Irolled.resizeNoCopy(shrinkI);
+    //Irolled.initConstant(-500);
+    //for (int yb = -radius; yb < (int)YSIZE(shrinkI) + radius; yb++)
+    //{
+    //    // Limits of the ball
+    //    int y0 = yb - radius;
+    //    if (y0 < 0)
+    //        y0 = 0;
+    //    int y0b = y0 - yb + radius; //y coordinate in the ball corresponding to y0
+    //    int yF = yb + radius;
+    //    if (yF >= (int)YSIZE(shrinkI))
+    //        yF = (int)YSIZE(shrinkI) - 1;
 
-        for (int xb = -radius; xb < (int)XSIZE(shrinkI) + radius; xb++)
-        {
-            // Limits of the ball
-            int x0 = xb - radius;
-            if (x0 < 0)
-                x0 = 0;
-            int x0b = x0 - xb + radius;
-            int xF = xb + radius;
-            if (xF >= (int)XSIZE(shrinkI))
-                xF = (int)XSIZE(shrinkI) - 1;
+    //    for (int xb = -radius; xb < (int)XSIZE(shrinkI) + radius; xb++)
+    //    {
+    //        // Limits of the ball
+    //        int x0 = xb - radius;
+    //        if (x0 < 0)
+    //            x0 = 0;
+    //        int x0b = x0 - xb + radius;
+    //        int xF = xb + radius;
+    //        if (xF >= (int)XSIZE(shrinkI))
+    //            xF = (int)XSIZE(shrinkI) - 1;
 
-            double z = 1e38;
-            for (int yp = y0, ybp = y0b; yp <= yF; yp++, ybp++)
-                for (int xp = x0, xbp = x0b; xp <= xF; xp++, xbp++)
-                {
-                    double zReduced = DIRECT_A2D_ELEM(shrinkI,yp,xp)
-                                      - DIRECT_A2D_ELEM(ball,ybp,xbp);
-                    if (z > zReduced)
-                        z = zReduced;
-                }
-            for (int yp = y0, ybp = y0b; yp <= yF; yp++, ybp++)
-                for (int xp = x0, xbp = x0b; xp <= xF; xp++, xbp++)
-                {
-                    double zMin = z + DIRECT_A2D_ELEM(ball,ybp,xbp);
-                    if (DIRECT_A2D_ELEM(Irolled,yp,xp) < zMin)
-                        DIRECT_A2D_ELEM(Irolled,yp,xp) = zMin;
-                }
-        }
-    }
+    //        double z = 1e38;
+    //        for (int yp = y0, ybp = y0b; yp <= yF; yp++, ybp++)
+    //            for (int xp = x0, xbp = x0b; xp <= xF; xp++, xbp++)
+    //            {
+    //                double zReduced = DIRECT_A2D_ELEM(shrinkI,yp,xp)
+    //                                  - DIRECT_A2D_ELEM(ball,ybp,xbp);
+    //                if (z > zReduced)
+    //                    z = zReduced;
+    //            }
+    //        for (int yp = y0, ybp = y0b; yp <= yF; yp++, ybp++)
+    //            for (int xp = x0, xbp = x0b; xp <= xF; xp++, xbp++)
+    //            {
+    //                double zMin = z + DIRECT_A2D_ELEM(ball,ybp,xbp);
+    //                if (DIRECT_A2D_ELEM(Irolled,yp,xp) < zMin)
+    //                    DIRECT_A2D_ELEM(Irolled,yp,xp) = zMin;
+    //            }
+    //    }
+    //}
 
-    // Now rescale the background
-    MultidimArray<double> bgEnlarged;
-    scaleToSize(LINEAR, bgEnlarged, Irolled, XSIZE(I), YSIZE(I));
-    bgEnlarged.copyShape(I);
-    I -= bgEnlarged;
+    //// Now rescale the background
+    //MultidimArray<double> bgEnlarged;
+    //scaleToSize(LINEAR, bgEnlarged, Irolled, XSIZE(I), YSIZE(I));
+    //bgEnlarged.copyShape(I);
+    //I -= bgEnlarged;
 }
 
 /* Detect background ------------------------------------------------------ */

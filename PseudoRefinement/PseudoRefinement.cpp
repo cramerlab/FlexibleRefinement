@@ -8,7 +8,7 @@ namespace fs = std::filesystem;
 #include "PseudoRefinement.h"
 
 
-__declspec(dllexport) PseudoProjectorPTR __stdcall EntryPoint(int3 dims, float *atomCenters, float *atomWeights, float rAtoms, unsigned int nAtoms) {
+__declspec(dllexport) PseudoProjectorPTR __stdcall EntryPoint(int3 dims, DOUBLE *atomCenters, DOUBLE *atomWeights, DOUBLE rAtoms, unsigned int nAtoms) {
 
 
 	PseudoProjector *proj = new PseudoProjector(dims, atomCenters, atomWeights, rAtoms, nAtoms);
@@ -17,11 +17,11 @@ __declspec(dllexport) PseudoProjectorPTR __stdcall EntryPoint(int3 dims, float *
 }
 
 
-__declspec(dllexport) void __stdcall GetProjection(PseudoProjectorPTR proj,  float* output, float* output_nrm, float3 angles, float shiftX, float shiftY, unsigned int batch) {
+__declspec(dllexport) void __stdcall GetProjection(PseudoProjectorPTR proj, DOUBLE* output, DOUBLE* output_nrm, float3 angles, DOUBLE shiftX, DOUBLE shiftY, unsigned int batch) {
 	proj->project_Pseudo(output, output_nrm, angles, shiftX, shiftY, PSEUDO_FORWARD);
 }
 
-__declspec(dllexport) void __stdcall GetProjectionCTF(PseudoProjectorPTR proj,  float* output, float* output_nrm,  DOUBLE *gaussTables, DOUBLE *gaussTables2, DOUBLE border, float3 angles, float shiftX, float shiftY, unsigned int batch) {
+__declspec(dllexport) void __stdcall GetProjectionCTF(PseudoProjectorPTR proj, DOUBLE* output, DOUBLE* output_nrm,  DOUBLE *gaussTables, DOUBLE *gaussTables2, DOUBLE border, float3 angles, DOUBLE shiftX, DOUBLE shiftY, unsigned int batch) {
 	proj->project_PseudoCTF(output, output_nrm, gaussTables, gaussTables2, border, angles, shiftX, shiftY, PSEUDO_FORWARD);
 }
 
@@ -35,7 +35,7 @@ __declspec(dllexport) float __stdcall DoARTStepCTF(PseudoProjectorPTR proj, DOUB
 	return proj->ART_multi_Image_step(Iexp, angles, gaussTables, gaussTables2, border, shiftX, shiftY, numImages);
 }
 
-__declspec(dllexport) void __stdcall getGaussianTableFull(float * table, DOUBLE sigma, int interpoints) {
+__declspec(dllexport) void __stdcall getGaussianTableFull(DOUBLE * table, DOUBLE sigma, int interpoints) {
 	DOUBLE sigma4 = 4 * sigma;
 	Matrix1D<DOUBLE> gaussianProjectionTable = Matrix1D<DOUBLE>(CEIL(sigma4*sqrt(2) * interpoints));
 	int origin = CEIL(sigma4*sqrt(2) * interpoints) / 2;
@@ -98,7 +98,7 @@ void convolveImage(MultidimArray<DOUBLE> imgMat, MultidimArray<DOUBLE> ctfMat, M
 	}
 }
 
-__declspec(dllexport) float __stdcall DoARTStepMoved(PseudoProjectorPTR proj, DOUBLE * Iexp, float3 * angles, float *atomPositions, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages) {
+__declspec(dllexport) float __stdcall DoARTStepMoved(PseudoProjectorPTR proj, DOUBLE * Iexp, float3 * angles, DOUBLE *atomPositions, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages) {
 
 	std::vector<Matrix1D<DOUBLE>>  prev = proj->atomPosition;
 
@@ -122,7 +122,7 @@ __declspec(dllexport) float __stdcall DoARTStepMoved(PseudoProjectorPTR proj, DO
 	return ret;
 }
 
-__declspec(dllexport) float __stdcall DoARTStepMovedCTF(PseudoProjectorPTR proj, DOUBLE * Iexp, float3 * angles, float *atomPositions, DOUBLE * GaussTables, DOUBLE * GaussTables2, DOUBLE border, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages) {
+__declspec(dllexport) float __stdcall DoARTStepMovedCTF(PseudoProjectorPTR proj, DOUBLE * Iexp, float3 * angles, DOUBLE *atomPositions, DOUBLE * GaussTables, DOUBLE * GaussTables2, DOUBLE border, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages) {
 
 	std::vector<Matrix1D<DOUBLE>>  prev = proj->atomPosition;
 
@@ -147,7 +147,7 @@ __declspec(dllexport) float __stdcall DoARTStepMovedCTF(PseudoProjectorPTR proj,
 }
 
 
-__declspec(dllexport) float __stdcall DoARTStepMovedCTF_DB(PseudoProjectorPTR proj, DOUBLE * Iexp, DOUBLE * Itheo, DOUBLE * Icorr, DOUBLE * Idiff, float3 * angles, float *atomPositions, DOUBLE * GaussTables, DOUBLE * GaussTables2, DOUBLE border, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages) {
+__declspec(dllexport) float __stdcall DoARTStepMovedCTF_DB(PseudoProjectorPTR proj, DOUBLE * Iexp, DOUBLE * Itheo, DOUBLE * Icorr, DOUBLE * Idiff, float3 * angles, DOUBLE *atomPositions, DOUBLE * GaussTables, DOUBLE * GaussTables2, DOUBLE border, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages) {
 
 	std::vector<Matrix1D<DOUBLE>>  prev = proj->atomPosition;
 
@@ -171,7 +171,7 @@ __declspec(dllexport) float __stdcall DoARTStepMovedCTF_DB(PseudoProjectorPTR pr
 	return ret;
 }
 
-__declspec(dllexport) void __stdcall GetIntensities(PseudoProjectorPTR proj, float* outp) {
+__declspec(dllexport) void __stdcall GetIntensities(PseudoProjectorPTR proj, DOUBLE* outp) {
 	std::copy(proj->atomWeight.begin(), proj->atomWeight.begin() + proj->atomWeight.size(), outp);
 
 }

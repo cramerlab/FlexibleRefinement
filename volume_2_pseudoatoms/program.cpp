@@ -23,12 +23,14 @@
  *  e-mail address 'xmipp@cnb.csic.es'
  ***************************************************************************/
 
-#include "volume_2_pseudoatoms.h"
+#include "volume_to_pseudoatoms.h"
 //#include <data/pdb.h>
 #include <algorithm>
 #include <stdio.h>
 #include <list>
-
+#include <filesystem>
+#define DEBUGFJ
+namespace fs = std::filesystem;
  /* Pseudo atoms ------------------------------------------------------------ */
 PseudoAtom::PseudoAtom()
 {
@@ -48,35 +50,7 @@ std::ostream& operator << (std::ostream &o, const PseudoAtom &a)
 }
 
 /* I/O --------------------------------------------------------------------- */
-void ProgVolumeToPseudoatoms::readParams()
-{
-	//fnVol = getParam("-i");
-	//fnOut = getParam("-o");
-	//mask_prm.allowed_data_types = INT_MASK;
-	//if ((useMask = checkParam("--mask")))
-	//	mask_prm.readParams(this);
-	//sigma = getDoubleParam("--sigma");
-	//targetError = getDoubleParam("--targetError") / 100.0;
-	//stop = getDoubleParam("--stop");
-	//initialSeeds = getIntParam("--initialSeeds");
-	//growSeeds = getDoubleParam("--growSeeds");
-	//allowMovement = !checkParam("--dontAllowMovement");
-	//allowIntensity = !checkParam("--dontAllowIntensity");
-	//if (!allowIntensity)
-	//	intensityFraction = getDoubleParam("--dontAllowIntensity", 1);
-	//intensityColumn = getParam("--intensityColumn");
-	//Nclosest = getIntParam("--Nclosest");
-	//minDistance = getDoubleParam("--minDistance");
-	//penalty = getDoubleParam("--penalty");
-	//numThreads = getIntParam("--thr");
-	//sampling = getDoubleParam("--sampling_rate");
-	//dontScale = checkParam("--dontScale");
-	//binarize = checkParam("--binarize");
-	//if (binarize)
-	//	threshold = getDoubleParam("--binarize");
-	//else
-	//	threshold = 0;
-}
+
 
 void ProgVolumeToPseudoatoms::show() const
 {
@@ -108,63 +82,82 @@ void ProgVolumeToPseudoatoms::show() const
 	//	std::cout << "No mask\n";
 }
 
-void ProgVolumeToPseudoatoms::defineParams()
-{
-	/*addUsageLine("Creates a set of pseudoatoms representing the density of an EM volume. ");
-	addUsageLine("+This is useful for the vector quantization process needed in problems ");
-	addUsageLine("+like docking, approximation of structures by Alpha Shapes, Normal Mode ");
-	addUsageLine("+Analysis, etc.");
-	addUsageLine("+");
-	addUsageLine("+The volume is approximated by Gaussians of a desired size. The user can ");
-	addUsageLine("+specify whether the Gaussians can have different intensities or not, as well ");
-	addUsageLine("+as the level of precision with which she desires to approximate the input ");
-	addUsageLine("+EM volume.");
-	addParamsLine("   -i <volume>                       : Input volume");
-	addParamsLine("  [-o <rootname=\"\">]               : Output rootname. If not given, the rootname of the input volume is taken.");
-	addParamsLine("                                     : The output of the program is: [rootname].pdb");
-	addParamsLine("                                     : (PDB file with the pseudo atoms).");
-	addParamsLine("                                     :+If verbose is set to 2, then also [rootname].vol ");
-	addParamsLine("                                     :+(the approximation volume), [rootname].hist ");
-	addParamsLine("                                     :+(histogram of the Gaussian intensities), ");
-	addParamsLine("                                     :+[rootname]_rawDiff.vol (difference between the ");
-	addParamsLine("                                     :+input volume and its approximation), ");
-	addParamsLine("                                     :+[rootname]_relativeDiff.vol (the raw difference ");
-	addParamsLine("                                     :+divided by the input volume at that location; this ");
-	addParamsLine("                                     :+gives an idea of how much the error represents with ");
-	addParamsLine("                                     :+respect to the input");
-	addParamsLine("  [--sigma <s=1.5>]                  : Sigma of gaussians (in Angstroms)");
-	addParamsLine("                                     : It should be comparable to the sampling rate");
-	addParamsLine("  [--initialSeeds+ <N=300>]          : Initial number of pseudoatoms");
-	addParamsLine("  [--growSeeds+ <percentage=30>]     : Percentage of growth");
-	addParamsLine("                                     :+At each iteration the smallest percentage/2 ");
-	addParamsLine("                                     :+pseudoatoms will be removed, and percentage new pseudoatoms will be created.");
-	addParamsLine("  [--stop+ <p=0.001>]                : Stop criterion (0<p<1) for inner iterations");
-	addParamsLine("                                     :+At each iteration the current number of gaussians will be optimized until ");
-	addParamsLine("                                     :+the average error does not decrease at least this amount relative to the previous iteration.");
-	addParamsLine("  [--targetError+ <e=2>]             : Finish when the average representation");
-	addParamsLine("                                     : error is below this threshold (in percentage; by default, 2%)");
-	addParamsLine("  [--dontAllowMovement+]             : Don't allow pseudoatoms to move");
-	addParamsLine("  [--dontAllowIntensity+ <f=0.01>]   : Don't allow pseudoatoms to change intensity");
-	addParamsLine("                                     : f determines the fraction of intensity");
-	addParamsLine("                                     : held by each pseudoatom");
-	addParamsLine("  [--intensityColumn+ <s=Bfactor>]   : Where to write the intensity in the PDB file");
-	addParamsLine("                   where <s>");
-	addParamsLine("                         occupancy");
-	addParamsLine("                         Bfactor");
-	addParamsLine("  [--Nclosest+ <N=3>]                : N closest atoms, it is used only for the");
-	addParamsLine("                                     : distance histogram");
-	addParamsLine("  [--minDistance+ <d=0.001>]         : Minimum distance between two pseudoatoms (in Angstroms)");
-	addParamsLine("                                     : Set it to -1 to disable");
-	addParamsLine("  [--penalty+ <p=10>]                : Penalty for overshooting");
-	addParamsLine("  [--sampling_rate <Ts=1>]           : Sampling rate Angstroms/pixel");
-	addParamsLine("  [--dontScale+]                     : Don't scale atom weights in the PDB");
-	addParamsLine("  [--binarize+ <threshold>]          : Binarize the volume for a more uniform distribution");
-	addParamsLine("  [--thr <n=1>]                      : Number of threads");
-	mask_prm.defineParams(this, INT_MASK, NULL, "Statistics restricted to the mask area.", true);
-	addExampleLine("Convert volume to pseudoatoms, each pseudoatom with a different weight", false);
-	addExampleLine("xmipp_volume_to_pseudoatoms -i volume.vol -o pseudoatoms");
-	addExampleLine("Convert volume to pseudoatoms, all pseudoatoms with the same weight", false);
-	addExampleLine("xmipp_volume_to_pseudoatoms -i volume.vol -o pseudoatoms --dontAllowIntensity");*/
+
+std::vector<float3> equidistantPoints(MultidimArray<int> maskArr, idxtype n, DOUBLE *R) {
+	MRCImage<int> mask = MRCImage<int>(maskArr);
+	mask.setZeroOrigin();
+	float3 MaskCenter = mask.getCenterOfMass();
+	int3 Dims = toInt3(mask().xdim, mask().ydim, mask().zdim);
+
+	MultidimArray<float3> BestSolution;
+
+	float a = 0, b = Dims.x / 2;
+	(*R) = (a + b) / 2;
+	float3 Offset = make_float3(0, 0, 0);
+	std::vector<float3> InsideMask;
+	int outerLim = 2;
+	for (int o = 0; o < outerLim; o++)
+	{
+		for (int i = 0; i < 10; i++)
+		{
+			(*R) = (a + b) / 2;
+
+			float Root3 = (float)sqrt(3);
+			float ZTerm = (float)(2 * sqrt(6) / 3);
+			float SpacingX = (*R) * 2;
+			float SpacingY = Root3 * (*R);
+			float SpacingZ = ZTerm * (*R);
+			int3 DimsSphere = toInt3(std::min(512, (int)std::ceil(Dims.x / SpacingX)),
+				std::min(512, (int)std::ceil(Dims.y / SpacingX)),
+				std::min(512, (int)std::ceil(Dims.z / SpacingX)));
+			BestSolution.resize(std::min(512, (int)std::ceil(Dims.z / SpacingX)), std::min(512, (int)std::ceil(Dims.y / SpacingX)), std::min(512, (int)std::ceil(Dims.x / SpacingX)));
+
+			DOUBLE maxX = 0.0;
+			DOUBLE maxXY = 0.0;
+			DOUBLE maxXZ = 0.0;
+
+			FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY3D(BestSolution)
+			{
+				DIRECT_A3D_ELEM(BestSolution, k, i, j) = make_float3((2 * j + (i + k) % 2) * (*R) + Offset.x, Root3 * (i + 1.0 / 3.0 * (k % 2))* (*R) + Offset.y, ZTerm * k* (*R) + Offset.z);
+				if ((2 * j + (i + k) % 2) * (*R) + Offset.x > maxX) {
+					maxX = (2 * j + (i + k) % 2) * (*R) + Offset.x;
+					maxXY = Root3 * (i + 1.0 / 3.0 * (k % 2))* (*R) + Offset.y;
+					maxXZ = ZTerm * k* (*R) + Offset.z;
+
+				}
+			}
+
+			InsideMask.clear();
+			InsideMask.reserve(BestSolution.nzyxdim);
+			FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY3D(BestSolution)
+			{
+				float3 c = DIRECT_A3D_ELEM(BestSolution, k, i, j);
+				int3 ip = toInt3(DIRECT_A3D_ELEM(BestSolution, k, i, j));
+				if (ip.x >= 0 && ip.x < Dims.x && ip.y >= 0 && ip.y < Dims.y && ip.z >= 0 && ip.z < Dims.z && DIRECT_A3D_ELEM(mask(),ip.z, ip.y, ip.x) > 0)
+						InsideMask.emplace_back(DIRECT_A3D_ELEM(BestSolution, k, i, j));
+			}
+			if (InsideMask.size() == n)
+				break;
+			else if (InsideMask.size() < n)
+				b = (*R);
+			else
+				a = (*R);
+		}
+
+		float3 CenterOfPoints = mean(InsideMask);
+		Offset = MaskCenter - CenterOfPoints;
+		if (o != outerLim - 1) {
+			a = 0.8f * (*R);
+			b = 1.2f * (*R);
+		}
+	}
+
+
+	for (auto p : InsideMask) {
+		p = p + Offset;
+	}
+
+	return InsideMask;
 }
 
 void ProgVolumeToPseudoatoms::produceSideInfo()
@@ -175,8 +168,16 @@ void ProgVolumeToPseudoatoms::produceSideInfo()
 	if (intensityColumn != "occupancy" && intensityColumn != "Bfactor")
 		REPORT_ERROR( (std::string)"Unknown column: " + intensityColumn);
 
-	Vin.read(fnVol);
+	Vin = MRCImage<DOUBLE>::readAs(std::string(fnVol));
 	Vin().setXmippOrigin();
+
+	if (doInputFilter) {
+		bandpassFilter(Vin(), inputFilterThresh, (DOUBLE)0, (DOUBLE)5);
+		Vin.writeAs<float>(fnVol.withoutExtension() + "_lowpass.mrc");
+	}
+
+	
+
 	if (binarize)
 		Vin().binarize(threshold, 0);
 
@@ -184,6 +185,7 @@ void ProgVolumeToPseudoatoms::produceSideInfo()
 		fnOut = fnVol.withoutExtension();
 
 	Vcurrent().initZeros(Vin());
+	Vcurrent().setXmippOrigin();
 	mask_prm.generate_mask(Vin());
 
 	sigma3 = 3 * sigma;
@@ -192,14 +194,14 @@ void ProgVolumeToPseudoatoms::produceSideInfo()
 		gaussianTable(i) = gaussian1D(i / 1000.0, sigma);
 
 	energyOriginal = 0;
-	double N = 0;
-	double minval = 1e38, maxval = -1e38;
+	DOUBLE N = 0;
+	DOUBLE minval = 1e38, maxval = -1e38;
 	const MultidimArray<int> &iMask3D = mask_prm.get_binary_mask();
 	FOR_ALL_ELEMENTS_IN_ARRAY3D(Vin())
 	{
 		if (useMask && iMask3D(k, i, j) == 0)
 			continue;
-		double v = Vin(k, i, j);
+		DOUBLE v = Vin(k, i, j);
 		energyOriginal += v * v;
 		minval = XMIPP_MIN(minval, v);
 		maxval = XMIPP_MAX(maxval, v);
@@ -207,12 +209,12 @@ void ProgVolumeToPseudoatoms::produceSideInfo()
 	}
 	energyOriginal /= N;
 
-	/*Histogram1D hist;
+	Histogram1D hist;
 	if (useMask)
 		compute_hist_within_binary_mask(iMask3D, Vin(), hist,
 			minval, maxval, 200);
 	else
-		compute_hist(Vin(), hist, minval, maxval, 200);*/
+		compute_hist(Vin(), hist, minval, maxval, 200);
 	percentil1 = hist.percentil(1);
 	if (percentil1 <= 0)
 		percentil1 = maxval / 500;
@@ -224,9 +226,10 @@ void ProgVolumeToPseudoatoms::produceSideInfo()
 	smallAtom = range * intensityFraction;
 
 	// Create threads
-	pthread_barrierattr_t barrieratt;
-	pthread_barrier_init(&barrier, &barrieratt, numThreads + 1);
-	threadIds = (pthread_t *)malloc(numThreads * sizeof(pthread_t));
+	//pthread_barrierattr_t barrieratt;
+	pthread_barrier_init(&barrier, NULL, numThreads + 1);
+	size_t size = sizeof(pthread_t);
+	threadIds = (pthread_t *)malloc(numThreads * size);
 	threadArgs = (Prog_Convert_Vol2Pseudo_ThreadParams *)
 		malloc(numThreads * sizeof(Prog_Convert_Vol2Pseudo_ThreadParams));
 	for (int i = 0; i < numThreads; i++)
@@ -258,7 +261,7 @@ void ProgVolumeToPseudoatoms::placeSeeds(int Nseeds)
 	Filter.generateMask(Vin());
 	Filter.do_generate_3dmask = false;
 
-	MultidimArray<double> Vdiff = Vin();
+	MultidimArray<DOUBLE> Vdiff = Vin();
 	Vdiff -= Vcurrent();
 	Filter.applyMaskSpace(Vdiff);
 
@@ -269,12 +272,12 @@ void ProgVolumeToPseudoatoms::placeSeeds(int Nseeds)
 		// Look for the maximum error
 		bool first = true;
 		int kmax = 0, imax = 0, jmax = 0;
-		double maxVal = 0.;
+		DOUBLE maxVal = 0.;
 		FOR_ALL_ELEMENTS_IN_ARRAY3D(Vdiff)
 		{
 			if (useMask && A3D_ELEM(iMask3D, k, i, j) == 0)
 				continue;
-			double voxel = A3D_ELEM(Vdiff, k, i, j);
+			DOUBLE voxel = A3D_ELEM(Vdiff, k, i, j);
 			if (first || voxel > maxVal)
 			{
 				kmax = k;
@@ -323,15 +326,18 @@ class SeedCandidate
 {
 public:
 	int k, i, j;
-	double v;
+	DOUBLE v;
 	bool operator < (const SeedCandidate& c) const { return v > c.v; }
 };
 
 void ProgVolumeToPseudoatoms::placeSeeds(int Nseeds)
 {
+#ifdef DEBUGFJ
+	std::cout << "placeSeeds" << std::endl;
+#endif
 	// Convolve the difference with the Gaussian to know
 	// where it would be better to put a Gaussian
-	MultidimArray<double> Vdiff = Vin();
+	MultidimArray<DOUBLE> Vdiff = Vin();
 	Vdiff -= Vcurrent();
 	Filter.applyMaskSpace(Vdiff);
 
@@ -340,12 +346,12 @@ void ProgVolumeToPseudoatoms::placeSeeds(int Nseeds)
 	size_t idx = 0;
 	std::list<SeedCandidate> candidateList;
 	size_t listSize = 0;
-	double lastValue = 0;
+	DOUBLE lastValue = 0;
 	FOR_ALL_ELEMENTS_IN_ARRAY3D(Vdiff)
 	{
 		if (!useMask || useMask && DIRECT_MULTIDIM_ELEM(iMask3D, idx))
 		{
-			double v = A3D_ELEM(Vdiff, k, i, j);
+			DOUBLE v = A3D_ELEM(Vdiff, k, i, j);
 			if (listSize == 0 || v > lastValue)
 			{
 				// Check if there is any other candidate around
@@ -398,11 +404,17 @@ void ProgVolumeToPseudoatoms::placeSeeds(int Nseeds)
 		// Remove this density from the difference
 		drawGaussian(iter->k, iter->i, iter->j, Vdiff, -a.intensity);
 	}
+#ifdef DEBUGFJ
+	std::cout << "placeSeeds done" << std::endl;
+#endif
 }
 
 /* Remove seeds ------------------------------------------------------------ */
 void ProgVolumeToPseudoatoms::removeSeeds(int Nseeds)
 {
+#ifdef DEBUGFJ
+	std::cout << "removeSeeds" << std::endl;
+#endif
 	int fromNegative = ROUND(Nseeds*0.5);
 	int fromSmall = Nseeds - fromNegative;
 
@@ -419,13 +431,13 @@ void ProgVolumeToPseudoatoms::removeSeeds(int Nseeds)
 	}
 
 	// Remove atoms from regions in which the error is too negative
-	MultidimArray<double> Vdiff = Vin();
+	MultidimArray<DOUBLE> Vdiff = Vin();
 	Vdiff -= Vcurrent();
 	int alreadyRemoved = 0;
-	double vmin = Vdiff.computeMin();
+	DOUBLE vmin = Vdiff.computeMin();
 	if (vmin < 0)
 	{
-		for (double v = vmin + vmin / 20; v < 0; v -= vmin / 20)
+		for (DOUBLE v = vmin + vmin / 20; v < 0; v -= vmin / 20)
 		{
 			size_t oldListSize;
 			do
@@ -456,10 +468,10 @@ void ProgVolumeToPseudoatoms::removeSeeds(int Nseeds)
 				if (found)
 				{
 					// Search for atom
-					int nmax = atoms.size();
-					for (int n = 0; n < nmax; n++)
+					idxtype nmax = atoms.size();
+					for (idxtype n = 0; n < nmax; n++)
 					{
-						double r =
+						DOUBLE r =
 							(kneg - atoms[n].location(0))*(kneg - atoms[n].location(0)) +
 							(ineg - atoms[n].location(1))*(ineg - atoms[n].location(1)) +
 							(jneg - atoms[n].location(2))*(jneg - atoms[n].location(2));
@@ -488,16 +500,19 @@ void ProgVolumeToPseudoatoms::removeSeeds(int Nseeds)
 
 void ProgVolumeToPseudoatoms::removeTooCloseSeeds()
 {
+#ifdef DEBUGFJ
+	std::cout << "removeTooCloseSeeds" << std::endl;
+#endif
 	// Remove atoms that are too close to each other
 	if (minDistance > 0 && allowIntensity)
 	{
 		std::vector<int> toRemove;
-		int nmax = atoms.size();
-		double minDistance2 = minDistance * minDistance;
+		idxtype nmax = atoms.size();
+		DOUBLE minDistance2 = minDistance * minDistance;
 		for (int n1 = 0; n1 < nmax; n1++)
 		{
 			bool found = false;
-			int nn = 0, nnmax = toRemove.size();
+			idxtype nn = 0, nnmax = toRemove.size();
 			while (nn < nnmax)
 			{
 				if (toRemove[nn] == n1)
@@ -528,10 +543,10 @@ void ProgVolumeToPseudoatoms::removeTooCloseSeeds()
 				}
 				if (found)
 					continue;
-				double diffZ = atoms[n1].location(0) - atoms[n2].location(0);
-				double diffY = atoms[n1].location(1) - atoms[n2].location(1);
-				double diffX = atoms[n1].location(2) - atoms[n2].location(2);
-				double d2 = diffZ * diffZ + diffY * diffY + diffX * diffX;
+				DOUBLE diffZ = atoms[n1].location(0) - atoms[n2].location(0);
+				DOUBLE diffY = atoms[n1].location(1) - atoms[n2].location(1);
+				DOUBLE diffX = atoms[n1].location(2) - atoms[n2].location(2);
+				DOUBLE d2 = diffZ * diffZ + diffY * diffY + diffX * diffX;
 				if (d2 < minDistance2)
 				{
 					if (atoms[n1].intensity < atoms[n2].intensity)
@@ -545,54 +560,72 @@ void ProgVolumeToPseudoatoms::removeTooCloseSeeds()
 				}
 			}
 		}
-		for (int n = toRemove.size() - 1; n >= 0; n--)
-			atoms.erase(atoms.begin() + toRemove[n]);
+		for (idxtype n = toRemove.size(); n > 0; n--)
+			atoms.erase(atoms.begin() + toRemove[n-1]);
 	}
+#ifdef DEBUGFJ
+	std::cout << "removeTooCloseSeeds done" << std::endl;
+#endif
 }
 
 /* Draw approximation ------------------------------------------------------ */
 void ProgVolumeToPseudoatoms::drawApproximation()
 {
+#ifdef DEBUGFJ
+	std::cout << "drawApproximation" << std::endl;
+#endif
 	Vcurrent().initZeros(Vin());
-	int nmax = atoms.size();
-	for (int n = 0; n < nmax; n++)
+	Vcurrent.setZeroOrigin();
+	idxtype nmax = atoms.size();
+#ifdef DEBUGFJ
+	std::cout << "drawGaussian in drawApproximation" << std::endl;
+#endif
+	for (idxtype n = 0; n < nmax; n++)
 		drawGaussian(atoms[n].location(0), atoms[n].location(1),
 			atoms[n].location(2), Vcurrent(), atoms[n].intensity);
-
+#ifdef DEBUGFJ
+	std::cout << "drawGaussian drawApproximation done" << std::endl;
+#endif
 	energyDiff = 0;
-	double N = 0;
+	DOUBLE N = 0;
 	percentageDiff = 0;
 	const MultidimArray<int> &iMask3D = mask_prm.get_binary_mask();
-	const MultidimArray<double> &mVcurrent = Vcurrent();
-	const MultidimArray<double> &mVin = Vin();
+	const MultidimArray<DOUBLE> &mVcurrent = Vcurrent();
+	const MultidimArray<DOUBLE> &mVin = Vin();
 	FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(mVcurrent)
 	{
 		if (useMask && DIRECT_MULTIDIM_ELEM(iMask3D, n) == 0)
 			continue;
-		double Vinv = DIRECT_MULTIDIM_ELEM(mVin, n);
+		DOUBLE Vinv = DIRECT_MULTIDIM_ELEM(mVin, n);
 		if (Vinv <= 0)
 			continue;
-		double vdiff = Vinv - DIRECT_MULTIDIM_ELEM(mVcurrent, n);
-		double vperc = fabs(vdiff);
+		DOUBLE vdiff = Vinv - DIRECT_MULTIDIM_ELEM(mVcurrent, n);
+		DOUBLE vperc = fabs(vdiff);
 		energyDiff += vdiff * vdiff;
 		percentageDiff += vperc;
 		N++;
 	}
 	energyDiff /= N;
 	percentageDiff /= (N*range);
+#ifdef DEBUGFJ
+	std::cout << "drawApproximation done" << std::endl;
+#endif
 }
 
 /* Gaussian operations ----------------------------------------------------- */
-double ProgVolumeToPseudoatoms::computeAverage(int k, int i, int j,
-	MultidimArray<double> &V)
+DOUBLE ProgVolumeToPseudoatoms::computeAverage(int k, int i, int j,
+	MultidimArray<DOUBLE> &V)
 {
+#ifdef DEBUG
+	std::cout << "computeAverage" << std::endl;
+#endif
 	int k0 = std::max(STARTINGZ(V), (long int)floor(k - sigma3));
 	int i0 = std::max(STARTINGY(V), (long int)floor(i - sigma3));
 	int j0 = std::max(STARTINGX(V), (long int)floor(j - sigma3));
 	int kF = std::min(FINISHINGZ(V), (long int)ceil(k + sigma3));
 	int iF = std::min(FINISHINGY(V), (long int)ceil(i + sigma3));
 	int jF = std::min(FINISHINGX(V), (long int)ceil(j + sigma3));
-	double sum = 0;
+	DOUBLE sum = 0;
 	for (int kk = k0; kk <= kF; kk++)
 		for (int ii = i0; ii <= iF; ii++)
 			for (int jj = j0; jj <= jF; jj++)
@@ -600,9 +633,10 @@ double ProgVolumeToPseudoatoms::computeAverage(int k, int i, int j,
 	return sum / ((kF - k0 + 1)*(iF - i0 + 1)*(jF - j0 + 1));
 }
 
-void ProgVolumeToPseudoatoms::drawGaussian(double k, double i, double j,
-	MultidimArray<double> &V, double intensity)
+void ProgVolumeToPseudoatoms::drawGaussian(DOUBLE k, DOUBLE i, DOUBLE j,
+	MultidimArray<DOUBLE> &V, DOUBLE intensity)
 {
+
 	int k0 = CEIL(XMIPP_MAX(STARTINGZ(V), k - sigma3));
 	int i0 = CEIL(XMIPP_MAX(STARTINGY(V), i - sigma3));
 	int j0 = CEIL(XMIPP_MAX(STARTINGX(V), j - sigma3));
@@ -611,32 +645,33 @@ void ProgVolumeToPseudoatoms::drawGaussian(double k, double i, double j,
 	int jF = FLOOR(XMIPP_MIN(FINISHINGX(V), j + sigma3));
 	for (int kk = k0; kk <= kF; kk++)
 	{
-		double aux = kk - k;
-		double diffkk2 = aux * aux;
+		DOUBLE aux = kk - k;
+		DOUBLE diffkk2 = aux * aux;
 		for (int ii = i0; ii <= iF; ii++)
 		{
 			aux = ii - i;
-			double diffiikk2 = aux * aux + diffkk2;
+			DOUBLE diffiikk2 = aux * aux + diffkk2;
 			for (int jj = j0; jj <= jF; jj++)
 			{
 				aux = jj - j;
-				double r = sqrt(diffiikk2 + aux * aux);
+				DOUBLE r = sqrt(diffiikk2 + aux * aux);
 				aux = r * 1000;
 				long iaux = lround(aux);
 				A3D_ELEM(V, kk, ii, jj) += intensity * DIRECT_A1D_ELEM(gaussianTable, iaux);
 			}
 		}
 	}
+
 }
 
 void ProgVolumeToPseudoatoms::extractRegion(int idxGaussian,
-	MultidimArray<double> &region, bool extended) const
+	MultidimArray<DOUBLE> &region, bool extended) const
 {
-	double k = atoms[idxGaussian].location(0);
-	double i = atoms[idxGaussian].location(1);
-	double j = atoms[idxGaussian].location(2);
+	DOUBLE k = atoms[idxGaussian].location(0);
+	DOUBLE i = atoms[idxGaussian].location(1);
+	DOUBLE j = atoms[idxGaussian].location(2);
 
-	double sigma3ToUse = sigma3;
+	DOUBLE sigma3ToUse = sigma3;
 	if (extended)
 		sigma3ToUse += 1.5;
 
@@ -647,11 +682,15 @@ void ProgVolumeToPseudoatoms::extractRegion(int idxGaussian,
 	int iF = FLOOR(XMIPP_MIN(FINISHINGY(Vcurrent()), i + sigma3ToUse));
 	int jF = FLOOR(XMIPP_MIN(FINISHINGX(Vcurrent()), j + sigma3ToUse));
 
+	if ((kF - k0 + 1)*(iF - i0 + 1)*(jF - j0 + 1) == 2028)
+		bool tmp = true;
+	else
+		bool tmp = false;
 	region.resizeNoCopy(kF - k0 + 1, iF - i0 + 1, jF - j0 + 1);
 	STARTINGZ(region) = k0;
 	STARTINGY(region) = i0;
 	STARTINGX(region) = j0;
-	const MultidimArray<double> &mVcurrent = Vcurrent();
+	const MultidimArray<DOUBLE> &mVcurrent = Vcurrent();
 	for (int k = k0; k <= kF; k++)
 		for (int i = i0; i <= iF; i++)
 			for (int j = j0; j <= jF; j++)
@@ -659,35 +698,44 @@ void ProgVolumeToPseudoatoms::extractRegion(int idxGaussian,
 }
 
 //#define DEBUG
-double ProgVolumeToPseudoatoms::evaluateRegion(const MultidimArray<double> &region)
+DOUBLE ProgVolumeToPseudoatoms::evaluateRegion(const MultidimArray<DOUBLE> &region)
 const
 {
-	double avgDiff = 0;
-	double N = 0;
-	const MultidimArray<int> &iMask3D = mask_prm.get_binary_mask();
-	const MultidimArray<double> &mVin = Vin();
 #ifdef DEBUG
-	Image<double> save, save2;
+	std::cout << "evaluateRegion" << std::endl;
+#endif
+	DOUBLE avgDiff = 0;
+	DOUBLE N = 0;
+	const MultidimArray<int> &iMask3D = mask_prm.get_binary_mask();
+	const MultidimArray<DOUBLE> &mVin = Vin();
+	/*
+#ifdef DEBUG
+	MRCImage <DOUBLE> save, save2;
 	save().initZeros(region);
 	save2().initZeros(region);
 #endif
+*/
 	FOR_ALL_ELEMENTS_IN_ARRAY3D(region)
 	{
-		double Vinv = A3D_ELEM(mVin, k, i, j);
+		DOUBLE Vinv = A3D_ELEM(mVin, k, i, j);
 		if (Vinv <= 0 || (useMask && A3D_ELEM(iMask3D, k, i, j) == 0))
 			continue;
+		/*
 #ifdef DEBUG
 		save(k, i, j) = Vinv;
 		save2(k, i, j) = A3D_ELEM(region, k, i, j);
 #endif
-		double vdiff = A3D_ELEM(region, k, i, j) - Vinv;
-		double vperc = (vdiff < 0) ? -vdiff : penalty * vdiff;
+*/
+		DOUBLE vdiff = A3D_ELEM(region, k, i, j) - Vinv;
+		DOUBLE vperc = (vdiff < 0) ? -vdiff : penalty * vdiff;
 		avgDiff += vperc;
+/*
 #ifdef DEBUG
 		std::cout << "(k,i,j)=(" << k << "," << i << "," << j << ") toSimulate=" << Vinv << " simulated=" << A3D_ELEM(region, k, i, j) << " vdiff=" << vdiff << " vperc=" << vperc << std::endl;
-#endif
+#endif*/
 		++N;
 	}
+	/*
 #ifdef DEBUG
 	save.write("PPPtoSimulate.vol");
 	save2.write("PPPsimulated.vol");
@@ -695,13 +743,14 @@ const
 	std::cout << "Press any key\n";
 	char c; std::cin >> c;
 #endif
+*/
 	return avgDiff / (N*range);
 }
 #undef DEBUG
 
-void ProgVolumeToPseudoatoms::insertRegion(const MultidimArray<double> &region)
+void ProgVolumeToPseudoatoms::insertRegion(const MultidimArray<DOUBLE> &region)
 {
-	const MultidimArray<double> &mVcurrent = Vcurrent();
+	const MultidimArray<DOUBLE> &mVcurrent = Vcurrent();
 	FOR_ALL_ELEMENTS_IN_ARRAY3D(region)
 		A3D_ELEM(mVcurrent, k, i, j) = A3D_ELEM(region, k, i, j);
 }
@@ -713,31 +762,36 @@ static pthread_mutex_t mutexUpdateVolume = PTHREAD_MUTEX_INITIALIZER;
 void* ProgVolumeToPseudoatoms::optimizeCurrentAtomsThread(
 	void * threadArgs)
 {
+#ifdef DEBUGFJ
+	std::cout << "optimizeCurrentAtomsThread" << std::endl;
+#endif
 	Prog_Convert_Vol2Pseudo_ThreadParams *myArgs =
 		(Prog_Convert_Vol2Pseudo_ThreadParams *)threadArgs;
 	ProgVolumeToPseudoatoms *parent = myArgs->parent;
 	std::vector< PseudoAtom > &atoms = parent->atoms;
 	bool allowIntensity = parent->allowIntensity;
 	bool allowMovement = parent->allowMovement;
-	MultidimArray<double> region, regionBackup;
+	MultidimArray<DOUBLE> region, regionBackup;
 
 	pthread_barrier_t *barrier = &(parent->barrier);
 	do
 	{
+		std::cout << "optimizeCurrentAtomsThread loop" << std::endl;
 		pthread_barrier_wait(barrier);
+		std::cout << "optimizeCurrentAtomsThread passed barrier" << std::endl;
 		if (parent->threadOpCode == KILLTHREAD)
 			return NULL;
 
 		myArgs->Nintensity = 0;
 		myArgs->Nmovement = 0;
-		int nmax = atoms.size();
-		for (int n = 0; n < nmax; n++)
+		idxtype nmax = atoms.size();
+		for (idxtype n = 0; n < nmax; n++)
 		{
 			if ((n + 1) % parent->numThreads != myArgs->myThreadID)
 				continue;
 
 			parent->extractRegion(n, region, true);
-			double currentRegionEval = parent->evaluateRegion(region);
+			DOUBLE currentRegionEval = parent->evaluateRegion(region);
 			parent->drawGaussian(atoms[n].location(0), atoms[n].location(1),
 				atoms[n].location(2), region, -atoms[n].intensity);
 			regionBackup = region;
@@ -749,8 +803,8 @@ void* ProgVolumeToPseudoatoms::optimizeCurrentAtomsThread(
 			if (allowIntensity)
 			{
 				// Try with a Gaussian that is of different intensity
-				double tryCoeffs[8] = { 0, 0.1, 0.2, 0.5, 0.9, 0.99, 1.01, 1.1 };
-				double bestRed = 0;
+				DOUBLE tryCoeffs[8] = { 0, 0.1, 0.2, 0.5, 0.9, 0.99, 1.01, 1.1 };
+				DOUBLE bestRed = 0;
 				int bestT = -1;
 				for (int t = 0; t < 8; t++)
 				{
@@ -758,8 +812,8 @@ void* ProgVolumeToPseudoatoms::optimizeCurrentAtomsThread(
 					parent->drawGaussian(atoms[n].location(0),
 						atoms[n].location(1), atoms[n].location(2), region,
 						tryCoeffs[t] * atoms[n].intensity);
-					double trialRegionEval = parent->evaluateRegion(region);
-					double reduction = trialRegionEval - currentRegionEval;
+					DOUBLE trialRegionEval = parent->evaluateRegion(region);
+					DOUBLE reduction = trialRegionEval - currentRegionEval;
 					if (reduction < bestRed)
 					{
 						bestRed = reduction;
@@ -793,10 +847,10 @@ void* ProgVolumeToPseudoatoms::optimizeCurrentAtomsThread(
 			// Change location
 			if (allowMovement && atoms[n].intensity > 0)
 			{
-				double tryX[6] = { -0.45,0.5, 0.0 ,0.0, 0.0 ,0.0 };
-				double tryY[6] = { 0.0 ,0.0,-0.45,0.5, 0.0 ,0.0 };
-				double tryZ[6] = { 0.0 ,0.0, 0.0 ,0.0,-0.45,0.5 };
-				double bestRed = 0;
+				DOUBLE tryX[6] = { -0.45,0.5, 0.0 ,0.0, 0.0 ,0.0 };
+				DOUBLE tryY[6] = { 0.0 ,0.0,-0.45,0.5, 0.0 ,0.0 };
+				DOUBLE tryZ[6] = { 0.0 ,0.0, 0.0 ,0.0,-0.45,0.5 };
+				DOUBLE bestRed = 0;
 				int bestT = -1;
 				for (int t = 0; t < 6; t++)
 				{
@@ -805,8 +859,8 @@ void* ProgVolumeToPseudoatoms::optimizeCurrentAtomsThread(
 						atoms[n].location(1) + tryY[t],
 						atoms[n].location(2) + tryX[t],
 						region, atoms[n].intensity);
-					double trialRegionEval = parent->evaluateRegion(region);
-					double reduction = trialRegionEval - currentRegionEval;
+					DOUBLE trialRegionEval = parent->evaluateRegion(region);
+					DOUBLE reduction = trialRegionEval - currentRegionEval;
 					if (reduction < bestRed)
 					{
 						bestRed = reduction;
@@ -842,14 +896,19 @@ void ProgVolumeToPseudoatoms::optimizeCurrentAtoms()
 	int iter = 0;
 	do
 	{
-		double oldError = percentageDiff;
+#ifdef DEBUGFJ
+		std::cout << "optimizeCurrentAtoms loop" << std::endl;
+#endif
+		DOUBLE oldError = percentageDiff;
 
 		threadOpCode = WORKTHREAD;
 		// Launch workers
 		pthread_barrier_wait(&barrier);
 		// Wait for workers to finish
 		pthread_barrier_wait(&barrier);
-
+#ifdef DEBUGFJ
+		std::cout << "optimizeCurrentAtoms loop Retrieve results" << std::endl;
+#endif
 		// Retrieve results
 		int Nintensity = 0;
 		int Nmovement = 0;
@@ -858,13 +917,17 @@ void ProgVolumeToPseudoatoms::optimizeCurrentAtoms()
 			Nintensity += threadArgs[i].Nintensity;
 			Nmovement += threadArgs[i].Nmovement;
 		}
-
+#ifdef DEBUGFJ
+		std::cout << "optimizeCurrentAtoms loop  Remove all the removed atoms" << std::endl;
+#endif
 		// Remove all the removed atoms
-		int nmax = atoms.size();
-		for (int n = nmax - 1; n >= 0; n--)
-			if (atoms[n].intensity == 0)
-				atoms.erase(atoms.begin() + n);
-
+		idxtype nmax = atoms.size();
+		for (idxtype n = nmax; n > 0; n--)
+			if (atoms[n-1].intensity == 0)
+				atoms.erase(atoms.begin() + n-1);
+#ifdef DEBUGFJ
+		std::cout << "optimizeCurrentAtoms loop drawApproximation" << std::endl;
+#endif
 		drawApproximation();
 		/*if (verbose > 0)
 			std::cout << "Iteration " << iter << " error= " << percentageDiff
@@ -884,36 +947,37 @@ void ProgVolumeToPseudoatoms::optimizeCurrentAtoms()
 void ProgVolumeToPseudoatoms::writeResults()
 {
 	// Compute the histogram of intensities
-	MultidimArray<double> intensities;
+	MultidimArray<DOUBLE> intensities;
 	intensities.initZeros(atoms.size());
 	FOR_ALL_ELEMENTS_IN_ARRAY1D(intensities)
 		intensities(i) = atoms[i].intensity;
-	/*Histogram1D hist;
-	compute_hist(intensities, hist, 0, intensities.computeMax(), 100);*/
+	Histogram1D hist;
+	compute_hist(intensities, hist, 0, intensities.computeMax(), 100);
 	
-	//if (verbose >= 2)
-	//{
-	//	Vcurrent.write(fnOut + "_approximation.vol");
-	//	hist.write(fnOut + "_approximation.hist");
+	if (verbose >= 2)
+	{
+		Vcurrent.write(fnOut + "_approximation.vol");
+		hist.write(fnOut + "_approximation.hist");
+		
+	// Save the difference
+		MRCImage<DOUBLE> Vdiff(Vin.getHeader());
+		Vcurrent.setXmippOrigin();
+		Vdiff.setData( Vin() - Vcurrent());
+		const MultidimArray<int> &iMask3D = mask_prm.get_binary_mask();
+		if (useMask && XSIZE(iMask3D) != 0)
+			FOR_ALL_ELEMENTS_IN_ARRAY3D(Vdiff())
+			if (!iMask3D(k, i, j))
+				Vdiff(k, i, j) = 0;
+		Vdiff.write(fnOut + "_rawDiff.vol");
 
-	//	// Save the difference
-	//	Image<double> Vdiff;
-	//	Vdiff() = Vin() - Vcurrent();
-	//	const MultidimArray<int> &iMask3D = mask_prm.get_binary_mask();
-	//	if (useMask && XSIZE(iMask3D) != 0)
-	//		FOR_ALL_ELEMENTS_IN_ARRAY3D(Vdiff())
-	//		if (!iMask3D(k, i, j))
-	//			Vdiff(k, i, j) = 0;
-	//	Vdiff.write(fnOut + "_rawDiff.vol");
-
-	//	Vdiff() /= range;
-	//	Vdiff.write(fnOut + "_relativeDiff.vol");
-	//}
+		Vdiff.setData(Vdiff()/range);
+		Vdiff.write(fnOut + "_relativeDiff.vol");
+	}
 
 	// Write the PDB
-	double minIntensity = intensities.computeMin();
-	double maxIntensity = intensities.computeMax();
-	double a = 0.99 / (maxIntensity - minIntensity);
+	DOUBLE minIntensity = intensities.computeMin();
+	DOUBLE maxIntensity = intensities.computeMax();
+	DOUBLE a = 0.99 / (maxIntensity - minIntensity);
 	if (dontScale)
 		a = 1;
 
@@ -921,16 +985,16 @@ void ProgVolumeToPseudoatoms::writeResults()
 	fhOut = fopen((fnOut + ".pdb").c_str(), "w");
 	if (!fhOut)
 		REPORT_ERROR(fnOut + ".pdb");
-	int nmax = atoms.size();
-	int col = 1;
+	idxtype nmax = atoms.size();
+	idxtype col = 1;
 	if (intensityColumn == "Bfactor")
 		col = 2;
 	fprintf(fhOut, "REMARK xmipp_volume_to_pseudoatoms\n");
 	fprintf(fhOut, "REMARK fixedGaussian %f\n", sigma*sampling);
 	fprintf(fhOut, "REMARK intensityColumn %s\n", intensityColumn.c_str());
-	for (int n = 0; n < nmax; n++)
+	for (idxtype n = 0; n < nmax; n++)
 	{
-		double intensity = 1.0;
+		DOUBLE intensity = 1.0;
 		if (allowIntensity)
 			intensity = 0.01 + ROUND(100 * a*(atoms[n].intensity - minIntensity)) / 100.0;
 		if (col == 1)
@@ -966,17 +1030,25 @@ void ProgVolumeToPseudoatoms::run()
 {
 	produceSideInfo();
 	int iter = 0;
-	double previousNAtoms = 0;
+	DOUBLE previousNAtoms = 0;
 	percentageDiff = 1;
-	double actualGrowSeeds = 0.;
+	DOUBLE actualGrowSeeds = 0.;
 	do
 	{
+#ifdef DEBUGFJ
+		std::cout << "Run() Loop " << iter << std::endl;
+#endif
 		// Place seeds
-		if (iter == 0)
+		if (iter == 0) {
+#ifdef DEBUGFJ
+			std::cout << "Placing Initial seeds" << std::endl;
+#endif
 			placeSeeds(initialSeeds);
+		}
+
 		else
 		{
-			double Natoms = atoms.size();
+			idxtype Natoms = atoms.size();
 			actualGrowSeeds = growSeeds * std::min(1.0, 0.1 + (percentageDiff - targetError) / targetError);
 			removeSeeds(FLOOR(Natoms*(actualGrowSeeds / 2) / 100));
 			placeSeeds(FLOOR(Natoms*actualGrowSeeds / 100));
@@ -1013,4 +1085,151 @@ void ProgVolumeToPseudoatoms::run()
 	pthread_barrier_wait(&barrier);
 	free(threadIds);
 	free(threadArgs);
+}
+
+
+void ProgVolumeToPseudoatoms::defineParams(cxxopts::Options &options)
+{
+
+	options.add_options()
+		("i,input",			  "Input",		cxxopts::value<std::string>(),								"Input Volume")
+		("o,output",          "rootname",	cxxopts::value<std::string>(),								"Rootname for output")
+		("sigma",			  "s",			cxxopts::value<DOUBLE>()->default_value("1.5"),				"Sigma of Gaussians used")
+		("initialSeeds",	  "N",			cxxopts::value<size_t>()->default_value("300"),				"Initial number of Atoms")
+		("growSeeds",		  "percentage", cxxopts::value<size_t>()->default_value("30"),				"Percentage of growth, At each iteration the smallest percentage/2 pseudoatoms will be removed, and percentage new pseudoatoms will be created.")
+		("filterInput",		  "f",			cxxopts::value<DOUBLE>(),									"Low-pass filter input using this threshold")
+		("stop",			  "p",			cxxopts::value<DOUBLE>()->default_value("0.001"),			"Stop criterion (0<p<1) for inner iterations. At each iteration the current number of gaussians will be optimized until the average error does not decrease at least this amount relative to the previous iteration.")
+		("targetError",		  "p",			cxxopts::value<DOUBLE>()->default_value("0.02"),			"Finish when the average representation error is below this threshold (in percentage; by default, 2%)")
+		("dontAllowMovement", "true",		cxxopts::value<bool>()->default_value("false"),				"Don't allow pseudoatoms to move")
+		("dontAllowIntensity","f",			cxxopts::value<DOUBLE>()->default_value("0.01"),			"Don't allow pseudoatoms to change intensity. f determines the fraction of intensity")
+		("intensityColumn",	  "s",			cxxopts::value<std::string>()->default_value("Bfactor"),	"Where to write the intensity in the PDB file")
+		("Nclosest",		  "N",			cxxopts::value<size_t>()->default_value("3"),				"N closest atoms, it is used only for the distance histogram")
+		("minDistance",		  "d",			cxxopts::value<DOUBLE>()->default_value("0.001"),			"Minimum distance between two pseudoatoms (in Angstroms). Set it to -1 to disable")
+		("penalty",			  "p",			cxxopts::value<DOUBLE>()->default_value("10"),				"Penalty for overshooting")
+		("sampling_rate",	  "Ts",			cxxopts::value<DOUBLE>()->default_value("1"),				"Sampling rate Angstroms/pixel")
+		("dontScale",		  "true",		cxxopts::value<bool>()->default_value("false"),				"Don't scale atom weights in the PDB")
+		("binarize",		  "threshold",	cxxopts::value<DOUBLE>()->default_value("0.5"),				"Binarize the volume")
+		("thr",				  "t",			cxxopts::value<size_t>()->default_value("1"),				"Number of Threads")
+		("mask",			  "mask_type",	cxxopts::value<std::string>(),								"Which mask type to use. Options are real_file and binary_file")
+		("maskfile",		  "f",			cxxopts::value<std::string>(),								"Path of mask file")
+		("center",			  "c",			cxxopts::value<std::vector<DOUBLE>>()->default_value("0,0,0"), "Center of Mask")
+		("v,verbose",		  "v",			cxxopts::value<int>()->default_value("0"), "Verbosity Level");
+}
+
+void ProgVolumeToPseudoatoms::readParams(cxxopts::ParseResult &result)
+{
+	if (result.count("i"))
+		fnVol = result["i"].as<std::string>();
+	else
+		throw cxxopts::OptionException("Input volume (-i/--input) must be given!");
+
+	if (result.count("o"))
+		fnOut = result["o"].as<std::string>();
+	else {
+		fs::path tmp = fs::path(fnVol.c_str());
+		fnOut = tmp.parent_path().string();
+	}
+	if (result.count("filterInput")) {
+		doInputFilter = true;
+		inputFilterThresh = result["filterInput"].as<DOUBLE>();
+	}
+	else {
+		doInputFilter = false;
+	}
+	mask_prm.allowed_data_types = INT_MASK;
+	useMask = result.count("mask");
+	if (useMask)
+		mask_prm.readParams(result);
+	sigma = result["sigma"].as<DOUBLE>();
+	targetError = result["targetError"].as<DOUBLE>() / 100.0;
+	stop = result["stop"].as<DOUBLE>();
+	initialSeeds = result["initialSeeds"].as<size_t>();
+	growSeeds = result["growSeeds"].as<size_t>();
+	allowMovement = !(result["dontAllowMovement"].as<bool>());
+	allowIntensity = !(result.count("dontAllowIntensity"));
+
+	if (!allowIntensity)
+		intensityFraction = result["dontAllowIntensity"].as<DOUBLE>();
+
+	intensityColumn = result["intensityColumn"].as<std::string>();
+	Nclosest = result["Nclosest"].as<size_t>();
+	minDistance = result["minDistance"].as<DOUBLE>();
+	penalty = result["penalty"].as<DOUBLE>();
+	numThreads = result["thr"].as<size_t>();
+	sampling = result["sampling_rate"].as<DOUBLE>();
+	dontScale = result.count("dontScale");
+	binarize = result.count("binarize");
+	if (binarize)
+		threshold =result["binarize"].as<DOUBLE>();
+	else
+		threshold = 0;
+	verbose = result["verbose"].as<int>();
+}
+
+void ProgVolumeToPseudoatoms::printParameters() {
+
+	std::cout << "fnVol             " << fnVol << std::endl;
+	std::cout << "fnOut             " << fnOut << std::endl;
+	std::cout << "useMask           " << (useMask?"true":"false") << std::endl;
+	std::cout << "sigma             " << sigma << std::endl;
+	std::cout << "targetError       " << targetError << std::endl;
+	std::cout << "stop              " << stop << std::endl;
+	std::cout << "initialSeeds      " << initialSeeds << std::endl;
+	std::cout << "growSeeds         " << growSeeds << std::endl;
+	std::cout << "allowMovement     " << (allowMovement ? "true" : "false") << std::endl;
+	std::cout << "allowIntensity    " << (allowIntensity ? "true" : "false") << std::endl;
+	std::cout << "intensityFraction " << intensityFraction << std::endl;
+	std::cout << "intensityColumn   " << intensityColumn << std::endl;
+	std::cout << "Nclosest          " << Nclosest << std::endl;
+	std::cout << "minDistance       " << minDistance << std::endl;
+	std::cout << "penalty           " << penalty << std::endl;
+	std::cout << "numThreads        " << numThreads << std::endl;
+	std::cout << "sampling          " << sampling << std::endl;
+	std::cout << "binarize          " << (binarize ? "true" : "false") << std::endl;
+	std::cout << "threshold         " << threshold << std::endl;
+}
+
+ProgVolumeToPseudoatoms::ProgVolumeToPseudoatoms(int argc, char ** argv) {
+	cxxopts::Options options(argv[0], " - example command line options");
+	options
+		.positional_help("[optional args]")
+		.show_positional_help();
+	defineParams(options);
+
+	try
+	{
+		cxxopts::ParseResult result = options.parse(argc, argv);
+		readParams(result);
+	}
+	catch (const cxxopts::OptionException& e)
+	{
+		std::cout << "error parsing options: " << e.what() << std::endl;
+		exit(1);
+	}
+	
+	
+}
+
+
+
+int main(int argc, char ** argv) {
+	ProgVolumeToPseudoatoms prog = 	ProgVolumeToPseudoatoms(argc, argv);
+	prog.produceSideInfo();
+	prog.printParameters();
+	DOUBLE R = 0.0;
+	auto res = equidistantPoints(prog.mask_prm.get_binary_mask(), 5000, &prog.sigma);
+	for (auto v : res) {
+		PseudoAtom a;
+		VEC_ELEM(a.location, 0) = v.z;
+		VEC_ELEM(a.location, 1) = v.y;
+		VEC_ELEM(a.location, 2) = v.x; {
+			a.intensity = 1; 
+		}
+		prog.atoms.push_back(a);
+	}
+	prog.drawApproximation();
+	prog.Vcurrent.writeAs<float>("D:\\EMPIAR\\Vcurrent.mrc");
+	prog.writeResults();
+	//prog.run();
+	return 0;
 }

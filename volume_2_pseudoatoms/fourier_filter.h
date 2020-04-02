@@ -26,9 +26,24 @@
 #ifndef _FOURIER_FILTER_HH
 #define _FOURIER_FILTER_HH
 
-#include <data/ctf.h>
-#include <core/xmipp_fftw.h>
-#include "filters.h"
+#include "liblionImports.h"
+#include "Types.h"
+#include "readMRC.h"
+
+using namespace relion;
+
+#define FFT_IDX2DIGFREQ(idx, size, freq) \
+    freq = (size<=1)? 0:(( (((int)idx) <= (((int)(size)) >> 1)) ? ((int)(idx)) : -((int)(size)) + ((int)(idx))) / \
+           (DOUBLE)(size));
+
+#define FFT_IDX2DIGFREQ_DOUBLE(idx, size, freq) \
+    freq = (size<=1)? 0:(( (((DOUBLE)idx) <= (((DOUBLE)(size)) / 2.0)) ? ((DOUBLE)(idx)) : -((DOUBLE)(size)) + ((DOUBLE)(idx))) / \
+           (DOUBLE)(size));
+
+#define FFT_IDX2DIGFREQ_FAST(idx, size, size_2, isize, freq) \
+    freq = ( ((idx) <= (size_2)) ? (idx) : -(size) + (idx) ) * (isize);
+
+//#include "filters.h"
 
 /**@defgroup FourierMasks Masks in Fourier space
    @ingroup ReconsLibrary */
@@ -37,7 +52,7 @@
 
    Example of use for highpass filtering
    @code
-      Image<double> I;
+      Image<DOUBLE> I;
       I.read("image.xmp");
       FourierFilter Filter;
       Filter.FilterBand=HIGHPASS;
@@ -50,7 +65,7 @@
    
    Example of use for wedge filtering
    @code
-        Image<double> V;
+        Image<DOUBLE> V;
         V.read("1rux64.vol");
         V().setXmippOrigin();
         FourierFilter Filter;
@@ -67,7 +82,7 @@
    For volumes you the mask is computed on the fly and
    in this way memory is saved (unless do_generate_3dmask == true).
 */
-class FourierFilter: public XmippFilter
+class FourierFilter
 {
 public:
 #define RAISED_COSINE 1
@@ -103,31 +118,31 @@ public:
 
     /** Cut frequency for Low and High pass filters, first freq for bandpass.
         Normalized to 1/2*/
-    double w1;
+    DOUBLE w1;
 
     /** Second frequency for bandpass and stopband. Normalized to 1/2 */
-    double w2;
+    DOUBLE w2;
 
     /** Input Image sampling rate */
-    double sampling_rate;
+    DOUBLE sampling_rate;
 
     /** Wedge and cone filter parameters */
-    double t1, t2,rot,tilt,psi;
+    DOUBLE t1, t2,rot,tilt,psi;
 
     /** Percentage of coefficients to throw */
-    double percentage;
+    DOUBLE percentage;
 
     /** Filename in which store the mask (valid only for fourier masks) */
     FileName maskFn;
 
     /** Pixels around the central frequency for the raised cosine */
-    double raised_w;
+    DOUBLE raised_w;
 
-    /** CTF parameters. */
-    CTFDescription ctf;
+    ///** CTF parameters. */
+    //CTFDescription ctf;
     
     /** Minimum CTF for inversion */
-    double minCTF;
+    DOUBLE minCTF;
 
     /** FSC file */
     FileName fnFSC;
@@ -139,15 +154,15 @@ public:
     bool do_generate_3dmask;
 
 public:
-    /** Define parameters */
-    static void defineParams(XmippProgram * program);
+    ///** Define parameters */
+    //static void defineParams(XmippProgram * program);
 
-    /** Read parameters from command line.
-        If a CTF description file is provided it is read. */
-    void readParams(XmippProgram * program);
+    ///** Read parameters from command line.
+    //    If a CTF description file is provided it is read. */
+    //void readParams(XmippProgram * program);
 
     /** Process one image */
-    void apply(MultidimArray<double> &img);
+    void apply(MultidimArray<DOUBLE> &img);
 
     /** Empty constructor */
     FourierFilter();
@@ -161,71 +176,56 @@ public:
     /** Compute the mask value at a given frequency.
         The frequency must be normalized so that the maximum frequency
         in each direction is 0.5 */
-    double maskValue(const Matrix1D<double> &w);
+    DOUBLE maskValue(const Matrix1D<DOUBLE> &w);
 
     /** Generate nD mask. */
-    void generateMask(MultidimArray<double> &v);
+    void generateMask(MultidimArray<DOUBLE> &v);
 
     /** Apply mask in real space. */
-    void applyMaskSpace(MultidimArray<double> &v);
+    void applyMaskSpace(MultidimArray<DOUBLE> &v);
 
     /** Apply mask in Fourier space.
      * The image remains in Fourier space.
      */
-    void applyMaskFourierSpace(const MultidimArray<double> &v, MultidimArray<std::complex<double> > &V);
+    void applyMaskFourierSpace(const MultidimArray<DOUBLE> &v, MultidimArray<Complex> &V);
 
     /** Get the power of the nD mask. */
-    double maskPower();
+    DOUBLE maskPower();
     
     /** Correct phase */
     void correctPhase();
 public:
     // Auxiliary vector for representing frequency values
-    Matrix1D<double> w;
+    Matrix1D<DOUBLE> w;
 
     // Auxiliary mask for the filter in 3D
     MultidimArray<int> maskFourier;
 
     // Auxiliary mask for the filter in 3D
-    MultidimArray<double> maskFourierd;
+    MultidimArray<DOUBLE> maskFourierd;
 
     // Transformer
     FourierTransformer transformer;
 
     // Auxiliary variables for sparsify
-    MultidimArray<double> vMag, vMagSorted;
+    MultidimArray<DOUBLE> vMag, vMagSorted;
 
     // Auxiliary variables for FSC profile
-    std::vector<double> freqContFSC, FSC;
+    std::vector<DOUBLE> freqContFSC, FSC;
 };
 
-class SoftNegativeFilter: public XmippFilter
-{
-public:
-    double K; // K*sigma
-    FileName fnFSC;
-    Image<int> mask; // for the case of mask bad pixels
-    double Ts; // Sampling rate
 
-    /** Define the parameters for use inside an Xmipp program */
-    static void defineParams(XmippProgram * program);
-    /** Read from program command line */
-    void readParams(XmippProgram * program);
-    /** Apply the filter to an image or volume*/
-    void apply(MultidimArray<double> &img);
-};
-
-/** Fast access to bandpass filter.
- * Frequencies are normalized to 0.5 */
-void bandpassFilter(MultidimArray<double> &img, double w1, double w2, double raised_w);
-
-/** Fast access to Gaussian filter.
- * Frequencies are normalized to 0.5 */
-void gaussianFilter(MultidimArray<double> &img, double w1);
-
-/** Fast access to real gaussian filter.
- * Sigma is in pixel units.
- */
-void realGaussianFilter(MultidimArray<double> &img, double sigma);
+///** Fast access to bandpass filter.
+// * Frequencies are normalized to 0.5 */
+void bandpassFilter(MultidimArray<DOUBLE> &img, DOUBLE w1, DOUBLE w2, DOUBLE raised_w);
+//
+///** Fast access to Gaussian filter.
+// * Frequencies are normalized to 0.5 */
+//void gaussianFilter(MultidimArray<DOUBLE> &img, DOUBLE w1);
+//
+///** Fast access to real gaussian filter.
+// * Sigma is in pixel units.
+// */
+//void realGaussianFilter(MultidimArray<DOUBLE> &img, DOUBLE sigma);
 //@}
 #endif

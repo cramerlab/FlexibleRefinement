@@ -93,7 +93,7 @@ public:
 		gaussianProjectionTable = Matrix1D<DOUBLE>(CEIL(sigma4*sqrt(2) * GAUSS_FACTOR + 1));
 		gaussianProjectionTable2 = Matrix1D<DOUBLE>(CEIL(sigma4*sqrt(2) * GAUSS_FACTOR + 1));
 		FOR_ALL_ELEMENTS_IN_MATRIX1D(gaussianProjectionTable)
-			gaussianProjectionTable(i) = this->gaussian1D(i / ((float)GAUSS_FACTOR), sigma);
+			gaussianProjectionTable(i) = this->gaussian1D(i / ((DOUBLE)GAUSS_FACTOR), sigma);
 		gaussianProjectionTable *= gaussian1D(0, sigma);
 		gaussianProjectionTable2 = gaussianProjectionTable;
 		gaussianProjectionTable2 *= gaussianProjectionTable;

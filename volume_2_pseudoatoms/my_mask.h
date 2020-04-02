@@ -23,27 +23,33 @@
  *  e-mail address 'xmipp@cnb.csic.es'
  ***************************************************************************/
 
-#ifndef CORE_MASK_H
-#define CORE_MASK_H
+#ifndef MY_MASK_H
+#define MY_MASK_H
 
-#include <core/multidim_array.h>
-#include <core/multidim_array_generic.h>
-#include <core/histogram.h>
-#include "blobs.h"
-
-#include <core/xmipp_program.h>
-#include <core/metadata.h>
-#include <core/args.h>
-#include "wavelet.h"
-
-#include <core/xmipp_program.h>
-#include <core/metadata_extension.h>
+#include "liblionImports.h"
+#include "histogram.h"
+#include "macros.h"
+#include "cxxopts.hpp"
+#include "readMRC.h"
+using namespace relion;
+//#include <core/multidim_array.h>
+//#include <core/multidim_array_generic.h>
+//#include <core/histogram.h>
+//#include "blobs.h"
+//
+//#include <core/xmipp_program.h>
+//#include <core/metadata.h>
+//#include <core/args.h>
+//#include "wavelet.h"
+//
+//#include <core/xmipp_program.h>
+//#include <core/metadata_extension.h>
 
 
 void apply_geo_binary_2D_mask(MultidimArray< int > &mask,
-                              const Matrix2D< double >& A);
-void apply_geo_cont_2D_mask(MultidimArray< double >& mask,
-                            const Matrix2D< double >& A);
+                              const Matrix2D< DOUBLE >& A);
+void apply_geo_cont_2D_mask(MultidimArray< DOUBLE >& mask,
+                            const Matrix2D< DOUBLE >& A);
 
 /// @defgroup Masks Masks
 /// @ingroup DataLibrary
@@ -65,9 +71,9 @@ void apply_geo_cont_2D_mask(MultidimArray< double >& mask,
  * 1 - RaisedCosine. When entering, the mask is initialiazed to 0 and then the
  * mask is created.
  */
-void RaisedCosineMask(MultidimArray< double >& mask,
-                      double r1, double r2, int mode = INNER_MASK, double x0 = 0,
-                      double y0 = 0, double z0 = 0);
+void RaisedCosineMask(MultidimArray< DOUBLE >& mask,
+                      DOUBLE r1, DOUBLE r2, int mode = INNER_MASK, DOUBLE x0 = 0,
+                      DOUBLE y0 = 0, DOUBLE z0 = 0);
 
 /** Creates a RaisedCrown mask for already sized masks
  *
@@ -78,18 +84,18 @@ void RaisedCosineMask(MultidimArray< double >& mask,
  * normal RaisedCrowns, and outside masks are 1 - RaisedCrowns. When entering,
  * the mask is initialiazed to 0 and then the mask is created.
  */
-void RaisedCrownMask(MultidimArray< double >& mask,
-                     double r1, double r2, double pix_width,
+void RaisedCrownMask(MultidimArray< DOUBLE >& mask,
+                     DOUBLE r1, DOUBLE r2, DOUBLE pix_width,
                      int mode = INNER_MASK,
-                     double x0 = 0, double y0 = 0, double z0 = 0);
+                     DOUBLE x0 = 0, DOUBLE y0 = 0, DOUBLE z0 = 0);
 
 /** Kaiser selfWindow
  *  The mask is resized.
  *  delta=ripple (in natural units) in the pass band.
  *  Deltaw=transition bandwidth (normalized to 1.0).
  */
-void KaiserMask(MultidimArray<double> &mask, double delta = 0.01,
-                double Deltaw = 1.0 / 12.0);
+void KaiserMask(MultidimArray<DOUBLE> &mask, DOUBLE delta = 0.01,
+                DOUBLE Deltaw = 1.0 / 12.0);
 
 /** Creates a sinc mask for already sized masks
  *
@@ -102,8 +108,8 @@ void KaiserMask(MultidimArray<double> &mask, double delta = 0.01,
  *
  * Remind that sinc(w*n) is zero at n=1/w;
  */
-void SincMask(MultidimArray< double >& mask,
-              double omega, int mode = INNER_MASK, double x0 = 0, double y0 = 0, double z0 = 0);
+void SincMask(MultidimArray< DOUBLE >& mask,
+              DOUBLE omega, int mode = INNER_MASK, DOUBLE x0 = 0, DOUBLE y0 = 0, DOUBLE z0 = 0);
 
 /** Creates a radial-sinc-kaiser mask, the mask is resized.
  *  This function returns a sinc mask windowed by a Kaiser selfWindow.
@@ -111,25 +117,25 @@ void SincMask(MultidimArray< double >& mask,
  *  Deltaw=transition bandwidth (normalized to 1).
  *  omega=low pass frequency (normalized to 1).
  */
-void SincKaiserMask(MultidimArray<double> &mask,
-                    double omega, double delta = 0.01, double Deltaw = 1.0 / 12.0);
+void SincKaiserMask(MultidimArray<DOUBLE> &mask,
+                    DOUBLE omega, DOUBLE delta = 0.01, DOUBLE Deltaw = 1.0 / 12.0);
 
 /** Blackman selfWindow
  *
  * It receives no parameter.
  */
-void BlackmanMask(MultidimArray< double >& mask, int mode = INNER_MASK,
-                  double x0 = 0, double y0 = 0, double z0 = 0);
+void BlackmanMask(MultidimArray< DOUBLE >& mask, int mode = INNER_MASK,
+                  DOUBLE x0 = 0, DOUBLE y0 = 0, DOUBLE z0 = 0);
 
 /** Creates a sinc-blackman mask, the mask is resized
  *
  * This function returns a sinc mask windowed by a Blackman selfWindow. The selfWindow
  * is designed to cover a certain power of the sinc
  */
-void SincBlackmanMask(MultidimArray< double >& mask,
-                      double omega, double power_percentage,
+void SincBlackmanMask(MultidimArray< DOUBLE >& mask,
+                      DOUBLE omega, DOUBLE power_percentage,
                       int mode = INNER_MASK,
-                      double x0 = 0, double y0 = 0, double z0 = 0);
+                      DOUBLE x0 = 0, DOUBLE y0 = 0, DOUBLE z0 = 0);
 
 /** Creates a circular mask for already sized masks
  *
@@ -140,8 +146,8 @@ void SincBlackmanMask(MultidimArray< double >& mask,
  * is created.
  */
 void BinaryCircularMask(MultidimArray< int >& mask,
-                        double radius, int mode = INNER_MASK,
-                        double x0 = 0, double y0 = 0, double z0 = 0);
+                        DOUBLE radius, int mode = INNER_MASK,
+                        DOUBLE x0 = 0, DOUBLE y0 = 0, DOUBLE z0 = 0);
 
 
 /** Creates a circular mask with blob-shaped edges for already sized masks
@@ -152,9 +158,9 @@ void BinaryCircularMask(MultidimArray< int >& mask,
  * OUTSIDE_MASK. When entering the mask is initialiazed to 0 and then the mask
  * is created.
  */
-void BlobCircularMask(MultidimArray<double> &mask,
-                      double r1, blobtype blob, int mode,
-                      double x0 = 0, double y0 = 0, double z0 = 0);
+void BlobCircularMask(MultidimArray<DOUBLE> &mask,
+                      DOUBLE r1, blobtype blob, int mode,
+                      DOUBLE x0 = 0, DOUBLE y0 = 0, DOUBLE z0 = 0);
 
 
 /** Creates a crown mask for already sized masks
@@ -168,8 +174,8 @@ void BlobCircularMask(MultidimArray<double> &mask,
  * When entering the mask is initialiazed to 0 and then the mask is created.
  */
 void BinaryCrownMask(MultidimArray< int >& mask,
-                     double R1, double R2, int mode = INNER_MASK,
-                     double x0 = 0, double y0 = 0, double z0 = 0);
+                     DOUBLE R1, DOUBLE R2, int mode = INNER_MASK,
+                     DOUBLE x0 = 0, DOUBLE y0 = 0, DOUBLE z0 = 0);
 
 /** Creates a crown mask  with blob-shaped edges for already sized masks
  *
@@ -181,9 +187,9 @@ void BinaryCrownMask(MultidimArray< int >& mask,
  *
  * When entering the mask is initialiazed to 0 and then the mask is created.
  */
-void BlobCrownMask(MultidimArray<double> &mask,
-                   double r1, double r2, blobtype blob, int mode,
-                   double x0 = 0, double y0 = 0, double z0 = 0);
+void BlobCrownMask(MultidimArray<DOUBLE> &mask,
+                   DOUBLE r1, DOUBLE r2, blobtype blob, int mode,
+                   DOUBLE x0 = 0, DOUBLE y0 = 0, DOUBLE z0 = 0);
 
 /** Creates a gaussian mask for already sized masks
  *
@@ -194,13 +200,13 @@ void BlobCrownMask(MultidimArray<double> &mask,
  *
  * When entering the mask is initialiazed to 0 and then the mask is created.
  */
-void GaussianMask(MultidimArray< double >& mask,
-                  double sigma, int mode = INNER_MASK,
-                  double x0 = 0, double y0 = 0, double z0 = 0);
+void GaussianMask(MultidimArray< DOUBLE >& mask,
+                  DOUBLE sigma, int mode = INNER_MASK,
+                  DOUBLE x0 = 0, DOUBLE y0 = 0, DOUBLE z0 = 0);
 
 /** Binary Circular 2D mask in wavelet space */
 void BinaryDWTCircularMask2D(MultidimArray< int >& mask,
-                             double radius, int smin, int smax,
+                             DOUBLE radius, int smin, int smax,
                              const std::string& quadrant);
 
 /** Creates a 2D separable-sinc-kaiser mask, the mask is resized.
@@ -209,9 +215,9 @@ void BinaryDWTCircularMask2D(MultidimArray< int >& mask,
  *  Deltaw=transition bandwidth (normalized to 1).
  *  omega=low pass frequency (normalized to 1).
  */
-void SeparableSincKaiserMask2D(MultidimArray<double> &mask,
-                               double omega, double delta = 0.01,
-                               double Deltaw = 1.0 / 12.0);
+void SeparableSincKaiserMask2D(MultidimArray<DOUBLE> &mask,
+                               DOUBLE omega, DOUBLE delta = 0.01,
+                               DOUBLE Deltaw = 1.0 / 12.0);
 
 /** Creates a 3x3 mask with value (1 by default) for those 4-neighbours of the
  * central point (0 otherwise).
@@ -237,7 +243,7 @@ void mask2D_8neig(MultidimArray< int >& mask, int value1 = 1, int value2 = 1,
  * If quadrant=xxx then 001,010,011,100,101,110 and 111 are generated together
  */
 void BinaryDWTSphericalMask2D(MultidimArray< int >& mask,
-                              double radius, int smin, int smax,
+                              DOUBLE radius, int smin, int smax,
                               const std::string& quadrant);
 
 /** Creates a 3D Cylinder mask for already sized masks
@@ -249,8 +255,8 @@ void BinaryDWTSphericalMask2D(MultidimArray< int >& mask,
  * initialiazed to 0 and then the mask is created.
  */
 void BinaryCylinderMask(MultidimArray< int >& mask,
-                        double R, double H, int mode = INNER_MASK,
-                        double x0 = 0, double y0 = 0, int z0 = 0);
+                        DOUBLE R, DOUBLE H, int mode = INNER_MASK,
+                        DOUBLE x0 = 0, DOUBLE y0 = 0, int z0 = 0);
 
 /** Creates a 3D frame mask for already sized masks
  *
@@ -264,7 +270,7 @@ void BinaryCylinderMask(MultidimArray< int >& mask,
  */
 void BinaryFrameMask(MultidimArray< int >& mask,
                      int Xrect, int Yrect, int Zrect, int mode = INNER_MASK,
-                     double x0 = 0, double y0 = 0, double z0 = 0);
+                     DOUBLE x0 = 0, DOUBLE y0 = 0, DOUBLE z0 = 0);
 
 /** Creates a 3D cone mask for already sized masks
  *
@@ -276,7 +282,7 @@ void BinaryFrameMask(MultidimArray< int >& mask,
  * When entering the mask is initialiazed to 0 and then the mask is created.
  */
 void BinaryConeMask(MultidimArray< int >& mask,
-                    double theta, int mode = INNER_MASK, bool centerOrigin=false);
+                    DOUBLE theta, int mode = INNER_MASK, bool centerOrigin=false);
 
 /** Creates a 3D missing wedge mask
  *
@@ -286,8 +292,8 @@ void BinaryConeMask(MultidimArray< int >& mask,
  * outside (ie in the missing wedge) it will be zero. The mask is centered at
  * (x0,y0,z0), and rotated with respect to euler angle matrix A.
  */
-void BinaryWedgeMask(MultidimArray< int >& mask, double theta0, double thetaF,
-                     const Matrix2D< double > &A, bool centerOrigin=false);
+void BinaryWedgeMask(MultidimArray< int >& mask, DOUBLE theta0, DOUBLE thetaF,
+                     const Matrix2D< DOUBLE > &A, bool centerOrigin=false);
 
 
 /** Creates a 3x3x3 mask with value (1 by default) for those 6-neighbors of the
@@ -392,9 +398,9 @@ public:
 #define DOUBLE_MASK 2
 #define ALL_KINDS   INT_MASK | DOUBLE_MASK
 
-    static void defineParams(XmippProgram * program, int allowed_data_types = ALL_KINDS,
-                             const char* prefix=NULL, const char* comment=NULL, bool moreOptions=false);
-    void readParams(XmippProgram * program);
+    /*static void defineParams(XmippProgram * program, int allowed_data_types = ALL_KINDS,
+                             const char* prefix=NULL, const char* comment=NULL, bool moreOptions=false);*/
+    void readParams(cxxopts::ParseResult &options);
 
 
     /** Mask Type
@@ -416,17 +422,17 @@ public:
      * Radius for Circular and Cylinder masks and R1 for crowns and raised
      * cosine.
      */
-    double R1;
+    DOUBLE R1;
 
     /** Radius 2
      * R2 for crowns and raised cosine.
      */
-    double R2;
+    DOUBLE R2;
 
     /** Pixel width
      * For raised crowns.
      */
-    double pix_width;
+    DOUBLE pix_width;
 
     /** Blob parameters
      * For blob_circular and blob_crown masks.
@@ -434,22 +440,22 @@ public:
     int blob_order;
     
     /** Blob parameters */
-    double blob_radius, blob_alpha;
+    DOUBLE blob_radius, blob_alpha;
 
     /** Height
      * Height for cylinders.
      */
-    double H;
+    DOUBLE H;
 
     /** Sigma
      * Sigma for gaussians.
      */
-    double sigma;
+    DOUBLE sigma;
 
     /** Omega
      * Frequency for sincs
      */
-    double omega;
+    DOUBLE omega;
 
     /** Rectangular X dimension
      */
@@ -464,15 +470,15 @@ public:
     int Zrect;
 
     /** Z origin */
-    double z0;
+    DOUBLE z0;
 
     /** Y origin
      */
-    double y0;
+    DOUBLE y0;
 
     /** X origin
      */
-    double x0;
+    DOUBLE x0;
 
     /** Minimum scale for DWT masks
      */
@@ -493,7 +499,7 @@ public:
 
     /** Geometrix transformation matrix for the mask
      */
-    Matrix2D< double > mask_geo;
+    Matrix2D< DOUBLE > mask_geo;
 
     /** Allowed data types.
      */
@@ -503,9 +509,9 @@ public:
      */
     MultidimArray< int > imask;
 
-    /** double mask
+    /** DOUBLE mask
      */
-    MultidimArray< double > dmask;
+    MultidimArray< DOUBLE > dmask;
 
     /** Mask type
          */
@@ -730,28 +736,28 @@ public:
 
     /** Get continuous mask
      */
-    const MultidimArray< double >& get_cont_mask() const
+    const MultidimArray< DOUBLE >& get_cont_mask() const
     {
         return dmask;
     }
 
     /** Get continuous mask
      */
-    MultidimArray< double >& get_cont_mask()
+    MultidimArray< DOUBLE >& get_cont_mask()
     {
         return dmask;
     }
 
     /** Set continuous mask
      */
-    void set_cont_mask(MultidimArray< double >& _dmask)
+    void set_cont_mask(MultidimArray< DOUBLE >& _dmask)
     {
         dmask = _dmask;
     }
 
     /** Force to be continuous
      *
-     * This function is used when you need a binary mask as a double matrix.
+     * This function is used when you need a binary mask as a DOUBLE matrix.
      */
     void force_to_be_continuous()
     {
@@ -763,7 +769,7 @@ public:
 
     /** Force to be binary
      *
-     * This function is used when you need a double mask as a binary matrix.
+     * This function is used when you need a DOUBLE mask as a binary matrix.
      */
     void force_to_be_binary()
     {
@@ -788,12 +794,12 @@ public:
 /** Apply geometric transformation to a binary (2D) mask
  */
 void apply_geo_binary_2D_mask(MultidimArray< int >& mask,
-                              const Matrix2D< double >& A);
+                              const Matrix2D< DOUBLE >& A);
 
 /** Apply geometric transformation to a continuous (2D) mask
  */
-void apply_geo_cont_2D_mask(MultidimArray< double >& mask,
-                            const Matrix2D< double >& A);
+void apply_geo_cont_2D_mask(MultidimArray< DOUBLE >& mask,
+                            const Matrix2D< DOUBLE >& A);
 
 /** Compute statistics in the active area
  *
@@ -802,13 +808,13 @@ void apply_geo_cont_2D_mask(MultidimArray< double >& mask,
  */
 template<typename T1, typename T>
 void computeStats_within_binary_mask(const MultidimArray< T1 >& mask,
-                                     const MultidimArray< T >& m, double& min_val,
-                                     double& max_val,
-                                     double& avg, double& stddev)
+                                     const MultidimArray< T >& m, DOUBLE& min_val,
+                                     DOUBLE& max_val,
+                                     DOUBLE& avg, DOUBLE& stddev)
 {
 	SPEED_UP_tempsInt;
-    double sum1 = 0;
-    double sum2 = 0;
+    DOUBLE sum1 = 0;
+    DOUBLE sum2 = 0;
     int N = 0;
 
     max_val = min_val = DIRECT_A3D_ELEM(m, 0, 0, 0);
@@ -819,7 +825,7 @@ void computeStats_within_binary_mask(const MultidimArray< T1 >& mask,
         {
             N++;
 
-            double aux=A3D_ELEM(m, k, i, j);
+            DOUBLE aux=A3D_ELEM(m, k, i, j);
             // Minimum and maximum
             if (aux < min_val)
                 min_val = aux;
@@ -833,17 +839,17 @@ void computeStats_within_binary_mask(const MultidimArray< T1 >& mask,
     }
 
     // average and standard deviation
-    avg  = sum1 / (double) N;
+    avg  = sum1 / (DOUBLE) N;
     if (N > 1)
         stddev = sqrt(fabs(sum2 / N - avg * avg) * N / (N - 1));
     else
         stddev = 0;
 }
 
-inline void computeStats_within_binary_mask(const MultidimArray< int >& mask,
-        const MultidimArrayGeneric &m, double& min_val,
-        double& max_val,
-        double& avg, double& stddev)
+/*inline void computeStats_within_binary_mask(const MultidimArray< int >& mask,
+        const MultidimArrayGeneric &m, DOUBLE& min_val,
+        DOUBLE& max_val,
+        DOUBLE& avg, DOUBLE& stddev)
 {
 #define COMPUTESTATS(type) \
 computeStats_within_binary_mask(mask,*((MultidimArray<type>*)m.im),min_val,max_val,avg,stddev);
@@ -851,7 +857,7 @@ computeStats_within_binary_mask(mask,*((MultidimArray<type>*)m.im),min_val,max_v
     SWITCHDATATYPE(m.datatype,COMPUTESTATS);
 
 #undef COMPUTESTATS
-}
+}*/
 
 /** Apply mask to a MultidimArray
  *
@@ -883,7 +889,7 @@ void apply_binary_mask(const MultidimArray< int >& mask, const MultidimArray< T 
  * same ones. Only the overlapping values are affected by the mask.
  */
 template<typename T>
-void apply_cont_mask(const MultidimArray< double >& mask, const MultidimArray< T >& m_in,
+void apply_cont_mask(const MultidimArray< DOUBLE >& mask, const MultidimArray< T >& m_in,
                      MultidimArray< T >& m_out)
 {
     m_out.resize(m_in);
@@ -905,7 +911,7 @@ void apply_cont_mask(const MultidimArray< double >& mask, const MultidimArray< T
  * Given a volume as input, this function returns the histogram of values inside
  * the mask within the minimum and maximum of the volume, in this way all the
  * values in the volume are counted. The volume can be of any numerical type
- * (short int, int, double, ...). The number of steps must always be given.
+ * (short int, int, DOUBLE, ...). The number of steps must always be given.
  */
 template<typename T>
 void compute_hist_within_binary_mask(const MultidimArray< int >& mask,
@@ -913,7 +919,7 @@ void compute_hist_within_binary_mask(const MultidimArray< int >& mask,
                                      int no_steps)
 {
     T min_val, max_val;
-    double avg, stddev;
+    DOUBLE avg, stddev;
 
     computeStats_within_binary_mask(mask, v, min_val, max_val, avg, stddev);
     compute_hist_within_binary_mask(mask, v, hist, min_val, max_val, no_steps);
@@ -925,7 +931,7 @@ void compute_hist_within_binary_mask(const MultidimArray< int >& mask,
  * inside the mask within two values, the volume values outside this range are
  * not counted. This can be used to avoid the effect of outliers which causes a
  * "compression" in the histogram. The volume can be of any numerical type
- * (short int, int, double, ...). The number of steps must always be given.
+ * (short int, int, DOUBLE, ...). The number of steps must always be given.
  */
 template<typename T>
 void compute_hist_within_binary_mask(const MultidimArray< int >& mask,
@@ -937,7 +943,7 @@ void compute_hist_within_binary_mask(const MultidimArray< int >& mask,
     FOR_ALL_ELEMENTS_IN_COMMON_IN_ARRAY3D(mask, v)
     if (A3D_ELEM(mask, k, i, j) != 0)
     {
-    	double value=A3D_ELEM(v, k, i, j);
+    	DOUBLE value=A3D_ELEM(v, k, i, j);
     	INSERT_VALUE(hist,value);
     }
 }
@@ -984,7 +990,7 @@ void compute_hist_within_binary_mask(const MultidimArray< int >& mask,
  */
 template<typename T>
 int count_with_mask(const MultidimArray< int >& mask,
-                    const MultidimArray< T >& m, int mode, double th1, double th2)
+                    const MultidimArray< T >& m, int mode, DOUBLE th1, DOUBLE th2)
 {
     SPEED_UP_tempsInt;
     int N = 0;
@@ -1012,8 +1018,8 @@ int count_with_mask(const MultidimArray< int >& mask,
 
 // Specialization for complex numbers
 int count_with_mask(const MultidimArray< int >& mask,
-                    const MultidimArray< std::complex< double > > & m, int mode,
-                    double th1, double th2);
+                    const MultidimArray< std::complex< DOUBLE > > & m, int mode,
+                    DOUBLE th1, DOUBLE th2);
 
 /** Invert binary mask.
  *
@@ -1034,34 +1040,34 @@ void invert_binary_mask(MultidimArray< T >& mask)
  * voxels within the mask are used to compute the linear transformation. If no
  * mask is provided then all voxels are used.
  */
-void rangeAdjust_within_mask(const MultidimArray< double >* mask,
-                             const MultidimArray< double >& m1,
-                             MultidimArray< double >& m2);
+void rangeAdjust_within_mask(const MultidimArray< DOUBLE >* mask,
+                             const MultidimArray< DOUBLE >& m1,
+                             MultidimArray< DOUBLE >& m2);
 //@}
-
-class ProgMask: public XmippMetadataProgram
-{
-public:
-
-    Mask         mask;
-    FileName     fn_mask;
-    int          create_mask;
-    int          count_above;
-    double       th_above;
-    int          count_below;
-    double       th_below;
-    double       subs_val;
-    std::string  str_subs_val;
-    int          count;
-    int          max_length;
-
-    void defineParams();
-    void readParams();
-    void preProcess();
-    void postProcess();
-
-    void processImage(const FileName &fnImg, const FileName &fnImgOut, const MDRow &rowIn, MDRow &rowOut);
-};
+//
+//class ProgMask: public XmippMetadataProgram
+//{
+//public:
+//
+//    Mask         mask;
+//    FileName     fn_mask;
+//    int          create_mask;
+//    int          count_above;
+//    DOUBLE       th_above;
+//    int          count_below;
+//    DOUBLE       th_below;
+//    DOUBLE       subs_val;
+//    std::string  str_subs_val;
+//    int          count;
+//    int          max_length;
+//
+//    void defineParams();
+//    void readParams();
+//    void preProcess();
+//    void postProcess();
+//
+//    void processImage(const FileName &fnImg, const FileName &fnImgOut, const MDRow &rowIn, MDRow &rowOut);
+//};
 
 //@}
 #endif

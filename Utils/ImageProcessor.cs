@@ -202,13 +202,13 @@ namespace FlexibleRefinement.Util
         public static Image Downsample(Image im, float factor)
         {
             int3 oldSize = im.Dims;
-            float falloff = 5.0f;
+            float falloff = 10.0f;
             int3 newSize = oldSize / factor;
             float innerRadius = (newSize - newSize / 2).Length() - (1.1f * falloff);
             Image ft = im.AsFFT(true);
             Image Cosine = new Image(ft.Dims, true);
             float[][] CosineData = Cosine.GetHost(Intent.Write);
-            double CosineSum = 0;
+            double CosineSum = 0; 
             for (int z = 0; z < Cosine.DimsFT.Z; z++)
             {
                 int zz = z;
@@ -239,10 +239,12 @@ namespace FlexibleRefinement.Util
                     }
                 }
             }
-
+            Cosine.WriteMRC($@"D:\EMPIAR\10168\Cosine.mrc");
+            ft.WriteMRC($@"D:\EMPIAR\10168\ft_before_mult.mrc");
             ft.Multiply(Cosine);
-
+            ft.WriteMRC($@"D:\EMPIAR\10168\ft_after_mult.mrc");
             ft = ft.AsPadded(newSize);
+            ft.WriteMRC($@"D:\EMPIAR\10168\ft_padded.mrc");
             Image newIm = ft.AsIFFT(true);
             GPU.Normalize(newIm.GetDevice(Intent.Read),
                          newIm.GetDevice(Intent.Write),

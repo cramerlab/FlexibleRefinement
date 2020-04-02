@@ -117,6 +117,13 @@ namespace FlexibleRefinement
 
         static void Main(string[] args)
         {
+
+            Image yyyy = Image.FromFile(@"D:\EMPIAR\10168\emd_4180.mrc");
+            yyyy.Binarize(0.0004f);
+            yyyy = yyyy.AsConvolvedGaussian(2.0f);
+            yyyy.Binarize((float)(1.0f/Math.E));
+            yyyy.WriteMRC(@"D:\EMPIAR\10168\emd_4180.mask.mrc");
+
             NumberFormatInfo nfi = new NumberFormatInfo();
             nfi.NumberDecimalSeparator = ".";
             Random rand = new Random();

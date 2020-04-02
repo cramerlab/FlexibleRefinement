@@ -26,10 +26,17 @@
 
 #ifndef _CONVERT_VOL2PSEUDO_HH
 #define _CONVERT_VOL2PSEUDO_HH
-#include "liblion.h"
+#include "liblionImports.h"
+#include "Types.h"
+#include "readMRC.h"
 #include "fourier_filter.h"
 #include "my_mask.h"
+#include "histogram.h"
+#include "time.h"
+#define HAVE_STRUCT_TIMESPEC
 #include <pthread.h>
+
+#include "cxxopts.hpp"
 using namespace relion;
 
 //#include "Types.h"
@@ -49,10 +56,10 @@ class PseudoAtom
 {
 public:
 	/// Location
-	Matrix1D<double> location;
+	Matrix1D<DOUBLE> location;
 
 	/// Intensity
-	double           intensity;
+	DOUBLE           intensity;
 
 	/// Empty constructor
 	PseudoAtom();
@@ -94,19 +101,19 @@ public:
 	bool useMask;
 
 	/// Sigma
-	double sigma;
+	DOUBLE sigma;
 
 	/// Maximum error (as a percentage)
-	double targetError;
+	DOUBLE targetError;
 
 	/// Stop criterion
-	double stop;
+	DOUBLE stop;
 
 	/// Initial seeds
-	int initialSeeds;
+	idxtype initialSeeds;
 
 	/// Grow seeds
-	double growSeeds;
+	DOUBLE growSeeds;
 
 	/// Allow gaussians to move
 	bool allowMovement;
@@ -118,22 +125,22 @@ public:
 		In case intensity is not allowed to change, this fraction
 		is multiplied by the intensity range and all atoms will have
 		this intensity value. */
-	double intensityFraction;
+	DOUBLE intensityFraction;
 
 	/// Column for the intensity (if any)
 	std::string intensityColumn;
 
 	/// Mindistance
-	double minDistance;
+	DOUBLE minDistance;
 
 	/// Penalization
-	double penalty;
+	DOUBLE penalty;
 
 	/// Number of threads
-	int numThreads;
+	idxtype numThreads;
 
 	/// Sampling rate
-	double sampling;
+	DOUBLE sampling;
 
 	/// N closest atoms for the distance histogram
 	size_t Nclosest;
@@ -145,16 +152,21 @@ public:
 	bool binarize;
 
 	/// Threshold for the binarization
-	double threshold;
+	DOUBLE threshold;
 public:
+
+	ProgVolumeToPseudoatoms(int arg, char ** argv);
+
 	/// Read parameters from command line
-	void readParams();
+	void readParams(cxxopts::ParseResult &result);
+
+	void printParameters();
 
 	/// show parameters
 	void show() const;
 
 	/// define parameters
-	void defineParams();
+	void defineParams(cxxopts::Options &options);
 
 	/// Prepare side info
 	void produceSideInfo();
@@ -172,24 +184,24 @@ public:
 	void removeTooCloseSeeds();
 
 	/// Compute average of a volume
-	double computeAverage(int k, int i, int j, MultidimArray<double> &V);
+	DOUBLE computeAverage(int k, int i, int j, MultidimArray<DOUBLE> &V);
 
 	/// Draw a Gaussian on a volume
-	void drawGaussian(double k, double i, double j, MultidimArray<double> &V,
-		double intensity);
+	void drawGaussian(DOUBLE k, DOUBLE i, DOUBLE j, MultidimArray<DOUBLE> &V,
+		DOUBLE intensity);
 
 	/// Draw approximation
 	void drawApproximation();
 
 	/// Extract region around a Gaussian
-	void extractRegion(int idxGaussian, MultidimArray<double> &region,
+	void extractRegion(int idxGaussian, MultidimArray<DOUBLE> &region,
 		bool extended = false) const;
 
 	/// Insert region
-	void insertRegion(const MultidimArray<double> &region);
+	void insertRegion(const MultidimArray<DOUBLE> &region);
 
 	/// Evaluate region
-	double evaluateRegion(const MultidimArray<double> &region) const;
+	DOUBLE evaluateRegion(const MultidimArray<DOUBLE> &region) const;
 
 	/// Optimize current atoms
 	void optimizeCurrentAtoms();
@@ -201,40 +213,46 @@ public:
 	void writeResults();
 public:
 	// Input volume
-	Image<double> Vin;
+	MRCImage<DOUBLE> Vin;
 
 	// Current approximation volume
-	Image<double> Vcurrent;
+	MRCImage<DOUBLE> Vcurrent;
 
 	// Energy of the difference
-	double energyDiff;
+	DOUBLE energyDiff;
 
 	// Maximum percentage diffence
-	double percentageDiff;
+	DOUBLE percentageDiff;
 
 	// Original energy
-	double energyOriginal;
+	DOUBLE energyOriginal;
 
 	// List of atoms
 	std::vector< PseudoAtom > atoms;
 
 	// Maximum radius
-	double sigma3;
+	DOUBLE sigma3;
 
 	// Percentil 1
-	double percentil1;
+	DOUBLE percentil1;
 
 	// Range
-	double range;
+	DOUBLE range;
 
 	// Small atom intensity
-	double smallAtom;
+	DOUBLE smallAtom;
 
 	// Gaussian table
-	MultidimArray<double> gaussianTable;
+	MultidimArray<DOUBLE> gaussianTable;
 
 	// Barrier
 	pthread_barrier_t barrier;
+
+	//FilterInput
+	bool doInputFilter;
+
+	//InputFilter Treshold
+	DOUBLE inputFilterThresh;
 
 #define KILLTHREAD -1
 #define WORKTHREAD  0
