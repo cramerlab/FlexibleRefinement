@@ -29,6 +29,8 @@
 #include <stdio.h>
 #include <list>
 #include <filesystem>
+#include "macros.h"
+#include "funcs.h"
 #define DEBUGFJ
 namespace fs = std::filesystem;
  /* Pseudo atoms ------------------------------------------------------------ */
@@ -637,6 +639,9 @@ void ProgVolumeToPseudoatoms::drawGaussian(DOUBLE k, DOUBLE i, DOUBLE j,
 	MultidimArray<DOUBLE> &V, DOUBLE intensity)
 {
 
+	drawOneGaussian(gaussianTable, sigma3, k, i, j, V, intensity);
+	/*
+
 	int k0 = CEIL(XMIPP_MAX(STARTINGZ(V), k - sigma3));
 	int i0 = CEIL(XMIPP_MAX(STARTINGY(V), i - sigma3));
 	int j0 = CEIL(XMIPP_MAX(STARTINGX(V), j - sigma3));
@@ -661,7 +666,7 @@ void ProgVolumeToPseudoatoms::drawGaussian(DOUBLE k, DOUBLE i, DOUBLE j,
 			}
 		}
 	}
-
+	*/
 }
 
 void ProgVolumeToPseudoatoms::extractRegion(int idxGaussian,
@@ -977,6 +982,11 @@ void ProgVolumeToPseudoatoms::writeResults()
 	// Write the PDB
 	DOUBLE minIntensity = intensities.computeMin();
 	DOUBLE maxIntensity = intensities.computeMax();
+	if (maxIntensity - minIntensity < 1e-4)
+	{
+		dontScale = true;
+		allowIntensity = false;
+	}
 	DOUBLE a = 0.99 / (maxIntensity - minIntensity);
 	if (dontScale)
 		a = 1;
@@ -1126,8 +1136,7 @@ void ProgVolumeToPseudoatoms::readParams(cxxopts::ParseResult &result)
 	if (result.count("o"))
 		fnOut = result["o"].as<std::string>();
 	else {
-		fs::path tmp = fs::path(fnVol.c_str());
-		fnOut = tmp.parent_path().string();
+		fnOut = fnVol.withoutExtension();
 	}
 	if (result.count("filterInput")) {
 		doInputFilter = true;
@@ -1222,9 +1231,9 @@ int main(int argc, char ** argv) {
 		PseudoAtom a;
 		VEC_ELEM(a.location, 0) = v.z;
 		VEC_ELEM(a.location, 1) = v.y;
-		VEC_ELEM(a.location, 2) = v.x; {
-			a.intensity = 1; 
-		}
+		VEC_ELEM(a.location, 2) = v.x; 
+		a.intensity = 1; 
+		
 		prog.atoms.push_back(a);
 	}
 	prog.drawApproximation();

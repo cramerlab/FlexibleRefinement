@@ -158,6 +158,25 @@ namespace FlexibleRefinement
             numAngles = numAnglesX * numAnglesY * numAnglesZ;
             numParticles = numAngles;
 
+            float3[] angles = new float3[numAngles];
+            {
+                int i = 0;
+                for (int x = 0; x < numAnglesX; x++)
+                {
+                    float xx = (float)(2 * Math.PI) / (numAnglesX - 1) * (x);
+                    for (int y = 0; y < numAnglesY; y++)
+                    {
+                        float yy = (float)(2 * Math.PI) / (numAnglesY - 1) * (y);
+                        for (int z = 0; z < numAnglesZ; z++)
+                        {
+                            float zz = (float)(2 * Math.PI) / (numAnglesZ - 1) * (z);
+                            angles[i] = new float3(xx, yy, zz);
+                            i++;
+                        }
+                    }
+                }
+            }
+
             CTFParams = Helper.ArrayOfFunction(i => CTFParams[i % CTFParams.Length], numParticles);
             
             for (int i = 0; i < CTFParams.Length; i++)
@@ -183,24 +202,7 @@ namespace FlexibleRefinement
 
             //int2 gaussTableLayout = new int2(2 * factor * (int)Math.Ceiling(Math.Sqrt(2) * 4 * sigma), 1);
 
-            float3[] angles = new float3[numAngles];
-            {
-                int i = 0;
-                for (int x = 0; x < numAnglesX; x++)
-                {
-                    float xx = (float)(2 * Math.PI) / (numAnglesX - 1) * (x);
-                    for (int y = 0; y < numAnglesY; y++)
-                    {
-                        float yy = (float)(2 * Math.PI) / (numAnglesY - 1) * (y);
-                        for (int z = 0; z < numAnglesZ; z++)
-                        {
-                            float zz = (float)(2 * Math.PI) / (numAnglesZ - 1) * (z);
-                            angles[i] = new float3(xx, yy, zz);
-                            i++;
-                        }
-                    }
-                }
-            }
+
 
             Image noise = new Image(Simulation.simplexPerlinNoise(1, new int3(particleRes.X, particleRes.Y, numParticles)), new int3(particleRes.X, particleRes.Y, numParticles));
 

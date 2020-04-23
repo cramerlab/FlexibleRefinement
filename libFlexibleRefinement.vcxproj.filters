@@ -15,25 +15,19 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="PseudoRefinement.h">
+    <ClInclude Include="src_cpp\libFlexibleRefinement.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="PseudoProjector.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Types.h">
+    <ClInclude Include="src_cpp\PseudoProjector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="PseudoRefinement.cpp">
+    <ClCompile Include="src_cpp\libFlexibleRefinement.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="PseudoProjector.cpp">
+    <ClCompile Include="src_cpp\PseudoProjector.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="cpp.hint" />
   </ItemGroup>
 </Project>

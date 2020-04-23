@@ -14,6 +14,8 @@
 	SPEED_UP_temps01; \
     DOUBLE spduptmp2;
 
+#define dMn(m, n)  ((m).mdata[(n)])
+
 #define M3x3_BY_V3x1(a, M, b) { \
         spduptmp0 = dMn(M, 0) * XX(b) + dMn(M, 1) * YY(b) + dMn(M, 2) * ZZ(b); \
         spduptmp1 = dMn(M, 3) * XX(b) + dMn(M, 4) * YY(b) + dMn(M, 5) * ZZ(b); \

@@ -5,7 +5,7 @@ namespace fs = std::filesystem;
 
 
 
-#include "PseudoRefinement.h"
+#include "libFlexibleRefinement.h"
 
 
 __declspec(dllexport) PseudoProjectorPTR __stdcall EntryPoint(int3 dims, DOUBLE *atomCenters, DOUBLE *atomWeights, DOUBLE rAtoms, unsigned int nAtoms) {

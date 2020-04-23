@@ -1,6 +1,6 @@
 
 #include "PseudoProjector.h"
-#include "liblion.h"
+
 using namespace relion;
 
 
@@ -31,16 +31,16 @@ void Uproject_to_plane(const Matrix1D<DOUBLE> &point,
 
 
 void PseudoProjector::project_Pseudo(DOUBLE * out, DOUBLE * out_nrm,
-	float3 Euler, DOUBLE shiftX, DOUBLE shiftY,
+	float3 angles, DOUBLE shiftX, DOUBLE shiftY,
 	int direction)
 {
-	MultidimArray<DOUBLE> proj = MultidimArray<DOUBLE>(this->Dims.z, this->Dims.y, this->Dims.x);
+	MultidimArray<DOUBLE> proj = MultidimArray<DOUBLE>(1, this->Dims.y, this->Dims.x);
 	proj.data = out;
 	proj.xinit = shiftX;
 	proj.yinit = shiftY;
 	proj.destroyData = false;
 	
-	MultidimArray<DOUBLE> proj_nrm = MultidimArray<DOUBLE>(this->Dims.z, this->Dims.y, this->Dims.x);
+	MultidimArray<DOUBLE> proj_nrm = MultidimArray<DOUBLE>(1, this->Dims.y, this->Dims.x);
 	if (out_nrm != NULL)
 	{
 		proj_nrm.data = out_nrm;
@@ -50,7 +50,7 @@ void PseudoProjector::project_Pseudo(DOUBLE * out, DOUBLE * out_nrm,
 	proj_nrm.yinit = shiftY;
 	
 	Matrix2D<DOUBLE> EulerMat = Matrix2D<DOUBLE>();
-	Euler_angles2matrix(Euler.x, Euler.y, Euler.z, EulerMat);
+	Euler_angles2matrix(angles.x, angles.y, angles.z, EulerMat);
 	
 	
 	this->project_Pseudo(proj, proj_nrm,	EulerMat, shiftX, shiftY,direction);
@@ -67,13 +67,13 @@ void PseudoProjector::project_PseudoCTF(DOUBLE * out, DOUBLE * out_nrm, DOUBLE *
 	gaussianProjectionTable.vdata = gaussTable;
 	gaussianProjectionTable2.vdata = gaussTable2;
 
-	MultidimArray<DOUBLE> proj = MultidimArray<DOUBLE>(this->Dims.z, this->Dims.y, this->Dims.x);
+	MultidimArray<DOUBLE> proj = MultidimArray<DOUBLE>(1, this->Dims.y, this->Dims.x);
 	proj.data = out;
 	proj.xinit = shiftX;
 	proj.yinit = shiftY;
 	proj.destroyData = false;
 	
-	MultidimArray<DOUBLE> proj_nrm = MultidimArray<DOUBLE>(this->Dims.z, this->Dims.y, this->Dims.x);
+	MultidimArray<DOUBLE> proj_nrm = MultidimArray<DOUBLE>(1, this->Dims.y, this->Dims.x);
 	if (out_nrm != NULL)
 	{
 		proj_nrm.data = out_nrm;
@@ -90,6 +90,23 @@ void PseudoProjector::project_PseudoCTF(DOUBLE * out, DOUBLE * out_nrm, DOUBLE *
 	gaussianProjectionTable.vdata = tableTmp;
 	gaussianProjectionTable2.vdata = tableTmp2;
 	this->tableLength = oldBorder;
+}
+
+
+MRCImage<DOUBLE> PseudoProjector::create3DImage(DOUBLE oversampling) {
+	MultidimArray<DOUBLE> data(Dims.z*oversampling, Dims.y*oversampling, Dims.x*oversampling);
+	auto itPos = atomPosition.begin();
+	auto itWeight = atomWeight.begin();
+
+	for (; itPos < atomPosition.end() && itWeight < atomWeight.end(); itPos++, itWeight++) {
+		drawOneGaussian(gaussianProjectionTable, 4 * sigma*oversampling, ZZ(*itPos)*oversampling, YY(*itPos)*oversampling, XX(*itPos)*oversampling, data, *itWeight, GAUSS_FACTOR/oversampling);
+	}
+	
+	if (oversampling > 1.0) {
+		//resizeMap(data, Dims.x);
+	}
+	MRCImage<DOUBLE> im(data);
+	return im;
 }
 
  /** Projection of a pseudoatom volume */
@@ -111,57 +128,22 @@ void PseudoProjector::project_Pseudo(
 		YY(actualAtomPosition) -= Dims.y / 2;
 		ZZ(actualAtomPosition) -= Dims.z / 2;
 
-		auto actualAtomPositionX = XX(actualAtomPosition);
-		auto actualAtomPositionY = YY(actualAtomPosition);
-		auto actualAtomPositionZ = ZZ(actualAtomPosition);
-
 		DOUBLE weight = atomWeight[n];
-		/*
-		for (int mode = 0; mode < lambdaSize; mode++)
-		{
-			const Matrix2D<double> &NMAmode = NMA[mode];
-			double lambdam = lambda[mode];
-			FOR_ALL_ELEMENTS_IN_MATRIX1D(actualAtomPosition)
-				VEC_ELEM(actualAtomPosition, i) +=
-				lambdam * MAT_ELEM(NMAmode, n, i);
-		}
-		*/
+
 		Uproject_to_plane(actualAtomPosition, Euler, actprj);
 		XX(actprj) += Dims.x / 2;
 		YY(actprj) += Dims.y / 2;
 		ZZ(actprj) += Dims.z / 2;
-		auto actprjX = XX(actprj);
-		auto actprjY = YY(actprj);
-		auto actprjZ = ZZ(actprj);
+
 		XX(actprj) += shiftX;
 		YY(actprj) += shiftY;
-#ifdef DEBUG
 
-		bool condition = true;
-		if (condition)
-		{
-			std::cout << "Projecting point " << atomPositions[n].transpose() << std::endl;
-			std::cout << "Vol there = " << atomWeight[n] << std::endl;
-			std::cout << " Center of the basis proj (2D) " << XX(actprj) << "," << YY(actprj) << std::endl;
-		}
-#endif
 
 		// Search for integer corners for this basis
 		int XX_corner1 = CEIL(XMIPP_MAX(STARTINGX(proj), XX(actprj) - sigma4));
 		int YY_corner1 = CEIL(XMIPP_MAX(STARTINGY(proj), YY(actprj) - sigma4));
 		int XX_corner2 = FLOOR(XMIPP_MIN(FINISHINGX(proj), XX(actprj) + sigma4));
 		int YY_corner2 = FLOOR(XMIPP_MIN(FINISHINGY(proj), YY(actprj) + sigma4));
-
-#ifdef DEBUG
-
-		if (condition)
-		{
-			std::cout << "Clipped and rounded Corner 1 " << XX_corner1
-				<< " " << YY_corner1 << " " << std::endl;
-			std::cout << "Clipped and rounded Corner 2 " << XX_corner2
-				<< " " << YY_corner2 << " " << std::endl;
-		}
-#endif
 
 		// Check if the basis falls outside the projection plane
 		if (XX_corner1 <= XX_corner2 && YY_corner1 <= YY_corner2)
@@ -182,11 +164,7 @@ void PseudoProjector::project_Pseudo(
 					int idx = ROUND(didx);
 					DOUBLE a = VEC_ELEM(gaussianProjectionTable, idx);
 					DOUBLE a2 = VEC_ELEM(gaussianProjectionTable2, idx);
-#ifdef DEBUG
 
-					if (condition)
-						std::cout << "=" << a << " , " << a2;
-#endif
 					if (a < 0 || a>2) {
 						bool is = true;
 					}
@@ -194,30 +172,11 @@ void PseudoProjector::project_Pseudo(
 					{
 						A2D_ELEM(proj, y, x) += weight * a;
 						A2D_ELEM(norm_proj, y, x) += a2;
-#ifdef DEBUG
-
-						if (condition)
-						{
-							std::cout << " proj= " << A2D_ELEM(proj, y, x)
-								<< " norm_proj=" << A2D_ELEM(norm_proj, y, x) << std::endl;
-							std::cout.flush();
-						}
-#endif
 
 					}
 					else
 					{
-						auto tmp = A2D_ELEM(norm_proj, y, x);
 						vol_corr += A2D_ELEM(norm_proj, y, x) * a;
-#ifdef DEBUG
-
-						if (condition)
-						{
-							std::cout << " corr_img= " << A2D_ELEM(norm_proj, y, x)
-								<< " correction=" << vol_corr << std::endl;
-							std::cout.flush();
-						}
-#endif
 
 					}
 				}
@@ -227,15 +186,6 @@ void PseudoProjector::project_Pseudo(
 			{
 				atomWeight[n] += vol_corr;
 				atomWeight[n] = atomWeight[n] > 0 ? atomWeight[n] : 0;
-#ifdef DEBUG
-
-				if (condition)
-				{
-					std::cout << "\nFinal value at ( " << n << ") = "
-						<< atomWeight[n] << std::endl;
-				}
-#endif
-
 			}
 		} // If not collapsed
 	}
@@ -278,6 +228,53 @@ DOUBLE PseudoProjector::ART_single_image(const MultidimArray<DOUBLE> &Iexp, Mult
 	return mean_error;
 }
 
+
+DOUBLE PseudoProjector::ART_batched(const MultidimArray<DOUBLE> &Iexp, idxtype batchSize, float3 *angles, DOUBLE shiftX, DOUBLE shiftY)
+{
+	MultidimArray<DOUBLE> Itheo, Icorr, Idiff;
+	Itheo.initZeros(Iexp);
+	Icorr.initZeros(Iexp);
+	Idiff.resize(Iexp, false);
+	Matrix2D<DOUBLE> *EulerVec = new Matrix2D<DOUBLE>[batchSize];
+	DOUBLE mean_error = 0;
+#pragma omp parallel
+	{
+#pragma omp for
+		for (int batchIdx = 0; batchIdx < batchSize; batchIdx++) {
+
+			Euler_angles2matrix(angles[batchIdx].x, angles[batchIdx].y, angles[batchIdx].z, EulerVec[batchIdx]);
+			this->project_Pseudo(Itheo, Icorr,
+				EulerVec[batchIdx], shiftX, shiftY, PSEUDO_FORWARD);
+			
+
+
+			FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY2D(Iexp)
+			{
+				// Compute difference image and error
+
+				DIRECT_A3D_ELEM(Idiff, batchIdx, i, j) = DIRECT_A3D_ELEM(Iexp, batchIdx, i, j) - DIRECT_A3D_ELEM(Itheo, batchIdx, i, j);
+				mean_error += DIRECT_A3D_ELEM(Idiff, batchIdx, i, j) * DIRECT_A3D_ELEM(Idiff, batchIdx, i, j);
+
+				// Compute the correction image
+
+				DIRECT_A3D_ELEM(Icorr, batchIdx, i, j) = XMIPP_MAX(DIRECT_A3D_ELEM(Icorr, batchIdx, i, j), 1);
+
+				DIRECT_A3D_ELEM(Icorr, batchIdx, i, j) =
+					this->lambdaART * DIRECT_A3D_ELEM(Idiff, batchIdx, i, j) / (DIRECT_A3D_ELEM(Icorr, batchIdx, i, j));
+			}
+		}
+		mean_error /= YXSIZE(Iexp);
+#pragma omp for
+		for (int batchIdx = 0; batchIdx < batchSize; batchIdx++) {
+			//Euler_angles2matrix(angles[batchIdx].x, angles[batchIdx].y, angles[batchIdx].z, EulerVec[batchIdx]);
+			this->project_Pseudo(Itheo, Icorr,
+				EulerVec[batchIdx], shiftX, shiftY, PSEUDO_BACKWARD);
+		}
+	}
+	delete[] EulerVec;
+	return mean_error;
+}
+
 DOUBLE PseudoProjector::ART_single_image(const MultidimArray<DOUBLE> &Iexp, DOUBLE rot, DOUBLE tilt, DOUBLE psi, DOUBLE shiftX, DOUBLE shiftY)
 {
 	MultidimArray<DOUBLE> Itheo, Icorr, Idiff;
@@ -293,18 +290,25 @@ DOUBLE PseudoProjector::ART_single_image(const MultidimArray<DOUBLE> &Iexp, DOUB
 	FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY2D(Iexp)
 	{
 		// Compute difference image and error
+#ifdef DEBUG
 		auto Iexp_i_j = DIRECT_A2D_ELEM(Iexp, i, j);
 		auto Itheo_i_j = DIRECT_A2D_ELEM(Itheo, i, j);
+#endif // DEBUG
+
+
 
 		DIRECT_A2D_ELEM(Idiff, i, j) = DIRECT_A2D_ELEM(Iexp, i, j) - DIRECT_A2D_ELEM(Itheo, i, j);
 		mean_error += DIRECT_A2D_ELEM(Idiff, i, j) * DIRECT_A2D_ELEM(Idiff, i, j);
 
 		// Compute the correction image
+#ifdef DEBUG
 		auto Icorr_i_j_a = DIRECT_A2D_ELEM(Icorr, i, j);
+#endif DEBUG
 		DIRECT_A2D_ELEM(Icorr, i, j) = XMIPP_MAX(DIRECT_A2D_ELEM(Icorr, i, j), 1);
-		
+#ifdef DEBUG
 		auto Icorr_i_j_b = XMIPP_MAX(DIRECT_A2D_ELEM(Icorr, i, j), 1);
 		auto Icorr_i_j_c = this->lambdaART * DIRECT_A2D_ELEM(Idiff, i, j) / DIRECT_A2D_ELEM(Icorr, i, j);
+#endif DEBUG
 		DIRECT_A2D_ELEM(Icorr, i, j) =
 			this->lambdaART * DIRECT_A2D_ELEM(Idiff, i, j) / DIRECT_A2D_ELEM(Icorr, i, j);
 	}
@@ -329,7 +333,7 @@ DOUBLE PseudoProjector::ART_multi_Image_step(DOUBLE * Iexp, float3 * angles, DOU
 		gaussianProjectionTable2.vdata = gaussTables2 + i * (GAUSS_FACTOR * Dims.x / 2 );
 		double oldBorder = this->tableLength;
 		this->tableLength = tableLength;
-		MultidimArray<DOUBLE> tmp = MultidimArray<DOUBLE>(Dims.z, Dims.y, Dims.x);
+		MultidimArray<DOUBLE> tmp = MultidimArray<DOUBLE>(1, Dims.y, Dims.x);
 		tmp.data = Iexp + i * (Dims.x*Dims.y);
 		tmp.destroyData = false;
 		itError += ART_single_image(tmp, angles[i].x, angles[i].y, angles[i].z, shiftX, shiftY);
@@ -384,13 +388,15 @@ DOUBLE PseudoProjector::ART_multi_Image_step(DOUBLE * Iexp, float3 * angles, DOU
 
 	std::vector < MultidimArray<DOUBLE> > Images;
 	DOUBLE itError = 0.0;
+	MultidimArray<DOUBLE> tmp = MultidimArray<DOUBLE>(1, Dims.y, Dims.x);
 	for (size_t i = 0; i < numImages; i++)
 	{
-		MultidimArray<DOUBLE> tmp = MultidimArray<DOUBLE>(Dims.z, Dims.y, Dims.x);
+		
 		tmp.data = Iexp + i * (Dims.x*Dims.y);
-		tmp.destroyData = false;
+		
 		itError += ART_single_image(tmp, angles[i].x, angles[i].y, angles[i].z, shiftX, shiftY);
 	}
+	tmp.data = NULL;
 	return itError;
 }
 
@@ -401,6 +407,10 @@ DOUBLE PseudoProjector::ART_multi_Image_step(std::vector< MultidimArray<DOUBLE> 
 		itError += ART_single_image(Iexp[i], angles[i].x, angles[i].y, angles[i].z, shiftX, shiftY);
 	}
 	return itError / Iexp.size(); // Mean Error
+}
+
+void PseudoProjector::writePDB(FileName outpath) {
+
 }
 
 /*

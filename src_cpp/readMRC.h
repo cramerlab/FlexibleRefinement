@@ -200,6 +200,12 @@ namespace relion
 				hostDirty = false;
 			}
 
+			MRCImage(FileName path) {
+
+				ReadMRC(path, data, header, -1);
+				hostDirty = false;
+			}
+
 			MRCImage(HeaderMRC p_header) {
 
 				header = p_header;

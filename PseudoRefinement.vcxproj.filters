@@ -15,52 +15,55 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="fourier_filter.h">
+    <ClInclude Include="src_cpp\metadata_label.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="my_mask.h">
+    <ClInclude Include="src_cpp\metadata_table.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="histogram.h">
+    <ClInclude Include="src_cpp\metadata_container.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="macros.h">
+    <ClInclude Include="src_cpp\liblionImports.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="cxxopts.hpp">
+    <ClInclude Include="src_cpp\readMRC.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="readMRC.h">
+    <ClInclude Include="src_cpp\PseudoProjector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Types.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="liblionImports.h">
+    <ClInclude Include="src_cpp\funcs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="fourier_filter.cpp">
+    <ClCompile Include="main_pseudoprojector.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="my_mask.cpp">
+    <ClCompile Include="readStar.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="histogram.cpp">
+    <ClCompile Include="src_cpp\metadata_container.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="volume_to_pseudoatoms.h">
-      <Filter>Header Files</Filter>
-    </ClCompile>
-    <ClCompile Include="program.cpp">
+    <ClCompile Include="src_cpp\metadata_label.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="readMRC.cpp">
+    <ClCompile Include="src_cpp\metadata_table.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Types.cpp">
+    <ClCompile Include="src_cpp\readMRC.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src_cpp\PseudoProjector.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src_cpp\funcs.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="cpp.hint" />
   </ItemGroup>
 </Project>

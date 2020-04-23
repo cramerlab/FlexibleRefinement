@@ -76,8 +76,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>D:\Software\liblion;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
-    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64;D:\Software\liblion\x64\Debug;D:\Software\FlexibleRefinement\volume_2_pseudoatoms\pthreads\dll-latest\lib\x64</LibraryPath>
+    <IncludePath>D:\Software\liblion;D:\Software\FlexibleRefinement\external\cxxopts\;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64;D:\Software\liblion\x64\Debug;D:\Software\FlexibleRefinement\external\pthreads\dll-latest\lib\x64</LibraryPath>
     <CodeAnalysisRuleSet>NativeRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <RunCodeAnalysis>false</RunCodeAnalysis>
   </PropertyGroup>
@@ -113,7 +113,7 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <EnablePREfast>false</EnablePREfast>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>D:\Software\FlexibleRefinement\volume_2_pseudoatoms\pthreads\dll-latest\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\Software\FlexibleRefinement\external\pthreads\dll-latest\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -160,23 +160,25 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="cxxopts.hpp" />
-    <ClInclude Include="fourier_filter.h" />
-    <ClInclude Include="histogram.h" />
-    <ClInclude Include="liblionImports.h" />
-    <ClInclude Include="macros.h" />
-    <ClInclude Include="my_mask.h" />
-    <ClInclude Include="readMRC.h" />
-    <ClInclude Include="Types.h" />
+    <ClInclude Include="external\cxxopts\cxxopts.hpp" />
+    <ClInclude Include="src_cpp\fourier_filter.h" />
+    <ClInclude Include="src_cpp\funcs.h" />
+    <ClInclude Include="src_cpp\histogram.h" />
+    <ClInclude Include="src_cpp\liblionImports.h" />
+    <ClInclude Include="src_cpp\macros.h" />
+    <ClInclude Include="src_cpp\my_mask.h" />
+    <ClInclude Include="src_cpp\readMRC.h" />
+    <ClInclude Include="src_cpp\Types.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="fourier_filter.cpp" />
-    <ClCompile Include="histogram.cpp" />
-    <ClCompile Include="my_mask.cpp" />
-    <ClCompile Include="program.cpp" />
-    <ClCompile Include="readMRC.cpp" />
-    <ClCompile Include="Types.cpp" />
-    <ClCompile Include="volume_to_pseudoatoms.h" />
+    <ClCompile Include="src_cpp\fourier_filter.cpp" />
+    <ClCompile Include="src_cpp\funcs.cpp" />
+    <ClCompile Include="src_cpp\histogram.cpp" />
+    <ClCompile Include="src_cpp\my_mask.cpp" />
+    <ClCompile Include="src_cpp\main_volume_to_pseudoatoms.cpp" />
+    <ClCompile Include="src_cpp\readMRC.cpp" />
+    <ClCompile Include="src_cpp\Types.cpp" />
+    <ClCompile Include="src_cpp\volume_to_pseudoatoms.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

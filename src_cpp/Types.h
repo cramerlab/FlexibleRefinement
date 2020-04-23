@@ -49,6 +49,13 @@ struct int3
 {
 	int x, y, z;
 
+
+	int3() {
+		x = 0;
+		y = 0;
+		z = 0;
+	}
+
 	int3(int X, int Y, int Z) {
 		x = X;
 		y = Y;
@@ -100,6 +107,10 @@ struct float3
 
 	float3 operator/(float right) {
 		return float3(x / right, y / right, z / right);
+	}
+
+	float3 operator*(float right) {
+		return float3(x * right, y * right, z * right);
 	}
 
 
@@ -232,6 +243,12 @@ inline float3 make_float3(float x, float y, float z)
 	float3 t; t.x = x; t.y = y; t.z = z; return t;
 }
 
+
+
+inline int3 make_int3(int x, int y, int z)
+{
+	int3 t; t.x = x; t.y = y; t.z = z; return t;
+}
 
 
 float3 mean(std::vector<float3> vec);
