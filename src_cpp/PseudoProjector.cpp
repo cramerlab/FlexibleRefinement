@@ -156,7 +156,7 @@ void PseudoProjector::project_Pseudo(
 			if (direction == PSEUDO_BACKWARD)
 			{
 				atomWeight[n] += vol_corr;
-				atomWeight[n] = atomWeight[n] > 0 ? atomWeight[n] : 0;
+				//atomWeight[n] = atomWeight[n] > 0 ? atomWeight[n] : 0;
 			}
 		} // If not collapsed
 	}
