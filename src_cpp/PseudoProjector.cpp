@@ -1,35 +1,6 @@
 
 #include "PseudoProjector.h"
 
-using namespace relion;
-
-
-
-void Uproject_to_plane(const Matrix1D<DOUBLE> &r,
-	const Matrix2D<DOUBLE> &euler, Matrix1D<DOUBLE> &result)
-{
-	SPEED_UP_temps012;
-	if (VEC_XSIZE(result) != 3)
-		result.resize(3);
-	M3x3_BY_V3x1(result, euler, r);
-}
-
-void Uproject_to_plane(const Matrix1D<DOUBLE> &point,
-	const Matrix1D<DOUBLE> &direction, DOUBLE distance,
-	Matrix1D<DOUBLE> &result)
-{
-
-	if (result.size() != 3)
-		result.resize(3);
-	DOUBLE xx = distance - (XX(point) * XX(direction) + YY(point) * YY(direction) +
-		ZZ(point) * ZZ(direction));
-	XX(result) = XX(point) + xx * XX(direction);
-	YY(result) = YY(point) + xx * YY(direction);
-	ZZ(result) = ZZ(point) + xx * ZZ(direction);
-}
-
-
-
 void PseudoProjector::project_Pseudo(DOUBLE * out, DOUBLE * out_nrm,
 	float3 angles, DOUBLE shiftX, DOUBLE shiftY,
 	int direction)
@@ -93,7 +64,7 @@ void PseudoProjector::project_PseudoCTF(DOUBLE * out, DOUBLE * out_nrm, DOUBLE *
 }
 
 
-MRCImage<DOUBLE> PseudoProjector::create3DImage(DOUBLE oversampling) {
+MRCImage<DOUBLE> *PseudoProjector::create3DImage(DOUBLE oversampling) {
 	MultidimArray<DOUBLE> data(Dims.z*oversampling, Dims.y*oversampling, Dims.x*oversampling);
 	auto itPos = atomPosition.begin();
 	auto itWeight = atomWeight.begin();
@@ -103,10 +74,10 @@ MRCImage<DOUBLE> PseudoProjector::create3DImage(DOUBLE oversampling) {
 	}
 	
 	if (oversampling > 1.0) {
-		//resizeMap(data, Dims.x);
+		resizeMap(data, Dims.x);
 	}
-	MRCImage<DOUBLE> im(data);
-	return im;
+
+	return new MRCImage<DOUBLE>(data);
 }
 
  /** Projection of a pseudoatom volume */
@@ -239,11 +210,19 @@ DOUBLE PseudoProjector::ART_batched(const MultidimArray<DOUBLE> &Iexp, idxtype b
 	DOUBLE mean_error = 0;
 #pragma omp parallel
 	{
+		//Initialize array for the slice view
+		MultidimArray<DOUBLE> tmpItheo, tmpIcorr;
+		tmpItheo.xdim = tmpIcorr.xdim = Iexp.xdim;
+		tmpItheo.ydim = tmpIcorr.ydim = Iexp.xdim;
+		tmpItheo.destroyData = tmpIcorr.destroyData = false;
+		tmpItheo.yxdim = tmpItheo.nzyxdim = tmpItheo.zyxdim = tmpItheo.xdim*tmpItheo.ydim;
+		tmpIcorr.yxdim = tmpIcorr.nzyxdim = tmpIcorr.zyxdim = tmpIcorr.xdim*tmpItheo.ydim;
 #pragma omp for
 		for (int batchIdx = 0; batchIdx < batchSize; batchIdx++) {
-
+			tmpItheo.data = &(A3D_ELEM(Itheo, batchIdx, 0, 0));
+			tmpIcorr.data = &(A3D_ELEM(Icorr, batchIdx, 0, 0));
 			Euler_angles2matrix(angles[batchIdx].x, angles[batchIdx].y, angles[batchIdx].z, EulerVec[batchIdx]);
-			this->project_Pseudo(Itheo, Icorr,
+			this->project_Pseudo(tmpItheo, tmpIcorr,
 				EulerVec[batchIdx], shiftX, shiftY, PSEUDO_FORWARD);
 			
 
@@ -260,14 +239,16 @@ DOUBLE PseudoProjector::ART_batched(const MultidimArray<DOUBLE> &Iexp, idxtype b
 				DIRECT_A3D_ELEM(Icorr, batchIdx, i, j) = XMIPP_MAX(DIRECT_A3D_ELEM(Icorr, batchIdx, i, j), 1);
 
 				DIRECT_A3D_ELEM(Icorr, batchIdx, i, j) =
-					this->lambdaART * DIRECT_A3D_ELEM(Idiff, batchIdx, i, j) / (DIRECT_A3D_ELEM(Icorr, batchIdx, i, j));
+					this->lambdaART * DIRECT_A3D_ELEM(Idiff, batchIdx, i, j) / (batchSize * DIRECT_A3D_ELEM(Icorr, batchIdx, i, j));
 			}
 		}
 		mean_error /= YXSIZE(Iexp);
 #pragma omp for
 		for (int batchIdx = 0; batchIdx < batchSize; batchIdx++) {
-			//Euler_angles2matrix(angles[batchIdx].x, angles[batchIdx].y, angles[batchIdx].z, EulerVec[batchIdx]);
-			this->project_Pseudo(Itheo, Icorr,
+			tmpItheo.data = &(A3D_ELEM(Itheo, batchIdx, 0, 0));
+			tmpIcorr.data = &(A3D_ELEM(Icorr, batchIdx, 0, 0));
+
+			this->project_Pseudo(tmpItheo, tmpIcorr,
 				EulerVec[batchIdx], shiftX, shiftY, PSEUDO_BACKWARD);
 		}
 	}
@@ -275,7 +256,62 @@ DOUBLE PseudoProjector::ART_batched(const MultidimArray<DOUBLE> &Iexp, idxtype b
 	return mean_error;
 }
 
-DOUBLE PseudoProjector::ART_single_image(const MultidimArray<DOUBLE> &Iexp, DOUBLE rot, DOUBLE tilt, DOUBLE psi, DOUBLE shiftX, DOUBLE shiftY)
+DOUBLE PseudoProjector::ART_batched(const MultidimArray<DOUBLE> &Iexp, MultidimArray<DOUBLE> &Itheo, MultidimArray<DOUBLE> &Icorr, MultidimArray<DOUBLE> &Idiff, idxtype batchSize, float3 *angles, DOUBLE shiftX, DOUBLE shiftY)
+{
+	Itheo.initZeros(Iexp);
+	Icorr.initZeros(Iexp);
+	Idiff.resize(Iexp, false);
+	Matrix2D<DOUBLE> *EulerVec = new Matrix2D<DOUBLE>[batchSize];
+	DOUBLE mean_error = 0;
+#pragma omp parallel
+	{
+		//Initialize array for the slice view
+		MultidimArray<DOUBLE> tmpItheo, tmpIcorr;
+		tmpItheo.xdim = tmpIcorr.xdim = Iexp.xdim;
+		tmpItheo.ydim = tmpIcorr.ydim = Iexp.xdim;
+		tmpItheo.destroyData = tmpIcorr.destroyData = false;
+		tmpItheo.yxdim = tmpItheo.nzyxdim = tmpItheo.zyxdim = tmpItheo.xdim*tmpItheo.ydim;
+		tmpIcorr.yxdim = tmpIcorr.nzyxdim = tmpIcorr.zyxdim = tmpIcorr.xdim*tmpItheo.ydim;
+#pragma omp for
+		for (int batchIdx = 0; batchIdx < batchSize; batchIdx++) {
+			tmpItheo.data = &(A3D_ELEM(Itheo, batchIdx, 0, 0));
+			tmpIcorr.data = &(A3D_ELEM(Icorr, batchIdx, 0, 0));
+			Euler_angles2matrix(angles[batchIdx].x, angles[batchIdx].y, angles[batchIdx].z, EulerVec[batchIdx]);
+			this->project_Pseudo(tmpItheo, tmpIcorr,
+				EulerVec[batchIdx], shiftX, shiftY, PSEUDO_FORWARD);
+
+
+
+			FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY2D(Iexp)
+			{
+				// Compute difference image and error
+
+				DIRECT_A3D_ELEM(Idiff, batchIdx, i, j) = DIRECT_A3D_ELEM(Iexp, batchIdx, i, j) - DIRECT_A3D_ELEM(Itheo, batchIdx, i, j);
+				mean_error += DIRECT_A3D_ELEM(Idiff, batchIdx, i, j) * DIRECT_A3D_ELEM(Idiff, batchIdx, i, j);
+
+				// Compute the correction image
+
+				DIRECT_A3D_ELEM(Icorr, batchIdx, i, j) = XMIPP_MAX(DIRECT_A3D_ELEM(Icorr, batchIdx, i, j), 1);
+
+				DIRECT_A3D_ELEM(Icorr, batchIdx, i, j) =
+					this->lambdaART * DIRECT_A3D_ELEM(Idiff, batchIdx, i, j) / (batchSize * DIRECT_A3D_ELEM(Icorr, batchIdx, i, j));
+			}
+		}
+		mean_error /= YXSIZE(Iexp);
+#pragma omp for
+		for (int batchIdx = 0; batchIdx < batchSize; batchIdx++) {
+			tmpItheo.data = &(A3D_ELEM(Itheo, batchIdx, 0, 0));
+			tmpIcorr.data = &(A3D_ELEM(Icorr, batchIdx, 0, 0));
+
+			this->project_Pseudo(tmpItheo, tmpIcorr,
+				EulerVec[batchIdx], shiftX, shiftY, PSEUDO_BACKWARD);
+		}
+	}
+	delete[] EulerVec;
+	return mean_error;
+}
+
+DOUBLE PseudoProjector::ART_single_image(const MultidimArray<DOUBLE>& Iexp, DOUBLE rot, DOUBLE tilt, DOUBLE psi, DOUBLE shiftX, DOUBLE shiftY)
 {
 	MultidimArray<DOUBLE> Itheo, Icorr, Idiff;
 	Itheo.initZeros(Iexp);
@@ -399,6 +435,8 @@ DOUBLE PseudoProjector::ART_multi_Image_step(DOUBLE * Iexp, float3 * angles, DOU
 	tmp.data = NULL;
 	return itError;
 }
+
+
 
 DOUBLE PseudoProjector::ART_multi_Image_step(std::vector< MultidimArray<DOUBLE> > Iexp, std::vector<float3> angles, DOUBLE shiftX, DOUBLE shiftY) {
 	DOUBLE itError = 0.0;

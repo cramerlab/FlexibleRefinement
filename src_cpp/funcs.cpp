@@ -1,6 +1,32 @@
 #include "funcs.h"
 
 
+
+
+
+void Uproject_to_plane(const Matrix1D<DOUBLE> &r,
+	const Matrix2D<DOUBLE> &euler, Matrix1D<DOUBLE> &result)
+{
+	SPEED_UP_temps012;
+	if (VEC_XSIZE(result) != 3)
+		result.resize(3);
+	M3x3_BY_V3x1(result, euler, r);
+}
+
+void Uproject_to_plane(const Matrix1D<DOUBLE> &point,
+	const Matrix1D<DOUBLE> &direction, DOUBLE distance,
+	Matrix1D<DOUBLE> &result)
+{
+
+	if (result.size() != 3)
+		result.resize(3);
+	DOUBLE xx = distance - (XX(point) * XX(direction) + YY(point) * YY(direction) +
+		ZZ(point) * ZZ(direction));
+	XX(result) = XX(point) + xx * XX(direction);
+	YY(result) = YY(point) + xx * YY(direction);
+	ZZ(result) = ZZ(point) + xx * ZZ(direction);
+}
+
 void drawOneGaussian(MultidimArray<DOUBLE> &gaussianTable, DOUBLE boundary, DOUBLE k, DOUBLE i, DOUBLE j, MultidimArray<DOUBLE> &V, DOUBLE intensity, idxtype gaussFactor)
 {
 

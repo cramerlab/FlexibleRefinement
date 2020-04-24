@@ -1,5 +1,5 @@
 #include "readMRC.h"
-
+#include <limits>
 namespace relion
 {
 	template<>
@@ -242,15 +242,23 @@ namespace relion
 
 	template <typename T>
 	template <typename I>
-	void MRCImage<T>::writeAs(std::string path)
+	void MRCImage<T>::writeAs(std::string path, bool doStatistics)
 	{
 		MRCImage<I> writeIm;
 		MultidimArray<I> writeData;
 		writeData.resize(data);
 		writeData.setXmippOrigin();
-		FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY3D(data)
-			DIRECT_A3D_ELEM(writeData, k, i, j) = static_cast<I>(DIRECT_A3D_ELEM(data, k, i, j));
+		I min = std::numeric_limits<I>::max();
+		I max = std::numeric_limits<I>::lowest();
+		FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY3D(data) {
+			I value = static_cast<I>(DIRECT_A3D_ELEM(data, k, i, j));
+			DIRECT_A3D_ELEM(writeData, k, i, j) = value;
+			min = std::min(value, min);
+			max = std::max(value, max);
+		}
 		writeIm.setData(writeData);
+		writeIm.header.maxvalue = max;
+		writeIm.header.minvalue = min;
 		writeIm.WriteMRC(path);
 
 	}
@@ -276,34 +284,34 @@ namespace relion
 
 	/* Instantate possible usages*/
 
-	template void MRCImage<double>::writeAs<float>(std::string path);
-	template void MRCImage<float>::writeAs<float>(std::string path);
-	template void MRCImage<int>::writeAs<float>(std::string path);
-	template void MRCImage<__int16>::writeAs<float>(std::string path);
-	template void MRCImage<unsigned __int16>::writeAs<float>(std::string path);
-	template void MRCImage<__int8>::writeAs<float>(std::string path);
+	template void MRCImage<double>::writeAs<float>(std::string path, bool doStatistics);
+	template void MRCImage<float>::writeAs<float>(std::string path, bool doStatistics);
+	template void MRCImage<int>::writeAs<float>(std::string path, bool doStatistics);
+	template void MRCImage<__int16>::writeAs<float>(std::string path, bool doStatistics);
+	template void MRCImage<unsigned __int16>::writeAs<float>(std::string path, bool doStatistics);
+	template void MRCImage<__int8>::writeAs<float>(std::string path, bool doStatistics);
 
-	template void MRCImage<double>::writeAs<__int16>(std::string path);
-	template void MRCImage<float>::writeAs<__int16>(std::string path);
-	template void MRCImage<int>::writeAs<__int16>(std::string path);
-	template void MRCImage<__int16>::writeAs<float>(std::string path);
-	template void MRCImage<__int16>::writeAs<__int16>(std::string path);
-	template void MRCImage<unsigned __int16>::writeAs<__int16>(std::string path);
-	template void MRCImage<__int8>::writeAs<__int16>(std::string path);
+	template void MRCImage<double>::writeAs<__int16>(std::string path, bool doStatistics);
+	template void MRCImage<float>::writeAs<__int16>(std::string path, bool doStatistics);
+	template void MRCImage<int>::writeAs<__int16>(std::string path, bool doStatistics);
+	template void MRCImage<__int16>::writeAs<float>(std::string path, bool doStatistics);
+	template void MRCImage<__int16>::writeAs<__int16>(std::string path, bool doStatistics);
+	template void MRCImage<unsigned __int16>::writeAs<__int16>(std::string path, bool doStatistics);
+	template void MRCImage<__int8>::writeAs<__int16>(std::string path, bool doStatistics);
 
-	template void MRCImage<double>::writeAs<unsigned __int16>(std::string path);
-	template void MRCImage<float>::writeAs<unsigned __int16>(std::string path);
-	template void MRCImage<int>::writeAs<unsigned __int16>(std::string path);
-	template void MRCImage<__int16>::writeAs<unsigned __int16>(std::string path);
-	template void MRCImage<unsigned __int16>::writeAs<unsigned __int16>(std::string path);
-	template void MRCImage<__int8>::writeAs<unsigned __int16>(std::string path);
+	template void MRCImage<double>::writeAs<unsigned __int16>(std::string path, bool doStatistics);
+	template void MRCImage<float>::writeAs<unsigned __int16>(std::string path, bool doStatistics);
+	template void MRCImage<int>::writeAs<unsigned __int16>(std::string path, bool doStatistics);
+	template void MRCImage<__int16>::writeAs<unsigned __int16>(std::string path, bool doStatistics);
+	template void MRCImage<unsigned __int16>::writeAs<unsigned __int16>(std::string path, bool doStatistics);
+	template void MRCImage<__int8>::writeAs<unsigned __int16>(std::string path, bool doStatistics);
 
-	template void MRCImage<double>::writeAs<__int8>(std::string path);
-	template void MRCImage<float>::writeAs<__int8>(std::string path);
-	template void MRCImage<int>::writeAs<__int8>(std::string path);
-	template void MRCImage<__int16>::writeAs<__int8>(std::string path);
-	template void MRCImage<unsigned __int16>::writeAs<__int8>(std::string path);
-	template void MRCImage<__int8>::writeAs<__int8>(std::string path);
+	template void MRCImage<double>::writeAs<__int8>(std::string path, bool doStatistics);
+	template void MRCImage<float>::writeAs<__int8>(std::string path, bool doStatistics);
+	template void MRCImage<int>::writeAs<__int8>(std::string path, bool doStatistics);
+	template void MRCImage<__int16>::writeAs<__int8>(std::string path, bool doStatistics);
+	template void MRCImage<unsigned __int16>::writeAs<__int8>(std::string path, bool doStatistics);
+	template void MRCImage<__int8>::writeAs<__int8>(std::string path, bool doStatistics);
 
 
 	template class MRCImage<double>;

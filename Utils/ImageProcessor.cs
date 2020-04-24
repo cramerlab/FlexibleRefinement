@@ -203,7 +203,8 @@ namespace FlexibleRefinement.Util
         {
             int3 oldSize = im.Dims;
             float falloff = 10.0f;
-            int3 newSize = oldSize / factor;
+            int newSizeX = ((int)(((float)oldSize.X / factor) / 2))*2+2;
+            int3 newSize = new int3(newSizeX);
             float innerRadius = (newSize - newSize / 2).Length() - (1.1f * falloff);
             Image ft = im.AsFFT(true);
             Image Cosine = new Image(ft.Dims, true);

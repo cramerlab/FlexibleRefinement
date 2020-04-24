@@ -169,10 +169,10 @@ namespace relion
 	{
 	
 	private:
-			HeaderMRC header;
+			
 			relion::MultidimArray<T> data;
 	public:
-			bool hostDirty;
+		HeaderMRC header;
 
 			static HeaderMRC ReadMRCHeader(FILE* inputfile);
 			static HeaderMRC ReadMRCHeader(std::string path);
@@ -186,31 +186,28 @@ namespace relion
 			static MRCImage<T> readAs(std::string path);
 
 			template <typename I>
-			void writeAs(std::string path);
+			void writeAs(std::string path, bool doStatistics=false);
 
 			MRCImage() {
 				header = HeaderMRC();
 				setType();
-				hostDirty = true;
+
 			}
 
 			MRCImage(std::string path) {
 			
 				ReadMRC(path, data, header, -1);
-				hostDirty = false;
 			}
 
 			MRCImage(FileName path) {
 
 				ReadMRC(path, data, header, -1);
-				hostDirty = false;
 			}
 
 			MRCImage(HeaderMRC p_header) {
 
 				header = p_header;
 				setType(); //overwrite type in header to type of image
-				hostDirty = true;
 			}
 
 
