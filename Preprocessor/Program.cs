@@ -30,7 +30,8 @@ namespace Preprocessor
 
         static void downsampler()
         {
-            float targetRes = 7.0f; // 7 Angstroms
+            //float targetRes = 7.0f; // 7 Angstroms
+            float targetRes = 3.5f; // 3.5 Angstroms
             float3 newPix = new float3(targetRes / 2, targetRes / 2, targetRes / 2);
             string inputVol = @"D:\EMPIAR\10168\emd_4180.mrc";
             string inputMask = @"D:\EMPIAR\10168\emd_4180.mask.mrc";
@@ -77,12 +78,14 @@ namespace Preprocessor
                 Directory.CreateDirectory(projDir);
             }
 
-            string starPath = $@"D:\EMPIAR\10299\data\Particles\shiny.star";
+            string starPath = $@"D:\EMPIAR\10168\shiny.star";
             Star starInFile = new Star(starPath, "particles");
             Star starCleanOutFile = new Star(starInFile.GetColumnNames());
             Star starConvolvedOutFile = new Star(starInFile.GetColumnNames());
+
+
             CTF[] CTFParams = starInFile.GetRelionCTF();
-            Image CTFCoords = CTF.GetCTFCoords(projDim, projDim, 2.0f);
+            Image CTFCoords = CTF.GetCTFCoords(projDim, projDim, 2.5f);
 
             
 
@@ -149,7 +152,7 @@ namespace Preprocessor
                     row[13] = partAnglesDeg[j].Y.ToString();
                     row[14] = partAnglesDeg[j].Z.ToString();
 
-                    starCleanOutFile.AddRow(row);
+                    starCleanOutFile.AddRow(new List<string>(row));
 
                     row[3] = $@"{j + 1}@{projDir}\{i}_convolved.mrc";
                     starConvolvedOutFile.AddRow(row);
@@ -204,9 +207,9 @@ namespace Preprocessor
 
 
             // Go to http://aka.ms/dotnet-get-started-console to continue learning how to build a console app!
-            downsampleToDim();
-            //downsampler();
-            //projectUniform();
+            //downsampleToDim();
+            downsampler();
+            projectUniform();
 
 
         }
