@@ -61,31 +61,32 @@ namespace Preprocessor
         }
 
 
-        static void projectUniform(int numParticles = 500)
+        static void projectUniform(string inputVolPath = @"D:\EMPIAR\10168\emd_4180_res7.mrc", string starPath = @"D:\EMPIAR\10168\shiny.star", string outdir = @"D:\EMPIAR\10168\", string projDir = @"D:\EMPIAR\10168\Projections_7_uniform", int numParticles = 500)
         {
             int batchSize = 1024;
             numParticles = 10*batchSize;
 
-            string inputVolPath = $@"D:\EMPIAR\10168\emd_4180_res3.5.mrc";
+
             Image inVol = Image.FromFile(inputVolPath);
             int2 projDim = new int2(inVol.Dims.X);
             Projector proj = new Projector(inVol, 3);
-            string outdir = $@"D:\EMPIAR\10168\";
-            string projDir = $@"{outdir}\Projections_3.5_uniform";
+            
+            
 
             if (!Directory.Exists(projDir))
             {
                 Directory.CreateDirectory(projDir);
             }
 
-            string starPath = $@"D:\EMPIAR\10168\shiny.star";
+            
             Star starInFile = new Star(starPath, "particles");
             Star starCleanOutFile = new Star(starInFile.GetColumnNames());
             Star starConvolvedOutFile = new Star(starInFile.GetColumnNames());
+            Star starConvolved2OutFile = new Star(starInFile.GetColumnNames());
 
 
             CTF[] CTFParams = starInFile.GetRelionCTF();
-            Image CTFCoords = CTF.GetCTFCoords(projDim, projDim, 2.5f);
+            Image CTFCoords = CTF.GetCTFCoords(projDim, projDim, 3.0f);
 
             
 
@@ -136,14 +137,23 @@ namespace Preprocessor
                     (uint)im.Dims.Z);
                 im.WriteMRC($@"{projDir}\{i}.mrc", true);
                 CTFs.WriteMRC($@"{projDir}\{i}_ctf.mrc", true);
+
+                /* convolve once */
                 Image imFFT = im.AsFFT();
                 im.Dispose();
                 imFFT.Multiply(CTFs);
                 im = imFFT.AsIFFT();
-                CTFs.Dispose();
-                GPU.Normalize(im.GetDevice(Intent.Read), im.GetDevice(Intent.Write), (uint)im.DimsSlice.Elements(), (uint)im.Dims.Z);
+                imFFT.Dispose();
                 im.WriteMRC($@"{projDir}\{i}_convolved.mrc", true);
 
+                /* convolve with ctf^2 */
+                imFFT = im.AsFFT();
+                im.Dispose();
+                imFFT.Multiply(CTFs);
+                im = imFFT.AsIFFT();
+                imFFT.Dispose();
+                im.WriteMRC($@"{projDir}\{i}_convolved2.mrc", true);
+                CTFs.Dispose();
                 for (int j = 0; j < batchSize; j++)
                 {
                     List<string> row = rows[n];
@@ -155,13 +165,17 @@ namespace Preprocessor
                     starCleanOutFile.AddRow(new List<string>(row));
 
                     row[3] = $@"{j + 1}@{projDir}\{i}_convolved.mrc";
-                    starConvolvedOutFile.AddRow(row);
+                    starConvolvedOutFile.AddRow(new List<string>(row));
+
+                    row[3] = $@"{j + 1}@{projDir}\{i}_convolved2.mrc";
+                    starConvolved2OutFile.AddRow(new List<string>(row));
                     n++;
                 }
                 
             }
             starCleanOutFile.Save($@"{inputVolPath.Replace(".mrc", "")}.projections_uniform.star");
             starConvolvedOutFile.Save($@"{inputVolPath.Replace(".mrc", "")}.projectionsConv_uniform.star");
+            starConvolved2OutFile.Save($@"{inputVolPath.Replace(".mrc", "")}.projectionsConv2_uniform.star");
         }
         static void projectorByStar()
         {
@@ -200,6 +214,48 @@ namespace Preprocessor
             
         }
 
+        static void preprocess_emd_9233()
+        {
+
+            Image inVol = Image.FromFile($@"D:\EMD\9233\emd_9233.mrc");
+            HeaderMRC Header;
+            using (BinaryReader Reader = new BinaryReader(File.OpenRead($@"D:\EMD\9233\emd_9233.mrc")))
+            {
+                Header = new HeaderMRC(Reader);
+
+            }
+            float3 olPix = Header.PixelSize;
+            float3 newPix = new float3(1.5f);
+            Image sampledVol = ImageProcessor.Downsample(inVol, newPix.X / olPix.X);
+            Image scaledVol = inVol.AsScaled(sampledVol.Dims);
+            Image scaledMask = scaledVol.GetCopy();
+            scaledMask.Binarize(0.01f);
+            scaledMask = scaledMask.AsConvolvedGaussian(2.0f);
+            scaledMask.Binarize(0.2f);
+            scaledMask = scaledMask.AsConvolvedGaussian(2.0f);
+            scaledMask.Binarize(0.2f);
+            scaledMask = scaledMask.AsConvolvedGaussian(5.0f);
+            scaledMask.Binarize(0.2f);
+            scaledMask.WriteMRC($@"D:\EMD\9233\emd_9233_Scaled_1.5_mask.mrc");
+            scaledVol.Multiply(scaledMask);
+            scaledVol.WriteMRC($@"D:\EMD\9233\emd_9233_Scaled_1.5.mrc");
+            //inVol.Normalize();
+            //inVol.WriteMRC($@"D:\EMD\9233\emd_9233_normalized.mrc", true, Header);
+            inVol.Binarize(0.01f);
+            inVol = inVol.AsConvolvedGaussian(2.0f);
+            inVol.Binarize(0.2f);
+            inVol = inVol.AsConvolvedGaussian(2.0f);
+            inVol.Binarize(0.2f);
+            inVol = inVol.AsConvolvedGaussian(10.0f);
+            inVol.Binarize(0.2f);
+            inVol.WriteMRC($@"D:\EMD\9233\emd_9233_mask.mrc", true,Header);
+           
+            //sampledVol.Normalize();
+            Header.PixelSize = Header.PixelSize * inVol.Dims.X / sampledVol.Dims.X;
+            sampledVol.WriteMRC($@"D:\EMD\9233\emd_9233_1.5.mrc", true, Header);
+
+        }
+
         static void Main(string[] args)
         {
             // The code provided will print ‘Hello World’ to the console.
@@ -208,9 +264,12 @@ namespace Preprocessor
 
             // Go to http://aka.ms/dotnet-get-started-console to continue learning how to build a console app!
             //downsampleToDim();
-            downsampler();
-            projectUniform();
-
+            //downsampler();
+            //projectUniform();
+            //projectUniform(@"D:\EMPIAR\10168\emd_4180_res7.mrc",  @"D:\EMPIAR\10168\shiny.star", @"D:\EMPIAR\10168\", @"D:\EMPIAR\10168\Projections_7_uniform")
+            //preprocess_emd_9233();
+            preprocess_emd_9233();
+            projectUniform(@"D:\EMD\9233\emd_9233_Scaled_1.5.mrc", @"D:\EMPIAR\10168\shiny.star", @"D:\EMD\9233", @"D:\EMD\9233\Projections_1.5_uniform");
 
         }
     }

@@ -1226,7 +1226,7 @@ int main(int argc, char ** argv) {
 	prog.produceSideInfo();
 	prog.printParameters();
 	DOUBLE R = 0.0;
-	auto res = equidistantPoints(prog.mask_prm.get_binary_mask(), 50000, &prog.sigma);
+	auto res = equidistantPoints(prog.mask_prm.get_binary_mask(), 40000, &prog.sigma);
 	for (auto v : res) {
 		PseudoAtom a;
 		VEC_ELEM(a.location, 0) = v.z;

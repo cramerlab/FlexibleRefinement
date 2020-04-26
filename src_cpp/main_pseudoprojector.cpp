@@ -70,9 +70,9 @@ int main(int argc, char** argv) {
 		exit(1);
 	}
 	idxtype batchSize = 64;
-	FileName starFileName = "D:\\EMPIAR\\10168\\emd_4180_res3.5.projections_uniform.star";
-	FileName pdbFileName = "D:\\EMPIAR\\10168\\emd_4180_res3.5_50k.pdb";		//PDB File containing pseudo atom coordinates
-	FileName fnOut = pdbFileName.withoutExtension() +"_bs" + std::to_string(batchSize);
+	FileName starFileName = "D:\\EMPIAR\\10168\\emd_4180_res7.projectionsConv2_uniform.star";
+	FileName pdbFileName = "D:\\EMPIAR\\10168\\emd_4180_res7_5k.pdb";		//PDB File containing pseudo atom coordinates
+	FileName fnOut = pdbFileName.withoutExtension() +"_conv_bs" + std::to_string(batchSize);
 	idxtype numThreads = 24;
 	omp_set_num_threads(numThreads);
 
@@ -295,4 +295,6 @@ int main(int argc, char** argv) {
 		pseudoProjections.setData(pseudoProjectionsData);
 		pseudoProjections.writeAs<float>(fnOut + "_3rdit_pseudoProjections.mrc");
 	}
+
+	proj.writePDB(fnOut + "_final.pdb");
 }

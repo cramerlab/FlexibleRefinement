@@ -199,6 +199,59 @@ DOUBLE PseudoProjector::ART_single_image(const MultidimArray<DOUBLE> &Iexp, Mult
 	return mean_error;
 }
 
+void PseudoProjector::writePDB(FileName outPath) {
+
+	DOUBLE minIntensity = std::numeric_limits<DOUBLE>::max();
+	DOUBLE maxIntensity = std::numeric_limits<DOUBLE>::lowest();
+	// Write the PDB
+	for each (auto var in atomWeight)
+	{
+		minIntensity = std::min(minIntensity, var);
+		maxIntensity = std::max(maxIntensity, var)
+	}
+	bool allowIntensity = true;
+	if (maxIntensity - minIntensity < 1e-4)
+	{
+
+		allowIntensity = false;
+	}
+	DOUBLE a = 0.99 / (maxIntensity - minIntensity);
+
+
+	FILE *fhOut = NULL;
+	fhOut = fopen((outPath + ".pdb").c_str(), "w");
+	if (!fhOut)
+		REPORT_ERROR(outPath + ".pdb");
+	idxtype nmax = atomWeight.size();
+	idxtype col = 1;
+
+	fprintf(fhOut, "REMARK pseudo_projector\n");
+	fprintf(fhOut, "REMARK fixedGaussian %f\n", sigma);
+	fprintf(fhOut, "REMARK intensityColumn Bfactor\n");
+	for (idxtype n = 0; n < nmax; n++)
+	{
+		DOUBLE intensity = 1.0;
+		if (allowIntensity)
+			intensity = 0.01 + ROUND(100 * a*(atomWeight[n] - minIntensity)) / 100.0;
+		if (col == 1)
+			fprintf(fhOut,
+				"ATOM  %5d DENS DENS%5d    %8.3f%8.3f%8.3f%6.2f     1      DENS\n",
+				n + 1, n + 1,
+				(float)(atomPosition[n](2)),
+				(float)(atomPosition[n](1)),
+				(float)(atomPosition[n](0)),
+				(float)intensity);
+		else
+			fprintf(fhOut,
+				"ATOM  %5d DENS DENS%5d    %8.3f%8.3f%8.3f     1%6.2f      DENS\n",
+				n + 1, n + 1,
+				(float)(atomPosition[n](2)),
+				(float)(atomPosition[n](1)),
+				(float)(atomPosition[n](0)),
+				(float)intensity);
+	}
+	fclose(fhOut);
+}
 
 DOUBLE PseudoProjector::ART_batched(const MultidimArray<DOUBLE> &Iexp, idxtype batchSize, float3 *angles, DOUBLE shiftX, DOUBLE shiftY)
 {

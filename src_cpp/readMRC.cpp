@@ -61,6 +61,11 @@ namespace relion
 	template <typename T>
 	HeaderMRC MRCImage<T>::ReadMRCHeader(std::string path) {
 		FILE* inputfile = fopen(path.c_str(), "rb");
+
+		if (inputfile == NULL) {
+			REPORT_ERROR("Failed to open File" + path);
+		}
+
 #if _MSC_VER > 1
 		_fseeki64(inputfile, 0L, SEEK_SET);
 #elif __GNUC__ > 3

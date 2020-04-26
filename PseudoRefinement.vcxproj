@@ -180,14 +180,14 @@
     <ClInclude Include="src_cpp\readMRC.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main_pseudoprojector.cpp" />
-    <ClCompile Include="readStar.cpp" />
     <ClCompile Include="src_cpp\funcs.cpp" />
+    <ClCompile Include="src_cpp\main_pseudoprojector.cpp" />
     <ClCompile Include="src_cpp\metadata_container.cpp" />
     <ClCompile Include="src_cpp\metadata_label.cpp" />
     <ClCompile Include="src_cpp\metadata_table.cpp" />
     <ClCompile Include="src_cpp\PseudoProjector.cpp" />
     <ClCompile Include="src_cpp\readMRC.cpp" />
+    <ClCompile Include="src_cpp\readStar.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />
