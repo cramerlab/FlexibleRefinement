@@ -24,6 +24,12 @@ using namespace relion;
 #define PSEUDO_BACKWARD -1
 
 
+struct projecction {
+	std::vector< Matrix1D<DOUBLE> > *atomPositons;
+	MultidimArray<DOUBLE> *image;
+	Matrix1D<DOUBLE> angles;
+	Matrix2D<DOUBLE> Euler;
+};
 
 class PseudoProjector {
 
@@ -35,8 +41,8 @@ public:
 	Matrix1D<DOUBLE> gaussianProjectionTable2;
 
 
-	std::vector< Matrix1D<DOUBLE> > atomPosition;
-
+	std::vector< Matrix1D<DOUBLE> > atomPositions;
+	
 	// Atomic weights
 	std::vector< DOUBLE > atomWeight;
 	double sigma;
@@ -47,18 +53,18 @@ public:
 
 
 
-	PseudoProjector(int3 dims, DOUBLE *atomPositions, DOUBLE *atomWeights, DOUBLE sigma, unsigned int nAtoms):Dims(dims), sigma(sigma), lambdaART(0.1){
-		atomPosition = std::vector<Matrix1D<DOUBLE>>();
-		atomPosition.reserve(nAtoms);
+	PseudoProjector(int3 dims, DOUBLE *atomPositionCArr, DOUBLE *atomWeights, DOUBLE sigma, unsigned int nAtoms):Dims(dims), sigma(sigma), lambdaART(0.1){
+		atomPositions = std::vector<Matrix1D<DOUBLE>>();
+		atomPositions.reserve(nAtoms);
 
 		atomWeight.reserve(nAtoms);
 		for (size_t i = 0; i < nAtoms; i++)
 		{
 			Matrix1D<DOUBLE> tmp = Matrix1D<DOUBLE>(3);
-			XX(tmp) = atomPositions[i * 3];
-			YY(tmp) = atomPositions[i * 3 + 1];
-			ZZ(tmp) = atomPositions[i * 3 + 2];
-			atomPosition.push_back(tmp);
+			XX(tmp) = atomPositionCArr[i * 3];
+			YY(tmp) = atomPositionCArr[i * 3 + 1];
+			ZZ(tmp) = atomPositionCArr[i * 3 + 2];
+			atomPositions.push_back(tmp);
 			atomWeight.push_back(atomWeights[i]);
 		}
 		
@@ -81,6 +87,11 @@ public:
 		return exp(-0.5*((x / sigma)*(x / sigma)));
 	}
 
+	std::vector<projecction> getPrecalcs(MultidimArray<DOUBLE> Iexp, std::vector<float3> angles, DOUBLE shiftX, DOUBLE shiftY);
+	void addToPrecalcs(std::vector< projecction> &precalc, MultidimArray<DOUBLE> Iexp, std::vector<float3> angles, std::vector<Matrix1D<DOUBLE>> *atomPositions, DOUBLE shiftX, DOUBLE shiftY);
+
+	DOUBLE SIRT_from_precalc(std::vector<projecction> &precalc, DOUBLE shiftX, DOUBLE shiftY);
+
 	DOUBLE ART_single_image(const MultidimArray<DOUBLE> &Iexp, DOUBLE rot, DOUBLE tilt, DOUBLE psi, DOUBLE shiftX, DOUBLE shiftY);
 	DOUBLE ART_single_image(const MultidimArray<DOUBLE> &Iexp, MultidimArray<DOUBLE> &Itheo, MultidimArray<DOUBLE> &Icorr, MultidimArray<DOUBLE> &Idiff, DOUBLE rot, DOUBLE tilt, DOUBLE psi, DOUBLE shiftX, DOUBLE shiftY);
 
@@ -100,6 +111,11 @@ public:
 	void project_Pseudo(MultidimArray<DOUBLE> &proj, MultidimArray<DOUBLE> &norm_proj,
 		Matrix2D<DOUBLE> &Euler, DOUBLE shiftX, DOUBLE shiftY,
 		int direction);
+
+	void project_Pseudo(MultidimArray<DOUBLE> &proj, MultidimArray<DOUBLE> &norm_proj, std::vector<Matrix1D<DOUBLE>> * atomPositions,
+		Matrix2D<DOUBLE> &Euler, DOUBLE shiftX, DOUBLE shiftY,
+		int direction);
+
 	void project_PseudoCTF(DOUBLE * out, DOUBLE * out_nrm, DOUBLE *gaussTable, DOUBLE * gaussTable2, DOUBLE border,
 		float3 Euler, DOUBLE shiftX, DOUBLE shiftY,
 		int direction);
@@ -109,6 +125,10 @@ public:
 						DOUBLE shiftX,
 						DOUBLE shiftY,
 		                int direction);
+
+	void setAtomPositions(std::vector<Matrix1D<DOUBLE>> newPositions) {
+		atomPositions = newPositions;
+	}
 
 	void writePDB(FileName outpath);
 

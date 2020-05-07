@@ -100,7 +100,7 @@ void convolveImage(MultidimArray<DOUBLE> imgMat, MultidimArray<DOUBLE> ctfMat, M
 
 __declspec(dllexport) float __stdcall DoARTStepMoved(PseudoProjectorPTR proj, DOUBLE * Iexp, float3 * angles, DOUBLE *atomPositions, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages) {
 
-	std::vector<Matrix1D<DOUBLE>>  prev = proj->atomPosition;
+	std::vector<Matrix1D<DOUBLE>>  prev = proj->atomPositions;
 
 	std::vector<Matrix1D<DOUBLE>>  newAtomPosition = std::vector<Matrix1D<DOUBLE>>();
 	newAtomPosition.reserve(prev.size());
@@ -116,15 +116,15 @@ __declspec(dllexport) float __stdcall DoARTStepMoved(PseudoProjectorPTR proj, DO
 
 	}
 
-	proj->atomPosition = newAtomPosition;
+	proj->atomPositions = newAtomPosition;
 	float ret = proj->ART_multi_Image_step(Iexp, angles, shiftX, shiftY, numImages);
-	proj->atomPosition = prev;
+	proj->atomPositions = prev;
 	return ret;
 }
 
 __declspec(dllexport) float __stdcall DoARTStepMovedCTF(PseudoProjectorPTR proj, DOUBLE * Iexp, float3 * angles, DOUBLE *atomPositions, DOUBLE * GaussTables, DOUBLE * GaussTables2, DOUBLE border, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages) {
 
-	std::vector<Matrix1D<DOUBLE>>  prev = proj->atomPosition;
+	std::vector<Matrix1D<DOUBLE>>  prev = proj->atomPositions;
 
 	std::vector<Matrix1D<DOUBLE>>  newAtomPosition = std::vector<Matrix1D<DOUBLE>>();
 	newAtomPosition.reserve(prev.size());
@@ -140,16 +140,16 @@ __declspec(dllexport) float __stdcall DoARTStepMovedCTF(PseudoProjectorPTR proj,
 
 	}
 
-	proj->atomPosition = newAtomPosition;
+	proj->atomPositions = newAtomPosition;
 	float ret = proj->ART_multi_Image_step(Iexp, angles, GaussTables, GaussTables2, border, shiftX, shiftY, numImages);
-	proj->atomPosition = prev;
+	proj->atomPositions = prev;
 	return ret;
 }
 
 
 __declspec(dllexport) float __stdcall DoARTStepMovedCTF_DB(PseudoProjectorPTR proj, DOUBLE * Iexp, DOUBLE * Itheo, DOUBLE * Icorr, DOUBLE * Idiff, float3 * angles, DOUBLE *atomPositions, DOUBLE * GaussTables, DOUBLE * GaussTables2, DOUBLE border, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages) {
 
-	std::vector<Matrix1D<DOUBLE>>  prev = proj->atomPosition;
+	std::vector<Matrix1D<DOUBLE>>  prev = proj->atomPositions;
 
 	std::vector<Matrix1D<DOUBLE>>  newAtomPosition = std::vector<Matrix1D<DOUBLE>>();
 	newAtomPosition.reserve(prev.size());
@@ -165,9 +165,9 @@ __declspec(dllexport) float __stdcall DoARTStepMovedCTF_DB(PseudoProjectorPTR pr
 
 	}
 
-	proj->atomPosition = newAtomPosition;
+	proj->atomPositions = newAtomPosition;
 	float ret = proj->ART_multi_Image_step_DB(Iexp, Itheo, Icorr, Idiff, angles, GaussTables, GaussTables2, border, shiftX, shiftY, numImages);
-	proj->atomPosition = prev;
+	proj->atomPositions = prev;
 	return ret;
 }
 

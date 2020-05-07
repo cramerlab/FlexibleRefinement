@@ -174,6 +174,9 @@ namespace relion
 	template <typename T>
 	void MRCImage<T>::WriteMRC(void* data, HeaderMRC &header, std::string path){
 		FILE* outputfile = fopen(path.c_str(), "wb");
+		if (outputfile == NULL) {
+			REPORT_ERROR(path + " Failed to open ");
+		}
 #if _MSC_VER > 1
 		_fseeki64(outputfile, 0L, SEEK_SET);
 #elif __GNUC__ > 3

@@ -112,6 +112,8 @@ public:
 	/// Initial seeds
 	idxtype initialSeeds;
 
+	idxtype NAtoms;
+
 	/// Grow seeds
 	DOUBLE growSeeds;
 

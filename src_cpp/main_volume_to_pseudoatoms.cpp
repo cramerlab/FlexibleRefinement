@@ -992,7 +992,7 @@ void ProgVolumeToPseudoatoms::writeResults()
 		a = 1;
 
 	FILE *fhOut = NULL;
-	fhOut = fopen((fnOut + ".pdb").c_str(), "w");
+	fhOut = fopen((fnOut + "_" + std::to_string(NAtoms/1000) + "k.pdb").c_str(), "w");
 	if (!fhOut)
 		REPORT_ERROR(fnOut + ".pdb");
 	idxtype nmax = atoms.size();
@@ -1009,19 +1009,19 @@ void ProgVolumeToPseudoatoms::writeResults()
 			intensity = 0.01 + ROUND(100 * a*(atoms[n].intensity - minIntensity)) / 100.0;
 		if (col == 1)
 			fprintf(fhOut,
-				"ATOM  %5d DENS DENS%5d    %8.3f%8.3f%8.3f%6.2f     1      DENS\n",
+				"ATOM  %5d DENS DENS %7d    %8.3f%8.3f%8.3f%6.2f     1      DENS\n",
 				n + 1, n + 1,
-				(float)(atoms[n].location(2)*sampling),
-				(float)(atoms[n].location(1)*sampling),
 				(float)(atoms[n].location(0)*sampling),
+				(float)(atoms[n].location(1)*sampling),
+				(float)(atoms[n].location(2)*sampling),
 				(float)intensity);
 		else
 			fprintf(fhOut,
-				"ATOM  %5d DENS DENS%5d    %8.3f%8.3f%8.3f     1%6.2f      DENS\n",
+				"ATOM  %5d DENS DENS %7d    %8.3f%8.3f%8.3f     1%6.2f      DENS\n",
 				n + 1, n + 1,
-				(float)(atoms[n].location(2)*sampling),
-				(float)(atoms[n].location(1)*sampling),
 				(float)(atoms[n].location(0)*sampling),
+				(float)(atoms[n].location(1)*sampling),
+				(float)(atoms[n].location(2)*sampling),
 				(float)intensity);
 	}
 	fclose(fhOut);
@@ -1226,19 +1226,27 @@ int main(int argc, char ** argv) {
 	prog.produceSideInfo();
 	prog.printParameters();
 	DOUBLE R = 0.0;
-	auto res = equidistantPoints(prog.mask_prm.get_binary_mask(), 40000, &prog.sigma);
-	for (auto v : res) {
-		PseudoAtom a;
-		VEC_ELEM(a.location, 0) = v.z;
-		VEC_ELEM(a.location, 1) = v.y;
-		VEC_ELEM(a.location, 2) = v.x; 
-		a.intensity = 1; 
-		
-		prog.atoms.push_back(a);
+
+	std::vector<int> nList = {40000, 75000};
+	for (auto N : nList)
+	{
+
+
+		prog.NAtoms = N;
+		auto res = equidistantPoints(prog.mask_prm.get_binary_mask(), prog.NAtoms, &prog.sigma);
+		for (auto v : res) {
+			PseudoAtom a;
+			VEC_ELEM(a.location, 0) = v.x;
+			VEC_ELEM(a.location, 1) = v.y;
+			VEC_ELEM(a.location, 2) = v.z;
+			a.intensity = 1;
+
+			prog.atoms.push_back(a);
+		}
+		prog.drawApproximation();
+		prog.Vcurrent.writeAs<float>("D:\\EMPIAR\\Vcurrent.mrc");
+		prog.writeResults();
 	}
-	prog.drawApproximation();
-	prog.Vcurrent.writeAs<float>("D:\\EMPIAR\\Vcurrent.mrc");
-	prog.writeResults();
 	//prog.run();
 	return 0;
 }
