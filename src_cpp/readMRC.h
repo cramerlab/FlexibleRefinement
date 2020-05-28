@@ -275,6 +275,12 @@ namespace relion
 				return A3D_ELEM(data, k,i,j);
 			}
 
+			DOUBLE Lerp(DOUBLE a, DOUBLE b, DOUBLE x)
+			{
+				return a + (b - a) * x;
+			}
+			DOUBLE GetInterpolatedValue(float3 pos);
+			
 
 			
 

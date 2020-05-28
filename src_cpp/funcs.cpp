@@ -27,7 +27,7 @@ void Uproject_to_plane(const Matrix1D<DOUBLE> &point,
 	ZZ(result) = ZZ(point) + xx * ZZ(direction);
 }
 
-void drawOneGaussian(MultidimArray<DOUBLE> &gaussianTable, DOUBLE boundary, DOUBLE k, DOUBLE i, DOUBLE j, MultidimArray<DOUBLE> &V, DOUBLE intensity, idxtype gaussFactor)
+void drawOneGaussian(MultidimArray<DOUBLE> &gaussianTable, DOUBLE boundary, DOUBLE k, DOUBLE i, DOUBLE j, MultidimArray<DOUBLE> &V, DOUBLE intensity, DOUBLE gaussFactor)
 {
 
 	int k0 = CEIL(XMIPP_MAX(STARTINGZ(V), k - boundary));
@@ -58,7 +58,7 @@ void drawOneGaussian(MultidimArray<DOUBLE> &gaussianTable, DOUBLE boundary, DOUB
 }
 
 
-void drawOneGaussian(Matrix1D<DOUBLE> &gaussianTable, DOUBLE boundary, DOUBLE k, DOUBLE i, DOUBLE j, MultidimArray<DOUBLE> &V, DOUBLE intensity, idxtype gaussFactor)
+void drawOneGaussian(Matrix1D<DOUBLE> &gaussianTable, DOUBLE boundary, DOUBLE k, DOUBLE i, DOUBLE j, MultidimArray<DOUBLE> &V, DOUBLE intensity, DOUBLE gaussFactor)
 {
 
 	int k0 = CEIL(XMIPP_MAX(STARTINGZ(V), k - boundary));
@@ -86,4 +86,16 @@ void drawOneGaussian(Matrix1D<DOUBLE> &gaussianTable, DOUBLE boundary, DOUBLE k,
 		}
 	}
 
+}
+
+void writeFSC(MultidimArray<DOUBLE> &V1, MultidimArray<DOUBLE> &V2, FileName outpath) {
+	MultidimArray<DOUBLE> fsc;
+	getFSC(V1, V2, fsc);
+	{
+		std::ofstream ofs(outpath);
+
+		FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY1D(fsc) {
+			ofs << i << "\t" << DIRECT_A1D_ELEM(fsc, i) << std::endl;
+		}
+	}
 }

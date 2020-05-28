@@ -203,6 +203,59 @@ namespace relion
 	}
 
 	template<typename T>
+	DOUBLE MRCImage<T>::GetInterpolatedValue(float3 pos)
+	{
+		float3 Weights(pos.x - (DOUBLE)std::floor(pos.x),
+			pos.y - (DOUBLE)std::floor(pos.y),
+			pos.z - (DOUBLE)std::floor(pos.z));
+
+
+
+		int3 Pos0(std::max(0l, std::min(data.xdim - 1, (long)pos.x)),
+			std::max(0l, std::min(data.ydim - 1, (long)pos.y)),
+			std::max(0l, std::min(data.zdim - 1, (long)pos.z)));
+		int3 Pos1(std::min(data.xdim - 1, (long) (Pos0.x + 1)),
+			std::min(data.ydim - 1, (long) Pos0.y + 1),
+			std::min(data.zdim - 1, (long) Pos0.z + 1));
+
+		if (data.zdim == 1)
+		{
+			DOUBLE v00 = DIRECT_A3D_ELEM(data, 0, Pos0.y, Pos0.x);
+			DOUBLE v01 = DIRECT_A3D_ELEM(data, 0, Pos0.y, Pos1.x);
+			DOUBLE v10 = DIRECT_A3D_ELEM(data, 0, Pos1.y, Pos0.x);
+			DOUBLE v11 = DIRECT_A3D_ELEM(data, 0, Pos1.y, Pos1.x);
+
+			DOUBLE v0 = Lerp(v00, v01, Weights.x);
+			DOUBLE v1 = Lerp(v10, v11, Weights.x);
+
+			return Lerp(v0, v1, Weights.y);
+		}
+		else
+		{
+			DOUBLE v000 = DIRECT_A3D_ELEM(data, Pos0.z, Pos0.y, Pos0.x);
+			DOUBLE v001 = DIRECT_A3D_ELEM(data, Pos0.z, Pos0.y, Pos1.x);
+			DOUBLE v010 = DIRECT_A3D_ELEM(data, Pos0.z, Pos1.y, Pos0.x);
+			DOUBLE v011 = DIRECT_A3D_ELEM(data, Pos1.z, Pos0.y, Pos0.x);
+
+			DOUBLE v100 = DIRECT_A3D_ELEM(data, Pos1.z, Pos0.y, Pos0.x);
+			DOUBLE v101 = DIRECT_A3D_ELEM(data, Pos1.z, Pos0.y, Pos1.x);
+			DOUBLE v110 = DIRECT_A3D_ELEM(data, Pos1.z, Pos1.y, Pos0.x);
+			DOUBLE v111 = DIRECT_A3D_ELEM(data, Pos1.z, Pos1.y, Pos1.x);
+
+			DOUBLE v00 = Lerp(v000, v001, Weights.x);
+			DOUBLE v01 = Lerp(v010, v011, Weights.x);
+			DOUBLE v10 = Lerp(v100, v101, Weights.x);
+			DOUBLE v11 = Lerp(v110, v111, Weights.x);
+
+			DOUBLE v0 = Lerp(v00, v01, Weights.y);
+			DOUBLE v1 = Lerp(v10, v11, Weights.y);
+
+			DOUBLE tmp = Lerp(v0, v1, Weights.z);
+			return tmp;
+		}
+	}
+
+	template<typename T>
 	MRCImage<T> MRCImage<T>::readAs(std::string path){
 		HeaderMRC header = MRCImage<T>::ReadMRCHeader(path);
 		MRCImage<T> returnImage(header);

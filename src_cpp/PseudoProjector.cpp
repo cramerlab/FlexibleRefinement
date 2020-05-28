@@ -27,6 +27,8 @@ void PseudoProjector::project_Pseudo(DOUBLE * out, DOUBLE * out_nrm,
 	this->project_Pseudo(proj, proj_nrm,	EulerMat, shiftX, shiftY,direction);
 }
 
+
+
 void PseudoProjector::project_PseudoCTF(DOUBLE * out, DOUBLE * out_nrm, DOUBLE *gaussTable, DOUBLE * gaussTable2, DOUBLE border,
 	float3 Euler, DOUBLE shiftX, DOUBLE shiftY,
 	int direction)
@@ -526,7 +528,7 @@ DOUBLE PseudoProjector::ART_multi_Image_step(DOUBLE * Iexp, float3 * angles, DOU
 	return itError;
 }
 
-void PseudoProjector::addToPrecalcs(std::vector< projecction> &precalc, MultidimArray<DOUBLE> Iexp, std::vector<float3> angles, std::vector<Matrix1D<DOUBLE>> *atomPositions, DOUBLE shiftX, DOUBLE shiftY) {
+void PseudoProjector::addToPrecalcs(std::vector< projecction> &precalc, MultidimArray<DOUBLE> &Iexp, std::vector<float3> angles, std::vector<Matrix1D<DOUBLE>> *atomPositions, DOUBLE shiftX, DOUBLE shiftY) {
 	Matrix2D<DOUBLE> Euler;
 	Matrix1D<DOUBLE> angle(3);
 	for (int n = 0; n < angles.size(); n++)
@@ -576,6 +578,11 @@ std::vector<projecction> PseudoProjector::getPrecalcs(MultidimArray<DOUBLE> Iexp
 DOUBLE PseudoProjector::SIRT_from_precalc(std::vector<projecction>& precalc, DOUBLE shiftX, DOUBLE shiftY)
 {
 	MultidimArray<DOUBLE> Itheo, Icorr, Idiff, Inorm;
+	return SIRT_from_precalc(precalc, Itheo, Icorr, Idiff, Inorm, shiftX, shiftY);
+}
+
+DOUBLE PseudoProjector::SIRT_from_precalc(std::vector<projecction>& precalc, MultidimArray<DOUBLE>& Itheo, MultidimArray<DOUBLE>& Icorr, MultidimArray<DOUBLE>& Idiff, MultidimArray<DOUBLE>& Inorm, DOUBLE shiftX, DOUBLE shiftY)
+{
 	Itheo.initZeros(precalc.size(), Dims.y, Dims.x);
 	Icorr.initZeros(precalc.size(), Dims.y, Dims.x);
 	Inorm.initZeros(precalc.size(), Dims.y, Dims.x);

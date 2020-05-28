@@ -83,6 +83,8 @@ struct Prog_Convert_Vol2Pseudo_ThreadParams
 	int Nmovement;
 };
 
+enum placemenType { ORIGIANL_PLACEMENT=0, EQUIDISTANT_PLACEMENT=1 };
+
 class ProgVolumeToPseudoatoms
 {
 public:
@@ -103,6 +105,10 @@ public:
 	/// Sigma
 	DOUBLE sigma;
 
+	DOUBLE oversampling;
+
+	idxtype gaussFactor = 1000;
+
 	/// Maximum error (as a percentage)
 	DOUBLE targetError;
 
@@ -122,6 +128,12 @@ public:
 
 	/// Allow gaussians to vary intensity
 	bool allowIntensity;
+
+	// Allow a variation of atom numbers
+	bool allowAtomNumber;
+
+	//Interpolate initial atom values
+	bool interpolateValues;
 
 	/** Intensity fraction.
 		In case intensity is not allowed to change, this fraction
@@ -155,6 +167,9 @@ public:
 
 	/// Threshold for the binarization
 	DOUBLE threshold;
+
+	placemenType initialAlgo;
+
 public:
 
 	ProgVolumeToPseudoatoms(int arg, char ** argv);
@@ -177,7 +192,8 @@ public:
 	void run();
 
 	/// Place seeds
-	void placeSeeds(int Nseeds);
+	void placeSeedsOriginal(int Nseeds);
+	void placeSeedsEquidistantPoints();
 
 	/// Remove seeds
 	void removeSeeds(int Nseeds);
@@ -189,8 +205,7 @@ public:
 	DOUBLE computeAverage(int k, int i, int j, MultidimArray<DOUBLE> &V);
 
 	/// Draw a Gaussian on a volume
-	void drawGaussian(DOUBLE k, DOUBLE i, DOUBLE j, MultidimArray<DOUBLE> &V,
-		DOUBLE intensity);
+	void drawGaussian(DOUBLE k, DOUBLE i, DOUBLE j, MultidimArray<DOUBLE> &V, DOUBLE intensity);
 
 	/// Draw approximation
 	void drawApproximation();
@@ -205,6 +220,8 @@ public:
 	/// Evaluate region
 	DOUBLE evaluateRegion(const MultidimArray<DOUBLE> &region) const;
 
+
+
 	/// Optimize current atoms
 	void optimizeCurrentAtoms();
 
@@ -213,6 +230,7 @@ public:
 
 	/// Write results
 	void writeResults();
+
 public:
 	// Input volume
 	MRCImage<DOUBLE> Vin;
@@ -269,6 +287,8 @@ public:
 
 	// Filter for the difference volume
 	FourierFilter Filter;
+
+	idxtype nIter;
 };
 //@}
 #endif
