@@ -42,11 +42,11 @@
     <ClInclude Include="src_cpp\funcs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src_cpp\pseudoatoms.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src_cpp\volume_to_pseudoatoms.h">
-      <Filter>Header Files</Filter>
-    </ClCompile>
     <ClCompile Include="src_cpp\fourier_filter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -67,6 +67,12 @@
     </ClCompile>
     <ClCompile Include="src_cpp\funcs.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src_cpp\pseudoatoms.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src_cpp\volume_to_pseudoatoms.h">
+      <Filter>Header Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

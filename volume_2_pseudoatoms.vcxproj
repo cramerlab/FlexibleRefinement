@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -176,6 +176,7 @@
     <ClInclude Include="src_cpp\liblionImports.h" />
     <ClInclude Include="src_cpp\macros.h" />
     <ClInclude Include="src_cpp\my_mask.h" />
+    <ClInclude Include="src_cpp\pseudoatoms.h" />
     <ClInclude Include="src_cpp\readMRC.h" />
     <ClInclude Include="src_cpp\Types.h" />
   </ItemGroup>
@@ -185,6 +186,7 @@
     <ClCompile Include="src_cpp\histogram.cpp" />
     <ClCompile Include="src_cpp\my_mask.cpp" />
     <ClCompile Include="src_cpp\main_volume_to_pseudoatoms.cpp" />
+    <ClCompile Include="src_cpp\pseudoatoms.cpp" />
     <ClCompile Include="src_cpp\readMRC.cpp" />
     <ClCompile Include="src_cpp\Types.cpp" />
     <ClCompile Include="src_cpp\volume_to_pseudoatoms.h" />

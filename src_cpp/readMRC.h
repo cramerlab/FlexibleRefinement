@@ -2,7 +2,7 @@
 
 #include "liblionImports.h"
 #include "Types.h"
-
+#include "funcs.h"
 #include <string>
 #ifndef IO_CUH
 #define IO_CUH
@@ -170,10 +170,10 @@ namespace relion
 	
 	private:
 			
-			relion::MultidimArray<T> data;
+			
 	public:
 		HeaderMRC header;
-
+		relion::MultidimArray<T> data;
 			static HeaderMRC ReadMRCHeader(FILE* inputfile);
 			static HeaderMRC ReadMRCHeader(std::string path);
 
@@ -275,10 +275,7 @@ namespace relion
 				return A3D_ELEM(data, k,i,j);
 			}
 
-			DOUBLE Lerp(DOUBLE a, DOUBLE b, DOUBLE x)
-			{
-				return a + (b - a) * x;
-			}
+
 			DOUBLE GetInterpolatedValue(float3 pos);
 			
 

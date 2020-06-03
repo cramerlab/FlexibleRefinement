@@ -90,6 +90,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
+    <IncludePath>D:\Software\warp2;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -176,6 +177,7 @@
     <ClInclude Include="src_cpp\metadata_container.h" />
     <ClInclude Include="src_cpp\metadata_label.h" />
     <ClInclude Include="src_cpp\metadata_table.h" />
+    <ClInclude Include="src_cpp\pseudoatoms.h" />
     <ClInclude Include="src_cpp\PseudoProjector.h" />
     <ClInclude Include="src_cpp\readMRC.h" />
   </ItemGroup>
@@ -185,6 +187,7 @@
     <ClCompile Include="src_cpp\metadata_container.cpp" />
     <ClCompile Include="src_cpp\metadata_label.cpp" />
     <ClCompile Include="src_cpp\metadata_table.cpp" />
+    <ClCompile Include="src_cpp\pseudoatoms.cpp" />
     <ClCompile Include="src_cpp\PseudoProjector.cpp" />
     <ClCompile Include="src_cpp\readMRC.cpp" />
     <ClCompile Include="src_cpp\readStar.cpp" />

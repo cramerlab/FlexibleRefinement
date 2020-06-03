@@ -14,7 +14,7 @@
 #include "macros.h"
 #include "funcs.h"
 #include "liblionImports.h"
-
+#include "pseudoatoms.h"
 
 #define GAUSS_FACTOR 30
 
@@ -40,52 +40,40 @@ public:
 	// Gaussian projection2 table
 	Matrix1D<DOUBLE> gaussianProjectionTable2;
 
+	PseudoAtomMode mode;
 
-	std::vector< Matrix1D<DOUBLE> > atomPositions;
+	Pseudoatoms atoms;
+
+	//std::vector< Matrix1D<DOUBLE> > atomPositions;
 	
 	// Atomic weights
-	std::vector< DOUBLE > atomWeight;
+	//std::vector< DOUBLE > atomWeight;
 	double sigma;
+	double super;
 	double tableLength;
 	double lambdaART;
 	int3 Dims;
 	bool gauss2D;
 
 
-
-	PseudoProjector(int3 dims, DOUBLE *atomPositionCArr, DOUBLE *atomWeights, DOUBLE sigma, unsigned int nAtoms):Dims(dims), sigma(sigma), lambdaART(0.1){
-		atomPositions = std::vector<Matrix1D<DOUBLE>>();
-		atomPositions.reserve(nAtoms);
-
-		atomWeight.reserve(nAtoms);
-		for (size_t i = 0; i < nAtoms; i++)
-		{
-			Matrix1D<DOUBLE> tmp = Matrix1D<DOUBLE>(3);
-			XX(tmp) = atomPositionCArr[i * 3];
-			YY(tmp) = atomPositionCArr[i * 3 + 1];
-			ZZ(tmp) = atomPositionCArr[i * 3 + 2];
-			atomPositions.push_back(tmp);
-			atomWeight.push_back(atomWeights[i]);
-		}
-		
-		
+	//PseudoProjector with Gaussian mode
+	PseudoProjector(int3 dims, DOUBLE *atomPositionCArr, DOUBLE *atomWeights, DOUBLE sigma, DOUBLE super, unsigned int nAtoms):Dims(dims), sigma(sigma), super(super),mode(ATOM_GAUSSIAN), atoms(atomPositionCArr, atomWeights, nAtoms, ATOM_GAUSSIAN, sigma, GAUSS_FACTOR), lambdaART(0.1){	
 		
 		DOUBLE sigma4 = 4 * sigma;
 		tableLength = sigma4;
 		gaussianProjectionTable = Matrix1D<DOUBLE>(CEIL(sigma4*sqrt(3) * GAUSS_FACTOR + 1));
 		gaussianProjectionTable2 = Matrix1D<DOUBLE>(CEIL(sigma4*sqrt(3) * GAUSS_FACTOR + 1));
 		FOR_ALL_ELEMENTS_IN_MATRIX1D(gaussianProjectionTable)
-			gaussianProjectionTable(i) = this->gaussian1D(i / ((DOUBLE)GAUSS_FACTOR), sigma);
+			gaussianProjectionTable(i) = gaussian1D(i / ((DOUBLE)GAUSS_FACTOR), sigma);
 		gaussianProjectionTable *= gaussian1D(0, sigma);
 		gaussianProjectionTable2 = gaussianProjectionTable;
 		gaussianProjectionTable2 *= gaussianProjectionTable;
 	};
 
-	DOUBLE gaussian1D(DOUBLE x, DOUBLE sigma, DOUBLE mu=0)
-	{
-		x -= mu;
-		return exp(-0.5*((x / sigma)*(x / sigma)));
-	}
+	PseudoProjector(int3 dims, DOUBLE *atomPositionCArr, DOUBLE *atomWeights, DOUBLE super, unsigned int nAtoms) :Dims(dims), sigma(0), super(super),mode(ATOM_INTERPOLATE), atoms(atomPositionCArr, atomWeights, nAtoms, ATOM_INTERPOLATE), lambdaART(0.1) {
+	};
+
+
 
 	std::vector<projecction> getPrecalcs(MultidimArray<DOUBLE> Iexp, std::vector<float3> angles, DOUBLE shiftX, DOUBLE shiftY);
 	void addToPrecalcs(std::vector< projecction> &precalc, MultidimArray<DOUBLE> &Iexp, std::vector<float3> angles, std::vector<Matrix1D<DOUBLE>> *atomPositions, DOUBLE shiftX, DOUBLE shiftY);
@@ -127,7 +115,7 @@ public:
 		                int direction);
 
 	void setAtomPositions(std::vector<Matrix1D<DOUBLE>> newPositions) {
-		atomPositions = newPositions;
+		atoms.AtomPositions = newPositions;
 	}
 
 	void writePDB(FileName outpath);

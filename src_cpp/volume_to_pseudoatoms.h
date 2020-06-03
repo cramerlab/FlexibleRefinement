@@ -35,7 +35,7 @@
 #include "time.h"
 #define HAVE_STRUCT_TIMESPEC
 #include <pthread.h>
-
+#include "pseudoatoms.h"
 #include "cxxopts.hpp"
 using namespace relion;
 
@@ -109,19 +109,15 @@ public:
 
 	idxtype gaussFactor = 1000;
 
-	/// Maximum error (as a percentage)
-	DOUBLE targetError;
-
 	/// Stop criterion
 	DOUBLE stop;
+
+	DOUBLE super;
 
 	/// Initial seeds
 	idxtype initialSeeds;
 
 	idxtype NAtoms;
-
-	/// Grow seeds
-	DOUBLE growSeeds;
 
 	/// Allow gaussians to move
 	bool allowMovement;
@@ -144,11 +140,7 @@ public:
 	/// Column for the intensity (if any)
 	std::string intensityColumn;
 
-	/// Mindistance
-	DOUBLE minDistance;
 
-	/// Penalization
-	DOUBLE penalty;
 
 	/// Number of threads
 	idxtype numThreads;
@@ -185,30 +177,18 @@ public:
 	/// define parameters
 	void defineParams(cxxopts::Options &options);
 
-	/// Prepare side info
-	void produceSideInfo();
 
 	/// Run
 	void run();
 
 	/// Place seeds
-	void placeSeedsOriginal(int Nseeds);
 	void placeSeedsEquidistantPoints();
 
-	/// Remove seeds
-	void removeSeeds(int Nseeds);
-
-	/// Remove too close seeds
-	void removeTooCloseSeeds();
+	void drawApproximation();
 
 	/// Compute average of a volume
 	DOUBLE computeAverage(int k, int i, int j, MultidimArray<DOUBLE> &V);
 
-	/// Draw a Gaussian on a volume
-	void drawGaussian(DOUBLE k, DOUBLE i, DOUBLE j, MultidimArray<DOUBLE> &V, DOUBLE intensity);
-
-	/// Draw approximation
-	void drawApproximation();
 
 	/// Extract region around a Gaussian
 	void extractRegion(int idxGaussian, MultidimArray<DOUBLE> &region,
@@ -216,11 +196,6 @@ public:
 
 	/// Insert region
 	void insertRegion(const MultidimArray<DOUBLE> &region);
-
-	/// Evaluate region
-	DOUBLE evaluateRegion(const MultidimArray<DOUBLE> &region) const;
-
-
 
 	/// Optimize current atoms
 	void optimizeCurrentAtoms();
@@ -248,7 +223,8 @@ public:
 	DOUBLE energyOriginal;
 
 	// List of atoms
-	std::vector< PseudoAtom > atoms;
+
+	Pseudoatoms Atoms;
 
 	// Maximum radius
 	DOUBLE sigma3;
@@ -259,14 +235,8 @@ public:
 	// Range
 	DOUBLE range;
 
-	// Small atom intensity
-	DOUBLE smallAtom;
-
 	// Gaussian table
 	MultidimArray<DOUBLE> gaussianTable;
-
-	// Barrier
-	pthread_barrier_t barrier;
 
 	//FilterInput
 	bool doInputFilter;
@@ -274,16 +244,6 @@ public:
 	//InputFilter Treshold
 	DOUBLE inputFilterThresh;
 
-#define KILLTHREAD -1
-#define WORKTHREAD  0
-	// Thread operation code
-	int threadOpCode;
-
-	// Pointer to thread arguments
-	Prog_Convert_Vol2Pseudo_ThreadParams *threadArgs;
-
-	// Pointer to threads
-	pthread_t *threadIds;
 
 	// Filter for the difference volume
 	FourierFilter Filter;

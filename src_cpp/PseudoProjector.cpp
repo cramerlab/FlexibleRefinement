@@ -1,6 +1,7 @@
 
 #include "PseudoProjector.h"
 
+
 void PseudoProjector::project_Pseudo(DOUBLE * out, DOUBLE * out_nrm,
 	float3 angles, DOUBLE shiftX, DOUBLE shiftY,
 	int direction)
@@ -33,6 +34,8 @@ void PseudoProjector::project_PseudoCTF(DOUBLE * out, DOUBLE * out_nrm, DOUBLE *
 	float3 Euler, DOUBLE shiftX, DOUBLE shiftY,
 	int direction)
 {
+	if (mode != ATOM_GAUSSIAN)
+		REPORT_ERROR(std::string("This projection type is not implemented ") + __FILE__ + ": " + std::to_string(__LINE__));
 	DOUBLE * tableTmp = gaussianProjectionTable.vdata;
 	DOUBLE * tableTmp2 = gaussianProjectionTable2.vdata;
 	double oldBorder = this->tableLength;
@@ -68,18 +71,9 @@ void PseudoProjector::project_PseudoCTF(DOUBLE * out, DOUBLE * out_nrm, DOUBLE *
 
 MRCImage<DOUBLE> *PseudoProjector::create3DImage(DOUBLE oversampling) {
 	MultidimArray<DOUBLE> data(Dims.z*oversampling, Dims.y*oversampling, Dims.x*oversampling);
-	auto itPos = atomPositions.begin();
-	auto itWeight = atomWeight.begin();
-#pragma omp parallel for
-	for (int n=0; n< atomPositions.size(); n++) {
-		drawOneGaussian(gaussianProjectionTable, 4 * sigma*oversampling, ZZ(atomPositions[n])*oversampling, YY(atomPositions[n])*oversampling, XX(atomPositions[n])*oversampling, data, atomWeight[n], GAUSS_FACTOR/oversampling);
-	}
-	
-	if (oversampling > 1.0) {
-		resizeMap(data, Dims.x);
-	}
-
-	return new MRCImage<DOUBLE>(data);
+	MRCImage<DOUBLE> *Volume = new MRCImage<DOUBLE>();
+	atoms.RasterizeToVolume(Volume->data, Dims, oversampling);
+	return Volume;
 }
 
 void PseudoProjector::project_Pseudo(MultidimArray<DOUBLE> &proj, MultidimArray<DOUBLE> &norm_proj, std::vector<Matrix1D<DOUBLE>> * atomPositions,
@@ -98,7 +92,7 @@ void PseudoProjector::project_Pseudo(MultidimArray<DOUBLE> &proj, MultidimArray<
 		YY(actualAtomPosition) -= Dims.y / 2;
 		ZZ(actualAtomPosition) -= Dims.z / 2;
 
-		DOUBLE weight = atomWeight[n];
+		DOUBLE weight = atoms.AtomWeights[n];
 
 		Uproject_to_plane(actualAtomPosition, Euler, actprj);
 		XX(actprj) += Dims.x / 2;
@@ -107,57 +101,107 @@ void PseudoProjector::project_Pseudo(MultidimArray<DOUBLE> &proj, MultidimArray<
 
 		XX(actprj) += shiftX;
 		YY(actprj) += shiftY;
+		if (mode == ATOM_INTERPOLATE) {
+			if (direction == PSEUDO_FORWARD) {
+				int X0 = (int)XX(actprj);
+				DOUBLE ix = XX(actprj) - X0;
+				int X1 = X0 + 1;
+
+				int Y0 = (int)YY(actprj);
+				DOUBLE iy = YY(actprj) - Y0;
+				int Y1 = Y0 + 1;
+
+				DOUBLE v0 = 1.0f - iy;
+				DOUBLE v1 = iy;
+
+				DOUBLE v00 = (1.0f - ix) * v0;
+				DOUBLE v10 = ix * v0;
+				DOUBLE v01 = (1.0f - ix) * v1;
+				DOUBLE v11 = ix * v1;
+
+				A2D_ELEM(proj, Y0, X0) += weight * v00;
+				A2D_ELEM(proj, Y0, X1) += weight * v01;
+				A2D_ELEM(proj, Y1, X0) += weight * v10;
+				A2D_ELEM(proj, Y1, X1) += weight * v11;
+			}
+			else if (direction == PSEUDO_BACKWARD) {
+
+				int X0 = (int)XX(actprj);
+				DOUBLE ix = XX(actprj) - X0;
+				int X1 = X0 + 1;
+
+				int Y0 = (int)YY(actprj);
+				DOUBLE iy = YY(actprj) - Y0;
+				int Y1 = Y0 + 1;
+
+				DOUBLE v00 = A3D_ELEM(norm_proj, 0, Y0, X0);
+				DOUBLE v01 = A3D_ELEM(norm_proj, 0, Y0, X1);
+				DOUBLE v10 = A3D_ELEM(norm_proj, 0, Y1, X0);
+				DOUBLE v11 = A3D_ELEM(norm_proj, 0, Y1, X1);
 
 
+				DOUBLE v0 = Lerp(v00, v01, ix);
+				DOUBLE v1 = Lerp(v10, v11, ix);
+
+				DOUBLE v = Lerp(v0, v1, iy);
+
+			}
+		}
+		//Gaussian projection mode
 		// Search for integer corners for this basis
-		int XX_corner1 = CEIL(XMIPP_MAX(STARTINGX(proj), XX(actprj) - sigma4));
-		int YY_corner1 = CEIL(XMIPP_MAX(STARTINGY(proj), YY(actprj) - sigma4));
-		int XX_corner2 = FLOOR(XMIPP_MIN(FINISHINGX(proj), XX(actprj) + sigma4));
-		int YY_corner2 = FLOOR(XMIPP_MIN(FINISHINGY(proj), YY(actprj) + sigma4));
+		
+		else if (mode == ATOM_GAUSSIAN) {
+			int XX_corner1 = CEIL(XMIPP_MAX(STARTINGX(proj), XX(actprj) - sigma4));
+			int YY_corner1 = CEIL(XMIPP_MAX(STARTINGY(proj), YY(actprj) - sigma4));
+			int XX_corner2 = FLOOR(XMIPP_MIN(FINISHINGX(proj), XX(actprj) + sigma4));
+			int YY_corner2 = FLOOR(XMIPP_MIN(FINISHINGY(proj), YY(actprj) + sigma4));
 
-		// Check if the basis falls outside the projection plane
-		if (XX_corner1 <= XX_corner2 && YY_corner1 <= YY_corner2)
-		{
-			DOUBLE vol_corr = 0;
-
-			// Effectively project this basis
-			for (int y = YY_corner1; y <= YY_corner2; y++)
+			// Check if the basis falls outside the projection plane
+			if (XX_corner1 <= XX_corner2 && YY_corner1 <= YY_corner2)
 			{
-				DOUBLE y_diff2 = y - YY(actprj);
-				y_diff2 = y_diff2 * y_diff2;
-				for (int x = XX_corner1; x <= XX_corner2; x++)
+				DOUBLE vol_corr = 0;
+
+				// Effectively project this basis
+				for (int y = YY_corner1; y <= YY_corner2; y++)
 				{
-					DOUBLE x_diff2 = x - XX(actprj);
-					x_diff2 = x_diff2 * x_diff2;
-					DOUBLE r = sqrt(x_diff2 + y_diff2);
-					DOUBLE didx = r * GAUSS_FACTOR;
-					int idx = ROUND(didx);
-					DOUBLE a = VEC_ELEM(gaussianProjectionTable, idx);
-					DOUBLE a2 = VEC_ELEM(gaussianProjectionTable2, idx);
-
-					if (a < 0 || a>2) {
-						bool is = true;
-					}
-					if (direction == PSEUDO_FORWARD)
+					DOUBLE y_diff2 = y - YY(actprj);
+					y_diff2 = y_diff2 * y_diff2;
+					for (int x = XX_corner1; x <= XX_corner2; x++)
 					{
-						A2D_ELEM(proj, y, x) += weight * a;
-						A2D_ELEM(norm_proj, y, x) += a2;
+						DOUBLE x_diff2 = x - XX(actprj);
+						x_diff2 = x_diff2 * x_diff2;
+						DOUBLE r = sqrt(x_diff2 + y_diff2);
+						DOUBLE didx = r * GAUSS_FACTOR;
+						int idx = ROUND(didx);
+						DOUBLE a = VEC_ELEM(gaussianProjectionTable, idx);
+						DOUBLE a2 = VEC_ELEM(gaussianProjectionTable2, idx);
 
-					}
-					else
-					{
-						vol_corr += A2D_ELEM(norm_proj, y, x) * a;
+						if (a < 0 || a>2) {
+							bool is = true;
+						}
+						if (direction == PSEUDO_FORWARD)
+						{
+							A2D_ELEM(proj, y, x) += weight * a;
+							A2D_ELEM(norm_proj, y, x) += a2;
 
+						}
+						else
+						{
+							vol_corr += A2D_ELEM(norm_proj, y, x) * a;
+
+						}
 					}
+				}
+
+				if (direction == PSEUDO_BACKWARD)
+				{
+					atoms.AtomWeights[n] += vol_corr;
+					//atomWeight[n] = atomWeight[n] > 0 ? atomWeight[n] : 0;
 				}
 			}
 
-			if (direction == PSEUDO_BACKWARD)
-			{
-				atomWeight[n] += vol_corr;
-				//atomWeight[n] = atomWeight[n] > 0 ? atomWeight[n] : 0;
-			}
 		} // If not collapsed
+		
 	}
 }
 
@@ -168,19 +212,19 @@ void PseudoProjector::project_Pseudo(
 	int direction)
 {
 	// Project all pseudo atoms ............................................
-	int numAtoms = atomPositions.size();
+	int numAtoms = atoms.AtomPositions.size();
 	Matrix1D<DOUBLE> actprj(3);
 	double sigma4 = this->tableLength;
 	Matrix1D<DOUBLE> actualAtomPosition;
 
 	for (int n = 0; n < numAtoms; n++)
 	{
-		actualAtomPosition = atomPositions[n];
+		actualAtomPosition = atoms.AtomPositions[n];
 		XX(actualAtomPosition) -= Dims.x / 2;
 		YY(actualAtomPosition) -= Dims.y / 2;
 		ZZ(actualAtomPosition) -= Dims.z / 2;
 
-		DOUBLE weight = atomWeight[n];
+		DOUBLE weight = atoms.AtomWeights[n];
 
 		Uproject_to_plane(actualAtomPosition, Euler, actprj);
 		XX(actprj) += Dims.x / 2;
@@ -190,57 +234,64 @@ void PseudoProjector::project_Pseudo(
 		XX(actprj) += shiftX;
 		YY(actprj) += shiftY;
 
-
-		// Search for integer corners for this basis
-		int XX_corner1 = CEIL(XMIPP_MAX(STARTINGX(proj), XX(actprj) - sigma4));
-		int YY_corner1 = CEIL(XMIPP_MAX(STARTINGY(proj), YY(actprj) - sigma4));
-		int XX_corner2 = FLOOR(XMIPP_MIN(FINISHINGX(proj), XX(actprj) + sigma4));
-		int YY_corner2 = FLOOR(XMIPP_MIN(FINISHINGY(proj), YY(actprj) + sigma4));
-
-		// Check if the basis falls outside the projection plane
-		if (XX_corner1 <= XX_corner2 && YY_corner1 <= YY_corner2)
+		if (mode == ATOM_GAUSSIAN)
 		{
-			DOUBLE vol_corr = 0;
 
-			// Effectively project this basis
-			for (int y = YY_corner1; y <= YY_corner2; y++)
+			// Search for integer corners for this basis
+			int XX_corner1 = CEIL(XMIPP_MAX(STARTINGX(proj), XX(actprj) - sigma4));
+			int YY_corner1 = CEIL(XMIPP_MAX(STARTINGY(proj), YY(actprj) - sigma4));
+			int XX_corner2 = FLOOR(XMIPP_MIN(FINISHINGX(proj), XX(actprj) + sigma4));
+			int YY_corner2 = FLOOR(XMIPP_MIN(FINISHINGY(proj), YY(actprj) + sigma4));
+
+			// Check if the basis falls outside the projection plane
+			if (XX_corner1 <= XX_corner2 && YY_corner1 <= YY_corner2)
 			{
-				DOUBLE y_diff2 = y - YY(actprj);
-				y_diff2 = y_diff2 * y_diff2;
-				for (int x = XX_corner1; x <= XX_corner2; x++)
+				DOUBLE vol_corr = 0;
+
+				// Effectively project this basis
+				for (int y = YY_corner1; y <= YY_corner2; y++)
 				{
-					DOUBLE x_diff2 = x - XX(actprj);
-					x_diff2 = x_diff2 * x_diff2;
-					DOUBLE r = sqrt(x_diff2 + y_diff2);
-					DOUBLE didx = r * GAUSS_FACTOR;
-					int idx = ROUND(didx);
-					DOUBLE a = VEC_ELEM(gaussianProjectionTable, idx);
-					DOUBLE a2 = VEC_ELEM(gaussianProjectionTable2, idx);
-
-					if (a < 0 || a>2) {
-						bool is = true;
-					}
-					if (direction == PSEUDO_FORWARD)
+					DOUBLE y_diff2 = y - YY(actprj);
+					y_diff2 = y_diff2 * y_diff2;
+					for (int x = XX_corner1; x <= XX_corner2; x++)
 					{
-						A2D_ELEM(proj, y, x) += weight * a;
-						A2D_ELEM(norm_proj, y, x) += a2;
+						DOUBLE x_diff2 = x - XX(actprj);
+						x_diff2 = x_diff2 * x_diff2;
+						DOUBLE r = sqrt(x_diff2 + y_diff2);
+						DOUBLE didx = r * GAUSS_FACTOR;
+						int idx = ROUND(didx);
+						DOUBLE a = VEC_ELEM(gaussianProjectionTable, idx);
+						DOUBLE a2 = VEC_ELEM(gaussianProjectionTable2, idx);
 
-					}
-					else
-					{
-						vol_corr += A2D_ELEM(norm_proj, y, x) * a;
+						if (a < 0 || a>2) {
+							bool is = true;
+						}
+						if (direction == PSEUDO_FORWARD)
+						{
+							A2D_ELEM(proj, y, x) += weight * a;
+							A2D_ELEM(norm_proj, y, x) += a2;
 
+						}
+						else
+						{
+							vol_corr += A2D_ELEM(norm_proj, y, x) * a;
+
+						}
 					}
 				}
-			}
 
-			if (direction == PSEUDO_BACKWARD)
-			{
-				atomWeight[n] += vol_corr;
-				//atomWeight[n] = atomWeight[n] > 0 ? atomWeight[n] : 0;
-			}
-		} // If not collapsed
+				if (direction == PSEUDO_BACKWARD)
+				{
+					atoms.AtomWeights[n] += vol_corr;
+					//atomWeight[n] = atomWeight[n] > 0 ? atomWeight[n] : 0;
+				}
+			} // If not collapsed
+		}
+		else
+			REPORT_ERROR(std::string("This projection type is not implemented ") + __FILE__ + ": " + std::to_string(__LINE__));
+
 	}
+
 }
 
 DOUBLE PseudoProjector::ART_single_image(const MultidimArray<DOUBLE> &Iexp, MultidimArray<DOUBLE> &Itheo, MultidimArray<DOUBLE> &Icorr, MultidimArray<DOUBLE> &Idiff, DOUBLE rot, DOUBLE tilt, DOUBLE psi, DOUBLE shiftX, DOUBLE shiftY)
@@ -285,7 +336,7 @@ void PseudoProjector::writePDB(FileName outPath) {
 	DOUBLE minIntensity = std::numeric_limits<DOUBLE>::max();
 	DOUBLE maxIntensity = std::numeric_limits<DOUBLE>::lowest();
 	// Write the PDB
-	for each (auto var in atomWeight)
+	for each (auto var in atoms.AtomWeights)
 	{
 		minIntensity = std::min(minIntensity, var);
 		maxIntensity = std::max(maxIntensity, var);
@@ -303,7 +354,7 @@ void PseudoProjector::writePDB(FileName outPath) {
 	fhOut = fopen((outPath + ".pdb").c_str(), "w");
 	if (!fhOut)
 		REPORT_ERROR(outPath + ".pdb");
-	idxtype nmax = atomWeight.size();
+	idxtype nmax = atoms.AtomWeights.size();
 	idxtype col = 1;
 
 	fprintf(fhOut, "REMARK pseudo_projector\n");
@@ -313,24 +364,24 @@ void PseudoProjector::writePDB(FileName outPath) {
 	fprintf(fhOut, "REMARK intensityColumn Bfactor\n");
 	for (idxtype n = 0; n < nmax; n++)
 	{
-		DOUBLE intensity = atomWeight[n];
+		DOUBLE intensity = atoms.AtomWeights[n];
 		/*if (allowIntensity)
 			intensity = a*(atomWeight[n] - minIntensity) - 1;*/
 		if (col == 1)
 			fprintf(fhOut,
 				"ATOM  %5d DENS DENS %7d    %8.3f %8.3f %8.3f %.8f     1      DENS\n",
 				n + 1, n + 1,
-				(float)(atomPositions[n](0)),
-				(float)(atomPositions[n](1)),
-				(float)(atomPositions[n](2)),
+				(float)(atoms.AtomPositions[n](0)),
+				(float)(atoms.AtomPositions[n](1)),
+				(float)(atoms.AtomPositions[n](2)),
 				(float)intensity);
 		else
 			fprintf(fhOut,
 				"ATOM  %5d DENS DENS %7d    %8.3f%8.3f%8.3f     1 %.8f      DENS\n",
 				n + 1, n + 1,
-				(float)(atomPositions[n](0)),
-				(float)(atomPositions[n](1)),
-				(float)(atomPositions[n](2)),
+				(float)(atoms.AtomPositions[n](0)),
+				(float)(atoms.AtomPositions[n](1)),
+				(float)(atoms.AtomPositions[n](2)),
 				(float)intensity);
 	}
 	fclose(fhOut);
@@ -570,7 +621,7 @@ std::vector<projecction> PseudoProjector::getPrecalcs(MultidimArray<DOUBLE> Iexp
 		XX(angle) = angles[n].x;
 		YY(angle) = angles[n].y;
 		ZZ(angle) = angles[n].z;
-		precalc.push_back({ &atomPositions, tmp, angle, Euler});
+		precalc.push_back({ &atoms.AtomPositions, tmp, angle, Euler});
 	}
 	return precalc;
 }
@@ -583,7 +634,7 @@ DOUBLE PseudoProjector::SIRT_from_precalc(std::vector<projecction>& precalc, DOU
 
 DOUBLE PseudoProjector::SIRT_from_precalc(std::vector<projecction>& precalc, MultidimArray<DOUBLE>& Itheo, MultidimArray<DOUBLE>& Icorr, MultidimArray<DOUBLE>& Idiff, MultidimArray<DOUBLE>& Inorm, DOUBLE shiftX, DOUBLE shiftY)
 {
-	Itheo.initZeros(precalc.size(), Dims.y, Dims.x);
+	Itheo.initZeros(precalc.size(), super*Dims.y, super*Dims.x);
 	Icorr.initZeros(precalc.size(), Dims.y, Dims.x);
 	Inorm.initZeros(precalc.size(), Dims.y, Dims.x);
 	Idiff.resize(precalc.size(), Dims.y, Dims.x);
@@ -597,6 +648,7 @@ DOUBLE PseudoProjector::SIRT_from_precalc(std::vector<projecction>& precalc, Mul
 		tmpInorm.destroyData = tmpItheo.destroyData = tmpIcorr.destroyData = false;
 		tmpItheo.yxdim = tmpItheo.nzyxdim = tmpItheo.zyxdim = tmpItheo.xdim*tmpItheo.ydim;
 		tmpInorm.yxdim = tmpIcorr.yxdim = tmpIcorr.nzyxdim = tmpIcorr.zyxdim = tmpIcorr.xdim*tmpItheo.ydim;
+
 #pragma omp for
 		for (int imgIdx = 0; imgIdx < precalc.size(); imgIdx++) {
 			tmpItheo.data = &(A3D_ELEM(Itheo, imgIdx, 0, 0));
@@ -604,28 +656,34 @@ DOUBLE PseudoProjector::SIRT_from_precalc(std::vector<projecction>& precalc, Mul
 			tmpInorm.data = &(A3D_ELEM(Inorm, imgIdx, 0, 0));
 
 			MultidimArray<DOUBLE> *Iexp = precalc[imgIdx].image;
-			
+
 			this->project_Pseudo(tmpItheo, tmpInorm, precalc[imgIdx].atomPositons,
 				precalc[imgIdx].Euler, shiftX, shiftY, PSEUDO_FORWARD);
 
 
-
+			
 			FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY2D((*Iexp))
 			{
 				// Compute difference image and error
 
-				DIRECT_A3D_ELEM(Idiff, imgIdx, i, j) = DIRECT_A3D_ELEM((*Iexp), 0, i, j) - DIRECT_A3D_ELEM(Itheo, imgIdx, i, j);
+				/*DIRECT_A3D_ELEM(Idiff, imgIdx, i, j) = DIRECT_A3D_ELEM((*Iexp), 0, i, j) - DIRECT_A3D_ELEM(Itheo, imgIdx, i, j);
 				mean_error += DIRECT_A3D_ELEM(Idiff, imgIdx, i, j) * DIRECT_A3D_ELEM(Idiff, imgIdx, i, j);
 
 				// Compute the correction image
 
 				DIRECT_A3D_ELEM(Inorm, imgIdx, i, j) = XMIPP_MAX(DIRECT_A3D_ELEM(Inorm, imgIdx, i, j), 1);
-
+				*/
 				DIRECT_A3D_ELEM(Icorr, imgIdx, i, j) =
-					this->lambdaART * DIRECT_A3D_ELEM(Idiff, imgIdx, i, j) / (DIRECT_A3D_ELEM(Inorm, imgIdx, i, j));
+					this->lambdaART *(DIRECT_A3D_ELEM((*Iexp), 0, i, j) - DIRECT_A3D_ELEM(Itheo, imgIdx, i, j));
 			}
+			
 		}
+	}
+
 		mean_error /= YXSIZE(Itheo);
+#pragma omp parallel
+		{
+			MultidimArray<DOUBLE> tmpItheo, tmpIcorr, tmpInorm;
 #pragma omp for
 		for (int imgIdx = 0; imgIdx < precalc.size(); imgIdx++) {
 			tmpItheo.data = &(A3D_ELEM(Itheo, imgIdx, 0, 0));

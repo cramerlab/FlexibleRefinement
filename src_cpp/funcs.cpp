@@ -1,7 +1,18 @@
 #include "funcs.h"
 
 
+DOUBLE Lerp(DOUBLE a, DOUBLE b, DOUBLE x)
+{
+	return a + (b - a) * x;
+}
 
+
+/*
+DOUBLE gaussian1D(DOUBLE x, DOUBLE sigma, DOUBLE mu = 0)
+{
+	x -= mu;
+	return exp(-0.5*((x / sigma)*(x / sigma)));
+}*/
 
 
 void Uproject_to_plane(const Matrix1D<DOUBLE> &r,

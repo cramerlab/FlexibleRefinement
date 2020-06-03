@@ -19,3 +19,7 @@ void Uproject_to_plane(const Matrix1D<DOUBLE> &point,
 	Matrix1D<DOUBLE> &result);
 
 void writeFSC(MultidimArray<DOUBLE> &V1, MultidimArray<DOUBLE> &V2, FileName outpath);
+
+DOUBLE Lerp(DOUBLE a, DOUBLE b, DOUBLE x);
+
+//DOUBLE gaussian1D(DOUBLE x, DOUBLE sigma, DOUBLE mu = 0);

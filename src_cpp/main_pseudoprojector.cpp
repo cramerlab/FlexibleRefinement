@@ -186,9 +186,9 @@ void doNonMoved() {
 
 		DOUBLE zMin = std::numeric_limits<DOUBLE>::max();
 		DOUBLE zMax = std::numeric_limits<DOUBLE>::lowest();
-		for (idxtype n = 0; n < proj.atomPositions.size(); n++) {
-			zMin = std::min(zMin, (double)proj.atomPositions[n](2));
-			zMax = std::max(zMax, (double)proj.atomPositions[n](2));
+		for (idxtype n = 0; n < proj.atoms.AtomPositions.size(); n++) {
+			zMin = std::min(zMin, (double)proj.atoms.AtomPositions[n](2));
+			zMax = std::max(zMax, (double)proj.atoms.AtomPositions[n](2));
 		}
 		double lower_bound = -1.0;
 		double upper_bound = 1.0;
@@ -204,9 +204,9 @@ void doNonMoved() {
 				yShift *= -1;
 			}
 			double r = unif(re) * 5 + 10;
-			for (idxtype n = 0; n < proj.atomPositions.size(); n++) {
-				proj.atomPositions[n].vdata[0] = StartAtoms[n].x + pow(proj.atomPositions[n](2) - zMin, 1.5) / (pow(zMax - zMin, 1.5)) * r * xShift;
-				proj.atomPositions[n].vdata[1] = StartAtoms[n].y + pow(proj.atomPositions[n](2) - zMin, 1.5) / (pow(zMax - zMin, 1.5)) * r * yShift;
+			for (idxtype n = 0; n < proj.atoms.AtomPositions.size(); n++) {
+				proj.atoms.AtomPositions[n].vdata[0] = StartAtoms[n].x + pow(proj.atoms.AtomPositions[n](2) - zMin, 1.5) / (pow(zMax - zMin, 1.5)) * r * xShift;
+				proj.atoms.AtomPositions[n].vdata[1] = StartAtoms[n].y + pow(proj.atoms.AtomPositions[n](2) - zMin, 1.5) / (pow(zMax - zMin, 1.5)) * r * yShift;
 				//std::cout << "z=" << proj.atomPositions[n](2) << " shift by " << (proj.atomPositions[n](2) - zMin, 2) / (pow(zMax - zMin, 2)) * r * xShift << " , " << (proj.atomPositions[n](2) - zMin, 2) / (pow(zMax - zMin, 2)) * r * yShift << std::endl;
 			}
 			MRCImage<DOUBLE> *movedIm = proj.create3DImage(2.0);
@@ -414,10 +414,10 @@ int main(int argc, char** argv) {
 		std::cout << "error parsing options: " << e.what() << std::endl;
 		exit(1);
 	}
-	/*
+	
 	doNonMoved();
 	exit(1);
-	*/
+	
 	Algo algorithm = SIRT;
 	idxtype batchSize = 64;
 	idxtype numIt = 10;
@@ -609,8 +609,6 @@ int main(int argc, char** argv) {
 	}
 
 
-
-
 	PseudoProjector proj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (DOUBLE *)StartAtompositionsFlat.data(), RefIntensities.data(), sigma, StartAtoms.size());
 	PseudoProjector RefProj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (DOUBLE *)RefAtompositionsFlat.data(), StartIntensities.data(), sigma, RefAtoms.size());
 	proj.lambdaART = 0.0001;
@@ -760,9 +758,9 @@ int main(int argc, char** argv) {
 			std::cout << "sumProj: " << sumProj << std::endl;
 			std::cout << "sumRef: " << sumRef << std::endl;
 			DOUBLE corrFactor = sumRef / sumProj;
-			for (size_t i = 0; i < proj.atomWeight.size(); i++)
+			for (size_t i = 0; i < proj.atoms.AtomWeights.size(); i++)
 			{
-				proj.atomWeight[i] = proj.atomWeight[i] * corrFactor;
+				proj.atoms.AtomWeights[i] = proj.atoms.AtomWeights[i] * corrFactor;
 			}
 		}
 	}
