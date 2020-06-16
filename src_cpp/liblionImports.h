@@ -1,4 +1,7 @@
 #pragma once
+#ifndef LIBLION_IMPORTS
+#define LIBLION_IMPORTS
+
 
 #include "src/complex.h"
 #include "src/ctf.h"
@@ -11,3 +14,4 @@
 #include "src/strings.h"
 
 #define RFLOAT double
+#endif // !LIBLION_IMPORTS

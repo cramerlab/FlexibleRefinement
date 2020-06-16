@@ -205,18 +205,18 @@ namespace relion
 	template<typename T>
 	DOUBLE MRCImage<T>::GetInterpolatedValue(float3 pos)
 	{
-		float3 Weights(pos.x - (DOUBLE)std::floor(pos.x),
+		float3 Weights = { pos.x - (DOUBLE)std::floor(pos.x),
 			pos.y - (DOUBLE)std::floor(pos.y),
-			pos.z - (DOUBLE)std::floor(pos.z));
+			pos.z - (DOUBLE)std::floor(pos.z) };
 
 
 
-		int3 Pos0(std::max(0l, std::min(data.xdim - 1, (long)pos.x)),
+		int3 Pos0 = { std::max(0l, std::min(data.xdim - 1, (long)pos.x)),
 			std::max(0l, std::min(data.ydim - 1, (long)pos.y)),
-			std::max(0l, std::min(data.zdim - 1, (long)pos.z)));
-		int3 Pos1(std::min(data.xdim - 1, (long) (Pos0.x + 1)),
-			std::min(data.ydim - 1, (long) Pos0.y + 1),
-			std::min(data.zdim - 1, (long) Pos0.z + 1));
+			std::max(0l, std::min(data.zdim - 1, (long)pos.z)) };
+		int3 Pos1 = {std::min(data.xdim - 1, (long)(Pos0.x + 1)),
+			std::min(data.ydim - 1, (long)Pos0.y + 1),
+			std::min(data.zdim - 1, (long)Pos0.z + 1)};
 
 		if (data.zdim == 1)
 		{

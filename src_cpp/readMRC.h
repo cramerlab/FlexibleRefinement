@@ -1,11 +1,14 @@
 #pragma once
 
+
+#ifndef IO_CUH
+#define IO_CUH
+#include <Prerequisites.cuh>
 #include "liblionImports.h"
+
 #include "Types.h"
 #include "funcs.h"
 #include <string>
-#ifndef IO_CUH
-#define IO_CUH
 
 namespace relion
 {
@@ -71,13 +74,13 @@ namespace relion
 		uchar labels[10][80];
 
 		HeaderMRC() :
-			dimensions(toInt3(1, 1, 1)),
+			dimensions(gtom::toInt3(1, 1, 1)),
 			mode(MRC_FLOAT),
-			startsubimage(toInt3(0, 0, 0)),
-			griddimensions(toInt3(1, 1, 1)),
+			startsubimage(gtom::toInt3(0, 0, 0)),
+			griddimensions(gtom::toInt3(1, 1, 1)),
 			pixelsize(make_float3(1.0f, 1.0f, 1.0f)),
 			angles(make_float3(0, 0, 0)),
-			maporder(toInt3(1, 2, 3)),
+			maporder(gtom::toInt3(1, 2, 3)),
 			minvalue(-1.0f),
 			maxvalue(1.0f),
 			meanvalue(0),
@@ -109,7 +112,7 @@ namespace relion
 		EM_DOUBLE = 9,
 		EM_DOUBLECOMPLEX = 10
 	};
-
+	
 	const size_t EM_DATATYPE_SIZE[11] = { 1, 1, 2, 4, 4, 4, 8, 8, 16 };
 
 	struct HeaderEM
@@ -117,7 +120,7 @@ namespace relion
 		uchar machinecoding;
 		uchar os9;
 		uchar invalid;
-		EM_DATATYPE mode;
+		relion::EM_DATATYPE mode;
 
 		int3 dimensions;
 

@@ -17,7 +17,7 @@ namespace Testing
             Image RefVol = Image.FromFile(@"D:\EMD\9233\emd_9233_1.5.mrc");
             Projector Ref = new Projector(RefVol, 3);
 
-            string instarName = @"D:\EMD\9233\emd_9233_Scaled_1.5_75k_bs64_it15_moving\projections_uniform_256";
+            string instarName = @"D:\EMD\9233\emd_9233_Scaled_1.5.projections_uniform";
             Star starFile = new Star($@"{instarName}.star");
             System.ValueTuple<string, int>[] micrographNames = starFile.GetRelionParticlePaths();
             Image micrograph = Image.FromFile($@"{micrographNames[0].Item1}");
@@ -99,7 +99,7 @@ namespace Testing
                 Projector Reconstructor = new Projector(new int3(Particles.Dims.X), 2);
                 int skip = 0;
 
-                    for (int processIdx = 0; processIdx < particles.Length; processIdx += 256) {
+                    for (int processIdx = 0; processIdx < particles.Length; processIdx += 1024) {
                         //float[][] slicesData = particles[i].GetHost(Intent.Read).Skip(processIdx).Take(1024).ToArray();
                         //Image part = new Image(slicesData, new int3(particles[i].Dims.X, particles[i].Dims.Y, slicesData.Length));
                         Image part = Image.Stack(particles.Skip(processIdx).Take(1024).ToArray());

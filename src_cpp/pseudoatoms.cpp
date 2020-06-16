@@ -6,10 +6,13 @@ void Pseudoatoms::RasterizeToVolume(MultidimArray<DOUBLE>& vol, int3 Dims, DOUBL
 	if (Mode == ATOM_INTERPOLATE)
 	{
 		vol.resizeNoCopy((long)(Dims.z * super + 0.5), (long)(Dims.y * super + 0.5), (long)(Dims.x * super + 0.5));
+		vol.initZeros();
+		//resizeMap(vol, (long)(Dims.z * super + 0.5));
+		//ResizeMapGPU(vol, make_int3((int)(volSuper.xdim*super + 0.5), (int)(volSuper.ydim*super + 0.5), (int)(volSuper.zdim*super + 0.5)));
 
 
 		MultidimArray<DOUBLE> Weights((long)(Dims.z * super + 0.5), (long)(Dims.y * super + 0.5), (long)(Dims.x * super + 0.5));
-#pragma omp parallel for
+
 		for (int p = 0; p < AtomPositions.size(); p++)
 		{
 			Matrix1D<DOUBLE> superPos = AtomPositions[p] * super;
@@ -70,14 +73,14 @@ void Pseudoatoms::RasterizeToVolume(MultidimArray<DOUBLE>& vol, int3 Dims, DOUBL
 
 		Weights.coreDeallocate();
 
-		resizeMap(vol, Dims.x);
+		ResizeMapGPU(vol, Dims);
 		return;
 	}
 	else if (Mode == ATOM_GAUSSIAN) {
-		vol.resizeNoCopy(Dims.z*super, Dims.y*super, Dims.x*super);
+		resizeMap(vol, (long)(Dims.z * super + 0.5));
 		auto itPos = AtomPositions.begin();
 		auto itWeight = AtomWeights.begin();
-#pragma omp parallel for
+
 		for (int n = 0; n < AtomPositions.size(); n++) {
 			drawOneGaussian(GaussianTable, 4 * Sigma*super, ZZ(AtomPositions[n])*super, YY(AtomPositions[n])*super, XX(AtomPositions[n])*super, vol, AtomWeights[n], GaussFactor / super);
 		}
@@ -91,11 +94,11 @@ void Pseudoatoms::RasterizeToVolume(MultidimArray<DOUBLE>& vol, int3 Dims, DOUBL
 void Pseudoatoms::IntensityFromVolume(MultidimArray<DOUBLE>& vol, DOUBLE super)
 {
 	AtomWeights.clear();
-	AtomWeights.reserve(AtomPositions.size());
+	AtomWeights.resize(AtomPositions.size());
 	MultidimArray<DOUBLE> volSuper = vol;
-	resizeMap(volSuper, (int)(volSuper.xdim*super + 0.5));
+	ResizeMapGPU(volSuper, make_int3((int)(volSuper.xdim*super + 0.5), (int)(volSuper.ydim*super + 0.5), (int)(volSuper.zdim*super + 0.5)));
 
-
+#pragma omp parallel for
 	for (int p = 0; p < AtomPositions.size(); p++)
 	{
 		Matrix1D<DOUBLE> superPos = AtomPositions[p] * super;
@@ -131,7 +134,7 @@ void Pseudoatoms::IntensityFromVolume(MultidimArray<DOUBLE>& vol, DOUBLE super)
 
 		DOUBLE v = Lerp(v0, v1, iz);
 
-		AtomWeights.push_back(v);
+		AtomWeights[p] = v;
 	}
 
 	volSuper.coreDeallocate();

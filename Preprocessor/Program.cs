@@ -496,9 +496,9 @@ namespace Preprocessor
             //projectUniform(@"D:\EMPIAR\10168\emd_4180_res7.mrc",  @"D:\EMPIAR\10168\shiny.star", @"D:\EMPIAR\10168\", @"D:\EMPIAR\10168\Projections_7_uniform")
             //preprocess_emd_9233();
             //preprocess_emd_9233();
-            //projectUniform(@"D:\EMD\9233\emd_9233_Scaled_1.5.mrc", @"D:\EMPIAR\10168\shiny.star", @"D:\EMD\9233", @"D:\EMD\9233\Projections_1.5_uniform");
+            projectUniform(@"D:\EMD\9233\emd_9233_Scaled_1.5.mrc", @"D:\EMPIAR\10168\shiny.star", @"D:\EMD\9233", @"D:\EMD\9233\Projections_1.5_uniform");
             //projectUniform(@"D:\EMD\9233\emd_9233_Scaled_1.2.mrc", @"D:\EMPIAR\10168\shiny.star", @"D:\EMD\9233", @"D:\EMD\9233\Projections_1.2_uniform");
-            projectUniformMoved();
+            //projectUniformMoved();
 
         }
     }

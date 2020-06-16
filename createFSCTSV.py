@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from glob import glob
 import re
 #infileDir = r"D:\EMD\9233\emd_9233_Scaled_1.5_75k_bs64_it3_moving"
-infileDir = r"D:\EMD\9233\tmp"
+infileDir = r"D:\EMD\9233\AtomNumberSweep"
 voxelSize = 1.5
 
 
@@ -13,7 +13,7 @@ def findIntersect(a, x1,y1,x2,y2):
     return (a-(x2*y1-x1*y2)/(x2-x1))*(x2-x1)/(y2-y1)
 
 
-with open(r"D:\EMD\9233\tmp\fscs.tsv", "w") as outfile:
+with open(r"D:\EMD\9233\AtomNumberSweep\fscs.tsv", "w") as outfile:
     outfile.write("{}\t{}\t{}\t{}\n".format("ATOMCOUNT", "OVERSAMPLING", "ROUND", "RESOLUTION"))
     for f in glob(os.path.join(infileDir, r"*.fsc"), recursive=True):
         N = int(re.search("N(\d+)", f).group(1))*1000

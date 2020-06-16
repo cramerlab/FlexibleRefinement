@@ -45,6 +45,9 @@
     <ClInclude Include="src_cpp\pseudoatoms.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src_cpp\Warp_GPU.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src_cpp\fourier_filter.cpp">
@@ -73,6 +76,9 @@
     </ClCompile>
     <ClCompile Include="src_cpp\volume_to_pseudoatoms.h">
       <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src_cpp\Warp_GPU.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

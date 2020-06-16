@@ -1,4 +1,7 @@
 #pragma once
+#ifndef FUNCS
+#define FUNCS
+
 
 
 #include "liblionImports.h"
@@ -23,3 +26,4 @@ void writeFSC(MultidimArray<DOUBLE> &V1, MultidimArray<DOUBLE> &V2, FileName out
 DOUBLE Lerp(DOUBLE a, DOUBLE b, DOUBLE x);
 
 //DOUBLE gaussian1D(DOUBLE x, DOUBLE sigma, DOUBLE mu = 0);
+#endif // !FUNCS

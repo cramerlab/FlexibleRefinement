@@ -87,7 +87,7 @@ void PseudoProjector::project_Pseudo(MultidimArray<DOUBLE> &proj, MultidimArray<
 
 	for (int n = 0; n < numAtoms; n++)
 	{
-		actualAtomPosition = (*atomPositions)[n];
+		actualAtomPosition = (*atomPositions)[n]*super;
 		XX(actualAtomPosition) -= Dims.x / 2;
 		YY(actualAtomPosition) -= Dims.y / 2;
 		ZZ(actualAtomPosition) -= Dims.z / 2;
@@ -286,6 +286,52 @@ void PseudoProjector::project_Pseudo(
 					//atomWeight[n] = atomWeight[n] > 0 ? atomWeight[n] : 0;
 				}
 			} // If not collapsed
+		}
+		else if (mode == ATOM_INTERPOLATE) {
+			if (direction == PSEUDO_FORWARD) {
+				int X0 = (int)XX(actprj);
+				DOUBLE ix = XX(actprj) - X0;
+				int X1 = X0 + 1;
+
+				int Y0 = (int)YY(actprj);
+				DOUBLE iy = YY(actprj) - Y0;
+				int Y1 = Y0 + 1;
+
+				DOUBLE v0 = 1.0f - iy;
+				DOUBLE v1 = iy;
+
+				DOUBLE v00 = (1.0f - ix) * v0;
+				DOUBLE v10 = ix * v0;
+				DOUBLE v01 = (1.0f - ix) * v1;
+				DOUBLE v11 = ix * v1;
+
+				A2D_ELEM(proj, Y0, X0) += weight * v00;
+				A2D_ELEM(proj, Y0, X1) += weight * v01;
+				A2D_ELEM(proj, Y1, X0) += weight * v10;
+				A2D_ELEM(proj, Y1, X1) += weight * v11;
+			}
+			else if (direction == PSEUDO_BACKWARD) {
+
+				int X0 = (int)XX(actprj);
+				DOUBLE ix = XX(actprj) - X0;
+				int X1 = X0 + 1;
+
+				int Y0 = (int)YY(actprj);
+				DOUBLE iy = YY(actprj) - Y0;
+				int Y1 = Y0 + 1;
+
+				DOUBLE v00 = A3D_ELEM(norm_proj, 0, Y0, X0);
+				DOUBLE v01 = A3D_ELEM(norm_proj, 0, Y0, X1);
+				DOUBLE v10 = A3D_ELEM(norm_proj, 0, Y1, X0);
+				DOUBLE v11 = A3D_ELEM(norm_proj, 0, Y1, X1);
+
+
+				DOUBLE v0 = Lerp(v00, v01, ix);
+				DOUBLE v1 = Lerp(v10, v11, ix);
+
+				DOUBLE v = Lerp(v0, v1, iy);
+
+			}
 		}
 		else
 			REPORT_ERROR(std::string("This projection type is not implemented ") + __FILE__ + ": " + std::to_string(__LINE__));
@@ -626,44 +672,48 @@ std::vector<projecction> PseudoProjector::getPrecalcs(MultidimArray<DOUBLE> Iexp
 	return precalc;
 }
 
-DOUBLE PseudoProjector::SIRT_from_precalc(std::vector<projecction>& precalc, DOUBLE shiftX, DOUBLE shiftY)
+DOUBLE PseudoProjector::SIRT_from_precalc(MultidimArray<DOUBLE> &Iexp, std::vector<projecction>& precalc, DOUBLE shiftX, DOUBLE shiftY)
 {
 	MultidimArray<DOUBLE> Itheo, Icorr, Idiff, Inorm;
-	return SIRT_from_precalc(precalc, Itheo, Icorr, Idiff, Inorm, shiftX, shiftY);
+	return SIRT_from_precalc(Iexp, precalc, Itheo, Icorr, Idiff, Inorm, shiftX, shiftY);
 }
 
-DOUBLE PseudoProjector::SIRT_from_precalc(std::vector<projecction>& precalc, MultidimArray<DOUBLE>& Itheo, MultidimArray<DOUBLE>& Icorr, MultidimArray<DOUBLE>& Idiff, MultidimArray<DOUBLE>& Inorm, DOUBLE shiftX, DOUBLE shiftY)
+DOUBLE PseudoProjector::SIRT_from_precalc(MultidimArray<DOUBLE> &Iexp, std::vector<projecction>& precalc, MultidimArray<DOUBLE>& Itheo, MultidimArray<DOUBLE>& Icorr, MultidimArray<DOUBLE>& Idiff, MultidimArray<DOUBLE>& Inorm, DOUBLE shiftX, DOUBLE shiftY)
 {
-	Itheo.initZeros(precalc.size(), super*Dims.y, super*Dims.x);
-	Icorr.initZeros(precalc.size(), Dims.y, Dims.x);
-	Inorm.initZeros(precalc.size(), Dims.y, Dims.x);
-	Idiff.resize(precalc.size(), Dims.y, Dims.x);
+	Itheo.resizeNoCopy(precalc.size(), Dims.y, Dims.x);
+	Icorr.resizeNoCopy(precalc.size(), Dims.y, Dims.x);
+	Idiff.resizeNoCopy(precalc.size(), Dims.y, Dims.x);
+
+	MultidimArray<DOUBLE> SuperItheo, SuperIcorr, superInorm;
+	SuperItheo.initZeros(precalc.size(), super*Dims.y, super*Dims.x);
+	SuperIcorr.initZeros(precalc.size(), super*Dims.y, super*Dims.x);
+	superInorm.initZeros(precalc.size(), super*Dims.y, super*Dims.x);
 	DOUBLE mean_error = 0.0;
 #pragma omp parallel
 	{
 		//Initialize array for the slice view
-		MultidimArray<DOUBLE> tmpItheo, tmpIcorr, tmpInorm;
-		tmpInorm.xdim = tmpItheo.xdim = tmpIcorr.xdim = Dims.x;
-		tmpInorm.ydim = tmpItheo.ydim = tmpIcorr.ydim = Dims.y;
-		tmpInorm.destroyData = tmpItheo.destroyData = tmpIcorr.destroyData = false;
-		tmpItheo.yxdim = tmpItheo.nzyxdim = tmpItheo.zyxdim = tmpItheo.xdim*tmpItheo.ydim;
-		tmpInorm.yxdim = tmpIcorr.yxdim = tmpIcorr.nzyxdim = tmpIcorr.zyxdim = tmpIcorr.xdim*tmpItheo.ydim;
+		MultidimArray<DOUBLE> tmpSuperItheo, tmpIcorr, tmpSuperInorm;
+		tmpSuperInorm.xdim = tmpSuperItheo.xdim = tmpIcorr.xdim = Dims.x;
+		tmpSuperInorm.ydim = tmpSuperItheo.ydim = tmpIcorr.ydim = Dims.y;
+		tmpSuperInorm.destroyData = tmpSuperItheo.destroyData = tmpIcorr.destroyData = false;
+		tmpSuperItheo.yxdim = tmpSuperItheo.nzyxdim = tmpSuperItheo.zyxdim = tmpSuperItheo.xdim*tmpSuperItheo.ydim;
+		tmpSuperInorm.yxdim = tmpIcorr.yxdim = tmpIcorr.nzyxdim = tmpIcorr.zyxdim = tmpIcorr.xdim*tmpSuperItheo.ydim;
 
 #pragma omp for
 		for (int imgIdx = 0; imgIdx < precalc.size(); imgIdx++) {
-			tmpItheo.data = &(A3D_ELEM(Itheo, imgIdx, 0, 0));
+			tmpSuperItheo.data = &(A3D_ELEM(Itheo, imgIdx, 0, 0));
 			tmpIcorr.data = &(A3D_ELEM(Icorr, imgIdx, 0, 0));
-			tmpInorm.data = &(A3D_ELEM(Inorm, imgIdx, 0, 0));
+			tmpSuperInorm.data = &(A3D_ELEM(Inorm, imgIdx, 0, 0));
 
 			MultidimArray<DOUBLE> *Iexp = precalc[imgIdx].image;
 
-			this->project_Pseudo(tmpItheo, tmpInorm, precalc[imgIdx].atomPositons,
+			this->project_Pseudo(tmpSuperItheo, tmpSuperInorm, precalc[imgIdx].atomPositons,
 				precalc[imgIdx].Euler, shiftX, shiftY, PSEUDO_FORWARD);
 
 
 			
-			FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY2D((*Iexp))
-			{
+			//FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY2D((*Iexp))
+			//{
 				// Compute difference image and error
 
 				/*DIRECT_A3D_ELEM(Idiff, imgIdx, i, j) = DIRECT_A3D_ELEM((*Iexp), 0, i, j) - DIRECT_A3D_ELEM(Itheo, imgIdx, i, j);
@@ -673,23 +723,43 @@ DOUBLE PseudoProjector::SIRT_from_precalc(std::vector<projecction>& precalc, Mul
 
 				DIRECT_A3D_ELEM(Inorm, imgIdx, i, j) = XMIPP_MAX(DIRECT_A3D_ELEM(Inorm, imgIdx, i, j), 1);
 				*/
-				DIRECT_A3D_ELEM(Icorr, imgIdx, i, j) =
-					this->lambdaART *(DIRECT_A3D_ELEM((*Iexp), 0, i, j) - DIRECT_A3D_ELEM(Itheo, imgIdx, i, j));
-			}
+				//DIRECT_A3D_ELEM(Icorr, imgIdx, i, j) =
+				//	this->lambdaART *(DIRECT_A3D_ELEM((*Iexp), 0, i, j) - DIRECT_A3D_ELEM(Itheo, imgIdx, i, j));
+			//}
 			
 		}
+
+		
 	}
 
-		mean_error /= YXSIZE(Itheo);
+	float * d_superItheo = MallocDeviceFromHost(SuperItheo.data, SuperItheo.nzyxdim);
+	float* d_Itheo = MallocDevice(Iexp.nzyxdim);
+	Scale(d_superItheo, d_Itheo, make_int3(SuperItheo.xdim, SuperItheo.ydim,1), make_int3(Itheo.xdim, Itheo.ydim, 1), SuperItheo.zdim,0,0,NULL,NULL);
+	FreeDevice(d_superItheo);
+	CopyDeviceToHost(d_Itheo, Itheo.data, Itheo.nzyxdim);
+	
+	float *d_Icorr = MallocDeviceFromHost(Itheo.data, Itheo.nzyxdim);
+	float *d_Iexp = MallocDeviceFromHost(Iexp.data, Iexp.nzyxdim);
+
+	SubtractFromSlices(d_Icorr, d_Iexp, d_Icorr, Iexp.nzyxdim, 1);
+	FreeDevice(d_Iexp);
+	CopyDeviceToHost(d_Icorr, Idiff.data, Icorr.nzyxdim);
+
+	MultiplyByScalar(d_Icorr, d_Icorr, -lambdaART, Iexp.nzyxdim);
+	CopyDeviceToHost(d_Icorr, Icorr.data, Icorr.nzyxdim);
+	float* d_SuperIcorr = MallocDevice(SuperItheo.nzyxdim);
+	Scale(d_Icorr, d_SuperIcorr, make_int3(Icorr.xdim, Icorr.ydim, 1), make_int3(SuperIcorr.xdim, SuperIcorr.ydim, 1), SuperIcorr.zdim, 0, 0, NULL, NULL);
+	CopyDeviceToHost(d_SuperIcorr, SuperIcorr.data, SuperIcorr.nzyxdim);
+	FreeDevice(d_SuperIcorr);
 #pragma omp parallel
 		{
-			MultidimArray<DOUBLE> tmpItheo, tmpIcorr, tmpInorm;
+			MultidimArray<DOUBLE> tmpSuperItheo, tmpSuperIcorr;
 #pragma omp for
 		for (int imgIdx = 0; imgIdx < precalc.size(); imgIdx++) {
-			tmpItheo.data = &(A3D_ELEM(Itheo, imgIdx, 0, 0));
-			tmpIcorr.data = &(A3D_ELEM(Icorr, imgIdx, 0, 0));
+			tmpSuperItheo.data = &(A3D_ELEM(Itheo, imgIdx, 0, 0));
+			tmpSuperIcorr.data = &(A3D_ELEM(Icorr, imgIdx, 0, 0));
 
-			this->project_Pseudo(tmpItheo, tmpIcorr, precalc[imgIdx].atomPositons,
+			this->project_Pseudo(tmpSuperItheo, tmpSuperIcorr, precalc[imgIdx].atomPositons,
 				precalc[imgIdx].Euler, shiftX, shiftY, PSEUDO_BACKWARD);
 		}
 	}

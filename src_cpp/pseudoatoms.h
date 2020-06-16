@@ -1,7 +1,11 @@
 #pragma once
+#ifndef PSEUDOATOMS
+#define PSEUDOATOMS
+
 #include "liblionImports.h"
 #include "Types.h"
 #include "funcs.h"
+#include "Warp_GPU.h"
 enum PseudoAtomMode { ATOM_GAUSSIAN=0, ATOM_INTERPOLATE=1 };
 
 
@@ -27,7 +31,7 @@ public:
 
 	Pseudoatoms(PseudoAtomMode mode = ATOM_INTERPOLATE, DOUBLE sigma = 1.0, DOUBLE gaussFactor = 1.0):Mode(mode), Sigma(sigma), GaussFactor(gaussFactor){};
 
-	Pseudoatoms(DOUBLE *atomPositionCArr, DOUBLE *atomWeights, idxtype nAtoms, PseudoAtomMode mode = ATOM_INTERPOLATE, DOUBLE sigma = 1.0, DOUBLE gaussFactor=1.0):Sigma(sigma), GaussFactor(gaussFactor) {
+	Pseudoatoms(DOUBLE *atomPositionCArr, DOUBLE *atomWeights, idxtype nAtoms, PseudoAtomMode mode = ATOM_INTERPOLATE, DOUBLE sigma = 1.0, DOUBLE gaussFactor=1.0):Mode(mode), Sigma(sigma), GaussFactor(gaussFactor) {
 		AtomPositions = std::vector<Matrix1D<DOUBLE>>();
 		AtomPositions.reserve(nAtoms);
 
@@ -54,3 +58,4 @@ public:
 	}
 
 };
+#endif // !PSEUDOATOMS

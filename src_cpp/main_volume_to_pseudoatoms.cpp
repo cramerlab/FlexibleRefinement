@@ -31,6 +31,8 @@
 #include <filesystem>
 #include "macros.h"
 #include "funcs.h"
+#include "omp.h"
+
 //#define DEBUGFJ
 namespace fs = std::filesystem;
  /* Pseudo atoms ------------------------------------------------------------ */
@@ -159,11 +161,13 @@ void ProgVolumeToPseudoatoms::placeSeedsEquidistantPoints() {
 		p = p + Offset;
 	}
 	sigma = R;
+	Atoms.AtomPositions.reserve(InsideMask.size());
+	Atoms.AtomWeights.reserve(InsideMask.size());
 	for (auto v : InsideMask) {
-		Matrix1D<DOUBLE> pos;
-		v.x = v.x - Vin().xdim / 2;
+		Matrix1D<DOUBLE> pos(3);
+		/*v.x = v.x - Vin().xdim / 2;
 		v.y = v.y - Vin().ydim / 2;
-		v.z = v.z - Vin().zdim / 2;
+		v.z = v.z - Vin().zdim / 2;*/
 		VEC_ELEM(pos, 0) = v.x;
 		VEC_ELEM(pos, 1) = v.y;
 		VEC_ELEM(pos, 2) = v.z;
@@ -181,7 +185,7 @@ void ProgVolumeToPseudoatoms::run()
 		REPORT_ERROR( (std::string)"Unknown column: " + intensityColumn);
 
 	Vin = MRCImage<DOUBLE>::readAs(std::string(fnVol));
-	Vin().setXmippOrigin();
+	Vin.setZeroOrigin();
 
 	if (doInputFilter) {
 		bandpassFilter(Vin(), inputFilterThresh, (DOUBLE)0, (DOUBLE)5);
@@ -197,10 +201,11 @@ void ProgVolumeToPseudoatoms::run()
 		fnOut = fnVol.withoutExtension();
 
 	Vcurrent().initZeros(Vin());
-	Vcurrent().setXmippOrigin();
+	Vcurrent.setZeroOrigin();
 	mask_prm.generate_mask(Vin());
 
 	placeSeedsEquidistantPoints();
+	Atoms.RasterizeToVolume(Vcurrent(), make_int3(Vcurrent().xdim, Vcurrent().ydim, Vcurrent().zdim), super);
 	sigma /= sampling;
 	sigma3 = 3 * sigma;
 	super = 4.0;
@@ -211,9 +216,11 @@ void ProgVolumeToPseudoatoms::run()
 	energyOriginal = 0;
 	DOUBLE N = 0;
 	DOUBLE minval = 1e38, maxval = -1e38;
-	const MultidimArray<int> &iMask3D = mask_prm.get_binary_mask();
+	MultidimArray<int> &iMask3D = mask_prm.get_binary_mask();
+	iMask3D.xinit = iMask3D.yinit = iMask3D.zinit = 0;
 	FOR_ALL_ELEMENTS_IN_ARRAY3D(Vin())
 	{
+		
 		if (useMask && iMask3D(k, i, j) == 0)
 			continue;
 		DOUBLE v = Vin(k, i, j);
@@ -255,9 +262,8 @@ void ProgVolumeToPseudoatoms::drawApproximation()
 #ifdef DEBUGFJ
 	std::cout << "drawApproximation" << std::endl;
 #endif
-	Vcurrent().setXmippOrigin();
+
 	Atoms.RasterizeToVolume(Vcurrent(), make_int3(Vcurrent().xdim, Vcurrent().ydim, Vcurrent().zdim), oversampling);
-	Vcurrent().setXmippOrigin();
 
 	energyDiff = 0;
 	DOUBLE N = 0;
@@ -324,7 +330,7 @@ void ProgVolumeToPseudoatoms::writeResults()
 		
 	// Save the difference
 		MRCImage<DOUBLE> Vdiff(Vin.getHeader());
-		Vcurrent.setXmippOrigin();
+		Vdiff.setZeroOrigin();
 		Vdiff.setData( Vin() - Vcurrent());
 		const MultidimArray<int> &iMask3D = mask_prm.get_binary_mask();
 		if (useMask && XSIZE(iMask3D) != 0)
@@ -343,7 +349,7 @@ void ProgVolumeToPseudoatoms::writeResults()
 	if (maxIntensity - minIntensity < 1e-4)
 	{
 		dontScale = true;
-		allowIntensity = false;
+
 	}
 	DOUBLE a = 0.99 / (maxIntensity - minIntensity);
 	if (dontScale)
@@ -363,23 +369,23 @@ void ProgVolumeToPseudoatoms::writeResults()
 	for (idxtype n = 0; n < nmax; n++)
 	{
 		DOUBLE intensity = 1.0;
-		if (allowIntensity)
-			intensity = 0.01 + ROUND(100 * a*(Atoms.AtomWeights[n] - minIntensity)) / 100.0;
+		if (interpolateValues)
+			intensity = Atoms.AtomWeights[n];
 		if (col == 1)
 			fprintf(fhOut,
-				"ATOM  %5d DENS DENS %7d    %8.3f%8.3f%8.3f%6.2f     1      DENS\n",
+				"ATOM  %8d DENS DENS %7d    %8.3f%8.3f%8.3f%14.10f     1      DENS\n",
 				n + 1, n + 1,
-				(float)(Atoms.AtomPositions[n](0)*sampling),
-				(float)(Atoms.AtomPositions[n](1)*sampling),
-				(float)(Atoms.AtomPositions[n](2)*sampling),
+				(float)(Atoms.AtomPositions[n](0)),
+				(float)(Atoms.AtomPositions[n](1)),
+				(float)(Atoms.AtomPositions[n](2)),
 				(float)intensity);
 		else
 			fprintf(fhOut,
-				"ATOM  %5d DENS DENS %7d    %8.3f%8.3f%8.3f     1%6.2f      DENS\n",
+				"ATOM  %8d DENS DENS %7d    %8.3f%8.3f%8.3f     1%14.10f      DENS\n",
 				n + 1, n + 1,
-				(float)(Atoms.AtomPositions[n](0)*sampling),
-				(float)(Atoms.AtomPositions[n](1)*sampling),
-				(float)(Atoms.AtomPositions[n](2)*sampling),
+				(float)(Atoms.AtomPositions[n](0)),
+				(float)(Atoms.AtomPositions[n](1)),
+				(float)(Atoms.AtomPositions[n](2)),
 				(float)intensity);
 	}
 	fclose(fhOut);
@@ -426,6 +432,7 @@ void ProgVolumeToPseudoatoms::readParams(cxxopts::ParseResult &result)
 	nIter = 10;
 	interpolateValues = false;
 	oversampling = 1.0;
+	super = 1.0;
 	if (result.count("i"))
 		fnVol = result["i"].as<std::string>();
 	else
@@ -438,6 +445,7 @@ void ProgVolumeToPseudoatoms::readParams(cxxopts::ParseResult &result)
 	}
 	sigma = result["sigma"].as<DOUBLE>();
 	oversampling = result["oversampling"].as<DOUBLE>();
+	super = oversampling;
 	initialSeeds = result["initialSeeds"].as<size_t>();
 	if (result.count("filterInput")) {
 		doInputFilter = true;
@@ -462,6 +470,7 @@ void ProgVolumeToPseudoatoms::readParams(cxxopts::ParseResult &result)
 		threshold = 0;
 
 	numThreads = result["thr"].as<size_t>();
+	omp_set_num_threads(numThreads);
 	mask_prm.allowed_data_types = INT_MASK;
 	useMask = result.count("mask");
 	if (useMask)

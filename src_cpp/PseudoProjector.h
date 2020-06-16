@@ -1,5 +1,6 @@
 #pragma once
-
+#ifndef  PSEUDO_PROJECTOR
+#define PSEUDO_PROJECTOR
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -9,11 +10,11 @@
 #include <fstream>
 #include <vector>
 #include <set>
-#include "readMRC.h"
+#include "liblionImports.h"
 #include "Types.h"
+#include "readMRC.h"
 #include "macros.h"
 #include "funcs.h"
-#include "liblionImports.h"
 #include "pseudoatoms.h"
 
 #define GAUSS_FACTOR 30
@@ -78,8 +79,8 @@ public:
 	std::vector<projecction> getPrecalcs(MultidimArray<DOUBLE> Iexp, std::vector<float3> angles, DOUBLE shiftX, DOUBLE shiftY);
 	void addToPrecalcs(std::vector< projecction> &precalc, MultidimArray<DOUBLE> &Iexp, std::vector<float3> angles, std::vector<Matrix1D<DOUBLE>> *atomPositions, DOUBLE shiftX, DOUBLE shiftY);
 
-	DOUBLE SIRT_from_precalc(std::vector<projecction> &precalc, DOUBLE shiftX, DOUBLE shiftY);
-	DOUBLE SIRT_from_precalc(std::vector<projecction>& precalc, MultidimArray<DOUBLE>& Itheo, MultidimArray<DOUBLE>& Icorr, MultidimArray<DOUBLE>& Idiff, MultidimArray<DOUBLE>& Inorm, DOUBLE shiftX, DOUBLE shiftY);
+	DOUBLE SIRT_from_precalc(MultidimArray<DOUBLE> &Iexp, std::vector<projecction> &precalc, DOUBLE shiftX, DOUBLE shiftY);
+	DOUBLE SIRT_from_precalc(MultidimArray<DOUBLE> &Iexp, std::vector<projecction>& precalc, MultidimArray<DOUBLE>& Itheo, MultidimArray<DOUBLE>& Icorr, MultidimArray<DOUBLE>& Idiff, MultidimArray<DOUBLE>& Inorm, DOUBLE shiftX, DOUBLE shiftY);
 	DOUBLE ART_single_image(const MultidimArray<DOUBLE> &Iexp, DOUBLE rot, DOUBLE tilt, DOUBLE psi, DOUBLE shiftX, DOUBLE shiftY);
 	DOUBLE ART_single_image(const MultidimArray<DOUBLE> &Iexp, MultidimArray<DOUBLE> &Itheo, MultidimArray<DOUBLE> &Icorr, MultidimArray<DOUBLE> &Idiff, DOUBLE rot, DOUBLE tilt, DOUBLE psi, DOUBLE shiftX, DOUBLE shiftY);
 
@@ -122,5 +123,5 @@ public:
 
 };
 
-
+#endif // ! PSEUDO_PROJECTOR
 

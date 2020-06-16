@@ -3,6 +3,8 @@
 #define CORE_TYPES_H
 //#include "liblionImports.h"
 #include <vector>
+#include "vector_types.h"
+#include <Prerequisites.cuh>
 typedef unsigned char uchar;
 typedef unsigned int uint;
 typedef float tfloat;
@@ -34,7 +36,7 @@ typedef size_t idxtype;
 #define dotp2(a, b) ((a).x * (b).x + (a).y * (b).y)
 
 
-
+/*
 struct int2
 {
 	int x, y;
@@ -251,7 +253,7 @@ inline int3 make_int3(int x, int y, int z)
 }
 
 
-float3 mean(std::vector<float3> vec);
+float3 mean(std::vector<float3> vec);*/
 /*
 float3 mean(MultidimArray<float3> &vec) {
 	float3 sum = { 0,0,0 };
