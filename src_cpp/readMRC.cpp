@@ -50,9 +50,9 @@ namespace relion
 
 		fread(headerp, sizeof(char), sizeof(HeaderMRC), inputfile);
 #if _MSC_VER > 1
-		_fseeki64(inputfile, (long)header.extendedbytes, SEEK_CUR);
+		_fseeki64(inputfile, (size_t)header.extendedbytes, SEEK_CUR);
 #elif __GNUC__ > 3
-		fseeko64(inputfile, (long)header.extendedbytes, SEEK_CUR);
+		fseeko64(inputfile, (size_t)header.extendedbytes, SEEK_CUR);
 #endif
 		return header;
 	}
@@ -211,12 +211,12 @@ namespace relion
 
 
 
-		int3 Pos0 = { std::max(0l, std::min(data.xdim - 1, (long)pos.x)),
-			std::max(0l, std::min(data.ydim - 1, (long)pos.y)),
-			std::max(0l, std::min(data.zdim - 1, (long)pos.z)) };
-		int3 Pos1 = {std::min(data.xdim - 1, (long)(Pos0.x + 1)),
-			std::min(data.ydim - 1, (long)Pos0.y + 1),
-			std::min(data.zdim - 1, (long)Pos0.z + 1)};
+		int3 Pos0 = { std::max((size_t)0, std::min(data.xdim - 1, (size_t)pos.x)),
+			std::max((size_t)0, std::min(data.ydim - 1, (size_t)pos.y)),
+			std::max((size_t)0, std::min(data.zdim - 1, (size_t)pos.z)) };
+		int3 Pos1 = {std::min(data.xdim - 1, (size_t)(Pos0.x + 1)),
+			std::min(data.ydim - 1, (size_t)Pos0.y + 1),
+			std::min(data.zdim - 1, (size_t)Pos0.z + 1)};
 
 		if (data.zdim == 1)
 		{
@@ -342,11 +342,27 @@ namespace relion
 		return center;
 	}
 
+	template<>
+	template<>
+	void MRCImage<float>::writeAs<float>(std::string path, bool doStatistics)
+	{
+
+		float min = std::numeric_limits<float>::max();
+		float max = std::numeric_limits<float>::lowest();
+		FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY3D(data) {
+			float value = DIRECT_A3D_ELEM(data, k, i, j);
+			min = std::min(value, min);
+			max = std::max(value, max);
+		}
+		header.minvalue = min;
+		header.maxvalue = max;
+		WriteMRC(path);
+	}
 
 	/* Instantate possible usages*/
 
 	template void MRCImage<double>::writeAs<float>(std::string path, bool doStatistics);
-	template void MRCImage<float>::writeAs<float>(std::string path, bool doStatistics);
+
 	template void MRCImage<int>::writeAs<float>(std::string path, bool doStatistics);
 	template void MRCImage<__int16>::writeAs<float>(std::string path, bool doStatistics);
 	template void MRCImage<unsigned __int16>::writeAs<float>(std::string path, bool doStatistics);

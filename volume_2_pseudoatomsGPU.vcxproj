@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
@@ -11,8 +11,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{DDE28246-C461-465B-9032-517B6EC4837E}</ProjectGuid>
-    <RootNamespace>PseudoRefinementGPU</RootNamespace>
+    <ProjectGuid>{282A506C-0A32-49A5-8582-0D2EB4C5FF39}</ProjectGuid>
+    <RootNamespace>volume_2_pseudoatomsGPU</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -43,26 +43,23 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>..\gtom\include;..\liblion;src_cu;src_cpp\;external\cxxopts;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <IncludePath>..\gtom\include;D:\Software\liblion;src_cu;src_cpp\;external\cxxopts;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
     <LibraryPath>..\gtom\x64\Debug\;..\warp2\bin;D:\Software\liblion\x64\Debug (float);$(VC_LibraryPath_x64);$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>..\gtom\include;..\liblion;src_cu;src_cpp\;external\cxxopts;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>FLOAT_PRECISION;WIN32;WIN64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
-      <AdditionalDependencies>GPUAcceleration.lib;libfftw3f-3.lib;liblion.lib;cufft.lib;cudart_static.lib;curand.lib;GTOM.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>GPUAcceleration.lib;libfftw3f-3.lib;liblion.lib;cudart_static.lib;curand.lib;GTOM.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
-      <GenerateRelocatableDeviceCode>true</GenerateRelocatableDeviceCode>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -85,35 +82,29 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="src_cpp\funcs.cpp" />
-    <ClCompile Include="src_cpp\main_pseudoprojector.cpp" />
-    <ClCompile Include="src_cpp\metadata_container.cpp" />
-    <ClCompile Include="src_cpp\metadata_label.cpp" />
-    <ClCompile Include="src_cpp\metadata_table.cpp" />
-    <ClCompile Include="src_cpp\pseudoatoms.cpp" />
-    <ClCompile Include="src_cpp\PseudoProjector.cpp" />
-    <ClCompile Include="src_cpp\readMRC.cpp" />
-    <ClCompile Include="src_cpp\readStar.cpp" />
-    <ClCompile Include="src_cpp\Types.cpp" />
-    <ClCompile Include="src_cpp\Warp_GPU.cpp" />
-  </ItemGroup>
-  <ItemGroup>
+    <ClInclude Include="external\cxxopts\cxxopts.hpp" />
+    <ClInclude Include="src_cpp\fourier_filter.h" />
     <ClInclude Include="src_cpp\funcs.h" />
+    <ClInclude Include="src_cpp\histogram.h" />
     <ClInclude Include="src_cpp\liblionImports.h" />
-    <ClInclude Include="src_cpp\metadata_container.h" />
-    <ClInclude Include="src_cpp\metadata_label.h" />
-    <ClInclude Include="src_cpp\metadata_table.h" />
+    <ClInclude Include="src_cpp\macros.h" />
+    <ClInclude Include="src_cpp\my_mask.h" />
     <ClInclude Include="src_cpp\pseudoatoms.h" />
-    <ClInclude Include="src_cpp\PseudoProjector.h" />
     <ClInclude Include="src_cpp\readMRC.h" />
     <ClInclude Include="src_cpp\Types.h" />
     <ClInclude Include="src_cpp\Warp_GPU.h" />
-    <ClInclude Include="src_cu\cudaHelpers.cuh" />
-    <ClInclude Include="src_cu\gpu_project.cuh" />
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="src_cu\cudaHelpers.cu" />
-    <CudaCompile Include="src_cu\gpu_project.cu" />
+    <ClCompile Include="src_cpp\fourier_filter.cpp" />
+    <ClCompile Include="src_cpp\funcs.cpp" />
+    <ClCompile Include="src_cpp\histogram.cpp" />
+    <ClCompile Include="src_cpp\my_mask.cpp" />
+    <ClCompile Include="src_cpp\main_volume_to_pseudoatoms.cpp" />
+    <ClCompile Include="src_cpp\pseudoatoms.cpp" />
+    <ClCompile Include="src_cpp\readMRC.cpp" />
+    <ClCompile Include="src_cpp\Types.cpp" />
+    <ClCompile Include="src_cpp\volume_to_pseudoatoms.h" />
+    <ClCompile Include="src_cpp\Warp_GPU.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

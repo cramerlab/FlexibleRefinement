@@ -34,7 +34,6 @@
 #include "histogram.h"
 #include "time.h"
 #define HAVE_STRUCT_TIMESPEC
-#include <pthread.h>
 #include "pseudoatoms.h"
 #include "cxxopts.hpp"
 using namespace relion;

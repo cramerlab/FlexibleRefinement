@@ -12,7 +12,7 @@ enum PseudoAtomMode { ATOM_GAUSSIAN=0, ATOM_INTERPOLATE=1 };
 class Pseudoatoms {
 
 public:
-	std::vector<Matrix1D<DOUBLE>> AtomPositions;
+	std::vector<float3> AtomPositions;
 	PseudoAtomMode Mode;
 	Matrix1D<DOUBLE> GaussianTable;
 	void RasterizeToVolume(MultidimArray<DOUBLE> &vol, int3 Dims, DOUBLE super);
@@ -20,6 +20,7 @@ public:
 	std::vector< DOUBLE > AtomWeights;
 	DOUBLE TableLength;
 	DOUBLE Sigma;
+	idxtype NAtoms;
 
 	DOUBLE GaussFactor;
 
@@ -29,19 +30,16 @@ public:
 	
 	}*/
 
-	Pseudoatoms(PseudoAtomMode mode = ATOM_INTERPOLATE, DOUBLE sigma = 1.0, DOUBLE gaussFactor = 1.0):Mode(mode), Sigma(sigma), GaussFactor(gaussFactor){};
+	Pseudoatoms(PseudoAtomMode mode = ATOM_INTERPOLATE, DOUBLE sigma = 1.0, DOUBLE gaussFactor = 1.0):Mode(mode), Sigma(sigma), GaussFactor(gaussFactor), NAtoms(0) {};
 
-	Pseudoatoms(DOUBLE *atomPositionCArr, DOUBLE *atomWeights, idxtype nAtoms, PseudoAtomMode mode = ATOM_INTERPOLATE, DOUBLE sigma = 1.0, DOUBLE gaussFactor=1.0):Mode(mode), Sigma(sigma), GaussFactor(gaussFactor) {
-		AtomPositions = std::vector<Matrix1D<DOUBLE>>();
+	Pseudoatoms(DOUBLE *atomPositionCArr, DOUBLE *atomWeights, idxtype nAtoms, PseudoAtomMode mode = ATOM_INTERPOLATE, DOUBLE sigma = 1.0, DOUBLE gaussFactor=1.0):Mode(mode), Sigma(sigma), GaussFactor(gaussFactor), NAtoms(nAtoms) {
+		AtomPositions = std::vector<float3>();
 		AtomPositions.reserve(nAtoms);
 
 		AtomWeights.reserve(nAtoms);
 		for (size_t i = 0; i < nAtoms; i++)
 		{
-			Matrix1D<DOUBLE> tmp = Matrix1D<DOUBLE>(3);
-			XX(tmp) = atomPositionCArr[i * 3];
-			YY(tmp) = atomPositionCArr[i * 3 + 1];
-			ZZ(tmp) = atomPositionCArr[i * 3 + 2];
+			float3 tmp = { atomPositionCArr[i * 3], atomPositionCArr[i * 3 + 1], atomPositionCArr[i * 3 + 2] };
 			AtomPositions.push_back(tmp);
 			AtomWeights.push_back(atomWeights[i]);
 		}

@@ -7,6 +7,14 @@ float3 mean(std::vector<float3> vec) {
 
 	return Sum / vec.size();
 }
+
+FR_float3 mean(std::vector<FR_float3> vec) {
+	FR_float3 Sum = { 0, 0, 0 };
+	for (auto p : vec)
+		Sum = Sum + p;
+
+	return Sum / vec.size();
+}
 /*
 inline int2 toInt2(int x, int y)
 {

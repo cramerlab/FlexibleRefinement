@@ -451,7 +451,7 @@ namespace Preprocessor
 
             }
             float3 olPix = Header.PixelSize;
-            float3 newPix = new float3(1.5f);
+            float3 newPix = new float3(2.0f);
             Image sampledVol = ImageProcessor.Downsample(inVol, newPix.X / olPix.X);
             Image scaledVol = inVol.AsScaled(sampledVol.Dims);
             Image scaledMask = scaledVol.GetCopy();
@@ -462,9 +462,9 @@ namespace Preprocessor
             scaledMask.Binarize(0.2f);
             scaledMask = scaledMask.AsConvolvedGaussian(10.0f);
             scaledMask.Binarize(0.2f);
-            scaledMask.WriteMRC($@"D:\EMD\9233\emd_9233_Scaled_1.5_mask.mrc");
+            scaledMask.WriteMRC($@"D:\EMD\9233\emd_9233_Scaled_2.0_mask.mrc");
             scaledVol.Multiply(scaledMask);
-            scaledVol.WriteMRC($@"D:\EMD\9233\emd_9233_Scaled_1.5.mrc");
+            scaledVol.WriteMRC($@"D:\EMD\9233\emd_9233_Scaled_2.0.mrc");
             //inVol.Normalize();
             //inVol.WriteMRC($@"D:\EMD\9233\emd_9233_normalized.mrc", true, Header);
             inVol.Binarize(0.01f);
@@ -477,26 +477,85 @@ namespace Preprocessor
             inVol.WriteMRC($@"D:\EMD\9233\emd_9233_mask.mrc", true,Header);
            
             //sampledVol.Normalize();
+            /*
             Header.PixelSize = Header.PixelSize * inVol.Dims.X / sampledVol.Dims.X;
             sampledVol.WriteMRC($@"D:\EMD\9233\emd_9233_1.5.mrc", true, Header);
-
+            */
         }
 
+
+        static void distort(String projectionsFileName)
+        {
+            Image projections = Image.FromFile(projectionsFileName);
+
+            float[][] noiseData = Helper.ArrayOfFunction(i => new float[projections.Dims.ElementsSlice()], projections.Dims.Z);
+
+            float[][] projectionsData = projections.GetHost(Intent.Read);
+
+            float min = 100000;
+            float max = -1000000;
+
+            for (int z = 0; z < projections.Dims.Z; z++)
+            {
+                for (int y = 0; y < projections.Dims.Y; y++)
+                {
+                    for (int x = 0; x < projections.Dims.X; x++)
+                    {
+                        max = Math.Max(max, projectionsData[z][y * projections.Dims.X + x]);
+                        min = Math.Min(min, projectionsData[z][y * projections.Dims.X + x]);
+                    }
+                }
+            }
+            for (int i = 1; i <= 10; i++)
+            {
+                float SNR = 1.0f / i;
+                Image projDistorted = projections.GetCopy();
+                Random rand = new Random(123);
+                for (int z = 0; z < projections.Dims.Z; z++)
+                {
+                    for (int y = 0; y < projections.Dims.Y; y++)
+                    {
+                        for (int x = 0; x < projections.Dims.X; x++)
+                        {
+                            noiseData[z][y * projections.Dims.X + x] = SNR*(float)(rand.NextDouble()) * (max - min) + min;
+
+                        }
+                    }
+                }
+                Image noise = new Image(noiseData, projections.Dims);
+                noise.WriteMRC(projectionsFileName.Replace(".mrc", $".noise_{i}.mrc"), true);
+                projDistorted.Add(noise);
+                projDistorted.WriteMRC(projectionsFileName.Replace(".mrc", $".distorted_{i}.mrc"),true);
+            }
+
+        }
 
         static void Main(string[] args)
         {
             // The code provided will print ‘Hello World’ to the console.
             // Press Ctrl+F5 (or go to Debug > Start Without Debugging) to run your app.
+            
+                        Star starInFile = new Star(@"D:\EMD\9233\emd_9233_Scaled_2.0.projections_uniform.star");
+                        Star starOutFile = new Star(starInFile.GetColumnNames());
 
-
+                        List<List<string>> rows = starInFile.GetAllRows();
+                        for (int j = 0; j < rows.Count; j++)
+                        {
+                            List<string> row = rows[j];https://intranet.mpibpc.mpg.de/
+                            row[3] = $@"{j + 1}@D:\EMD\9233\Projections_2.0_uniform\combined.mrc";
+                            starOutFile.AddRow(row);
+                        }
+                        starOutFile.Save(@"D:\EMD\9233\emd_9233_Scaled_2.0.projections_uniform_combined.star");
             // Go to http://aka.ms/dotnet-get-started-console to continue learning how to build a console app!
             //downsampleToDim();
             //downsampler();
+            //preprocess_emd_9233();
             //projectUniform();
             //projectUniform(@"D:\EMPIAR\10168\emd_4180_res7.mrc",  @"D:\EMPIAR\10168\shiny.star", @"D:\EMPIAR\10168\", @"D:\EMPIAR\10168\Projections_7_uniform")
             //preprocess_emd_9233();
             //preprocess_emd_9233();
-            projectUniform(@"D:\EMD\9233\emd_9233_Scaled_1.5.mrc", @"D:\EMPIAR\10168\shiny.star", @"D:\EMD\9233", @"D:\EMD\9233\Projections_1.5_uniform");
+            //projectUniform(@"D:\EMD\9233\emd_9233_Scaled_2.0.mrc", @"D:\EMPIAR\10168\shiny.star", @"D:\EMD\9233", @"D:\EMD\9233\Projections_2.0_uniform");
+            distort($@"D:\EMD\9233\Projections_2.0_uniform\combined.mrc");
             //projectUniform(@"D:\EMD\9233\emd_9233_Scaled_1.2.mrc", @"D:\EMPIAR\10168\shiny.star", @"D:\EMD\9233", @"D:\EMD\9233\Projections_1.2_uniform");
             //projectUniformMoved();
 

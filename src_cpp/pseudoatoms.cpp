@@ -12,21 +12,21 @@ void Pseudoatoms::RasterizeToVolume(MultidimArray<DOUBLE>& vol, int3 Dims, DOUBL
 
 
 		MultidimArray<DOUBLE> Weights((long)(Dims.z * super + 0.5), (long)(Dims.y * super + 0.5), (long)(Dims.x * super + 0.5));
-
+#pragma omp parallel for
 		for (int p = 0; p < AtomPositions.size(); p++)
 		{
-			Matrix1D<DOUBLE> superPos = AtomPositions[p] * super;
+			float3 superPos = AtomPositions[p] * super;
 
-			int X0 = (int)XX(superPos);
-			DOUBLE ix = XX(superPos) - X0;
+			int X0 = (int)(superPos.x);
+			DOUBLE ix = (superPos.x) - X0;
 			int X1 = X0 + 1;
 
-			int Y0 = (int)YY(superPos);
-			DOUBLE iy = YY(superPos) - Y0;
+			int Y0 = (int)(superPos.y);
+			DOUBLE iy = (superPos.y) - Y0;
 			int Y1 = Y0 + 1;
 
-			int Z0 = (int)ZZ(superPos);
-			DOUBLE iz = ZZ(superPos) - Z0;
+			int Z0 = (int)(superPos.z);
+			DOUBLE iz = (superPos.z) - Z0;
 			int Z1 = Z0 + 1;
 
 			DOUBLE v0 = 1.0f - iz;
@@ -82,7 +82,7 @@ void Pseudoatoms::RasterizeToVolume(MultidimArray<DOUBLE>& vol, int3 Dims, DOUBL
 		auto itWeight = AtomWeights.begin();
 
 		for (int n = 0; n < AtomPositions.size(); n++) {
-			drawOneGaussian(GaussianTable, 4 * Sigma*super, ZZ(AtomPositions[n])*super, YY(AtomPositions[n])*super, XX(AtomPositions[n])*super, vol, AtomWeights[n], GaussFactor / super);
+			drawOneGaussian(GaussianTable, 4 * Sigma*super, (AtomPositions[n].z)*super, (AtomPositions[n].y)*super, (AtomPositions[n].x)*super, vol, AtomWeights[n], GaussFactor / super);
 		}
 
 		if (super > 1.0) {
@@ -101,18 +101,18 @@ void Pseudoatoms::IntensityFromVolume(MultidimArray<DOUBLE>& vol, DOUBLE super)
 #pragma omp parallel for
 	for (int p = 0; p < AtomPositions.size(); p++)
 	{
-		Matrix1D<DOUBLE> superPos = AtomPositions[p] * super;
+		float3 superPos = AtomPositions[p] * super;
 
-		int X0 = (int)XX(superPos);
-		DOUBLE ix = XX(superPos) - X0;
+		int X0 = (int)(superPos.x);
+		DOUBLE ix = (superPos.x) - X0;
 		int X1 = X0 + 1;
 
-		int Y0 = (int)YY(superPos);
-		DOUBLE iy = YY(superPos) - Y0;
+		int Y0 = (int)(superPos.y);
+		DOUBLE iy = (superPos.y) - Y0;
 		int Y1 = Y0 + 1;
 
-		int Z0 = (int)ZZ(superPos);
-		DOUBLE iz = ZZ(superPos) - Z0;
+		int Z0 = (int)(superPos.z);
+		DOUBLE iz = (superPos.z) - Z0;
 		int Z1 = Z0 + 1;
 
 		DOUBLE v000 = A3D_ELEM(volSuper, Z0, Y0, X0);

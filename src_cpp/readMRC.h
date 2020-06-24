@@ -202,6 +202,13 @@ namespace relion
 				ReadMRC(path, data, header, -1);
 			}
 
+			MRCImage(int3 dims) {
+
+				header = HeaderMRC();
+				header.dimensions = dims;
+				data = MultidimArray<T>(dims.z, dims.y, dims.x);
+			}
+
 			MRCImage(FileName path) {
 
 				ReadMRC(path, data, header, -1);

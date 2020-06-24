@@ -36,6 +36,71 @@ typedef size_t idxtype;
 #define dotp2(a, b) ((a).x * (b).x + (a).y * (b).y)
 
 
+struct FR_float3
+{
+	float x, y, z;
+
+	FR_float3() {
+		x = 0;
+		y = 0;
+		z = 0;
+	}
+
+	FR_float3(float X, float Y, float Z) {
+		x = X;
+		y = Y;
+		z = Z;
+	}
+	FR_float3(float f) {
+		x = f;
+		y = f;
+		z = f;
+	}
+
+	FR_float3(float3 f) {
+		x = f.x;
+		y = f.y;
+		z = f.z;
+	}
+
+	FR_float3 operator+(FR_float3 right) {
+		return FR_float3(x + right.x, y + right.y, z + right.z);
+	}
+
+
+	FR_float3 operator-(FR_float3 right) {
+		return FR_float3(x - right.x, y - right.y, z - right.z);
+	}
+
+	FR_float3 operator+(float right) {
+		return FR_float3(x + right, y + right, z + right);
+	}
+
+	FR_float3 operator/(float right) {
+		return FR_float3(x / right, y / right, z / right);
+	}
+
+	FR_float3 operator*(float right) {
+		return FR_float3(x * right, y * right, z * right);
+	}
+
+
+	FR_float3 operator= (float right) {
+		return FR_float3(right, right, right);
+	}
+	FR_float3 operator= (float3 right) {
+		return FR_float3(right.x, right.y, right.z);
+	}
+
+};
+
+inline FR_float3 make_FR_float3(float x, float y, float z)
+{
+	FR_float3 t; t.x = x; t.y = y; t.z = z; return t;
+}
+
+FR_float3 mean(std::vector<FR_float3> vec);
+
 /*
 struct int2
 {
@@ -74,49 +139,7 @@ struct uint3
 	unsigned int x, y, z;
 };
 
-struct float3
-{
-	float x, y, z;
 
-	float3() {
-		x = 0;
-		y = 0;
-		z = 0;
-	}
-
-	float3(float X, float Y, float Z){
-		x = X;
-		y = Y;
-		z = Z;
-	}
-	float3(float f) {
-		x = f;
-		y = f;
-		z = f;
-	}
-	float3 operator+(float3 right) {
-		return float3(x + right.x, y + right.y, z + right.z);
-	}
-
-
-	float3 operator-(float3 right) {
-		return float3(x - right.x, y - right.y, z - right.z);
-	}
-
-	float3 operator+(float right) {
-		return float3(x + right, y + right, z + right);
-	}
-
-	float3 operator/(float right) {
-		return float3(x / right, y / right, z / right);
-	}
-
-	float3 operator*(float right) {
-		return float3(x * right, y * right, z * right);
-	}
-
-
-};
 
 struct float2
 {
@@ -154,7 +177,7 @@ inline uint3 toUint3(int3 o);
 
 inline int3 toInt3(int2 val);
 
-inline float3 make_float3(float x, float y, float z);
+inline FR_float3 make_float3(float x, float y, float z);
 
 inline int2 toInt2(int x, int y)
 {
@@ -240,7 +263,7 @@ inline int3 toInt3(int2 val)
 	return value;
 }
 
-inline float3 make_float3(float x, float y, float z)
+inline FR_float3 make_float3(float x, float y, float z)
 {
 	float3 t; t.x = x; t.y = y; t.z = z; return t;
 }
@@ -253,7 +276,7 @@ inline int3 make_int3(int x, int y, int z)
 }
 
 
-float3 mean(std::vector<float3> vec);*/
+;*/
 /*
 float3 mean(MultidimArray<float3> &vec) {
 	float3 sum = { 0,0,0 };
@@ -263,4 +286,5 @@ float3 mean(MultidimArray<float3> &vec) {
 	return sum / NZYXSIZE(vec);
 }
 */
+float3 mean(std::vector<float3> vec);
 #endif

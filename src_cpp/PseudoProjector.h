@@ -52,7 +52,7 @@ public:
 	double sigma;
 	double super;
 	double tableLength;
-	double lambdaART;
+	DOUBLE lambdaART;
 	int3 Dims;
 	bool gauss2D;
 
@@ -79,8 +79,8 @@ public:
 	std::vector<projecction> getPrecalcs(MultidimArray<DOUBLE> Iexp, std::vector<float3> angles, DOUBLE shiftX, DOUBLE shiftY);
 	void addToPrecalcs(std::vector< projecction> &precalc, MultidimArray<DOUBLE> &Iexp, std::vector<float3> angles, std::vector<Matrix1D<DOUBLE>> *atomPositions, DOUBLE shiftX, DOUBLE shiftY);
 
-	DOUBLE SIRT_from_precalc(MultidimArray<DOUBLE> &Iexp, std::vector<projecction> &precalc, DOUBLE shiftX, DOUBLE shiftY);
-	DOUBLE SIRT_from_precalc(MultidimArray<DOUBLE> &Iexp, std::vector<projecction>& precalc, MultidimArray<DOUBLE>& Itheo, MultidimArray<DOUBLE>& Icorr, MultidimArray<DOUBLE>& Idiff, MultidimArray<DOUBLE>& Inorm, DOUBLE shiftX, DOUBLE shiftY);
+	DOUBLE SIRT(MultidimArray<DOUBLE> &Iexp, float3 *angles, idxtype batch, DOUBLE shiftX, DOUBLE shiftY);
+	DOUBLE SIRT(MultidimArray<DOUBLE> &Iexp, float3 *angles, idxtype batch, MultidimArray<DOUBLE>& Itheo, MultidimArray<DOUBLE>& Icorr, MultidimArray<DOUBLE>& Idiff, MultidimArray<DOUBLE>& Inorm, DOUBLE shiftX, DOUBLE shiftY);
 	DOUBLE ART_single_image(const MultidimArray<DOUBLE> &Iexp, DOUBLE rot, DOUBLE tilt, DOUBLE psi, DOUBLE shiftX, DOUBLE shiftY);
 	DOUBLE ART_single_image(const MultidimArray<DOUBLE> &Iexp, MultidimArray<DOUBLE> &Itheo, MultidimArray<DOUBLE> &Icorr, MultidimArray<DOUBLE> &Idiff, DOUBLE rot, DOUBLE tilt, DOUBLE psi, DOUBLE shiftX, DOUBLE shiftY);
 
@@ -115,7 +115,7 @@ public:
 						DOUBLE shiftY,
 		                int direction);
 
-	void setAtomPositions(std::vector<Matrix1D<DOUBLE>> newPositions) {
+	void setAtomPositions(std::vector<float3> newPositions) {
 		atoms.AtomPositions = newPositions;
 	}
 

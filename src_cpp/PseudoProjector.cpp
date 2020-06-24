@@ -1,7 +1,7 @@
 
 #include "PseudoProjector.h"
-
-
+#include "gpu_project.cuh"
+#include "cudaHelpers.cuh"
 void PseudoProjector::project_Pseudo(DOUBLE * out, DOUBLE * out_nrm,
 	float3 angles, DOUBLE shiftX, DOUBLE shiftY,
 	int direction)
@@ -70,9 +70,10 @@ void PseudoProjector::project_PseudoCTF(DOUBLE * out, DOUBLE * out_nrm, DOUBLE *
 
 
 MRCImage<DOUBLE> *PseudoProjector::create3DImage(DOUBLE oversampling) {
-	MultidimArray<DOUBLE> data(Dims.z*oversampling, Dims.y*oversampling, Dims.x*oversampling);
+
 	MRCImage<DOUBLE> *Volume = new MRCImage<DOUBLE>();
 	atoms.RasterizeToVolume(Volume->data, Dims, oversampling);
+	Volume->header.dimensions = Dims;
 	return Volume;
 }
 
@@ -219,10 +220,10 @@ void PseudoProjector::project_Pseudo(
 
 	for (int n = 0; n < numAtoms; n++)
 	{
-		actualAtomPosition = atoms.AtomPositions[n];
-		XX(actualAtomPosition) -= Dims.x / 2;
-		YY(actualAtomPosition) -= Dims.y / 2;
-		ZZ(actualAtomPosition) -= Dims.z / 2;
+
+		XX(actualAtomPosition) = atoms.AtomPositions[n].x - Dims.x / 2;
+		YY(actualAtomPosition) = atoms.AtomPositions[n].y - Dims.y / 2;
+		ZZ(actualAtomPosition) = atoms.AtomPositions[n].z - Dims.z / 2;
 
 		DOUBLE weight = atoms.AtomWeights[n];
 
@@ -417,17 +418,17 @@ void PseudoProjector::writePDB(FileName outPath) {
 			fprintf(fhOut,
 				"ATOM  %5d DENS DENS %7d    %8.3f %8.3f %8.3f %.8f     1      DENS\n",
 				n + 1, n + 1,
-				(float)(atoms.AtomPositions[n](0)),
-				(float)(atoms.AtomPositions[n](1)),
-				(float)(atoms.AtomPositions[n](2)),
+				(float)(atoms.AtomPositions[n].x),
+				(float)(atoms.AtomPositions[n].y),
+				(float)(atoms.AtomPositions[n].z),
 				(float)intensity);
 		else
 			fprintf(fhOut,
 				"ATOM  %5d DENS DENS %7d    %8.3f%8.3f%8.3f     1 %.8f      DENS\n",
 				n + 1, n + 1,
-				(float)(atoms.AtomPositions[n](0)),
-				(float)(atoms.AtomPositions[n](1)),
-				(float)(atoms.AtomPositions[n](2)),
+				(float)(atoms.AtomPositions[n].x),
+				(float)(atoms.AtomPositions[n].y),
+				(float)(atoms.AtomPositions[n].z),
 				(float)intensity);
 	}
 	fclose(fhOut);
@@ -625,113 +626,137 @@ DOUBLE PseudoProjector::ART_multi_Image_step(DOUBLE * Iexp, float3 * angles, DOU
 	return itError;
 }
 
-void PseudoProjector::addToPrecalcs(std::vector< projecction> &precalc, MultidimArray<DOUBLE> &Iexp, std::vector<float3> angles, std::vector<Matrix1D<DOUBLE>> *atomPositions, DOUBLE shiftX, DOUBLE shiftY) {
-	Matrix2D<DOUBLE> Euler;
-	Matrix1D<DOUBLE> angle(3);
-	for (int n = 0; n < angles.size(); n++)
-	{
-		MultidimArray<DOUBLE> *tmp = new MultidimArray<DOUBLE>();
-		tmp->xdim = Iexp.xdim;
-		tmp->ydim = Iexp.ydim;
-		tmp->yxdim = Iexp.yxdim;
-		tmp->zyxdim = Iexp.yxdim;
-		tmp->nzyxdim = Iexp.yxdim;
-		tmp->nzyxdimAlloc = Iexp.yxdim;
-		tmp->data = &(A3D_ELEM(Iexp, n, 0, 0));
-
-		Euler_angles2matrix(angles[n].x, angles[n].y, angles[n].z, Euler);
-		XX(angle) = angles[n].x;
-		YY(angle) = angles[n].y;
-		ZZ(angle) = angles[n].z;
-		precalc.push_back({ atomPositions, tmp, angle, Euler });
-	}
-}
-
-std::vector<projecction> PseudoProjector::getPrecalcs(MultidimArray<DOUBLE> Iexp, std::vector<float3> angles, DOUBLE shiftX, DOUBLE shiftY)
-{
-	std::vector<projecction> precalc;
-	Matrix2D<DOUBLE> Euler;
-	Matrix1D<DOUBLE> angle(3);
-	for (int n = 0; n < angles.size(); n++)
-	{
-		MultidimArray<DOUBLE> *tmp = new MultidimArray<DOUBLE>();
-		tmp->xdim = Iexp.xdim;
-		tmp->ydim = Iexp.ydim;
-		tmp->yxdim = Iexp.yxdim;
-		tmp->zyxdim = Iexp.yxdim;
-		tmp->nzyxdim = Iexp.yxdim;
-		tmp->nzyxdimAlloc = Iexp.yxdim;
-		tmp->data = &(A3D_ELEM(Iexp, n, 0, 0));
-
-		Euler_angles2matrix(angles[n].x, angles[n].y, angles[n].z, Euler);
-		XX(angle) = angles[n].x;
-		YY(angle) = angles[n].y;
-		ZZ(angle) = angles[n].z;
-		precalc.push_back({ &atoms.AtomPositions, tmp, angle, Euler});
-	}
-	return precalc;
-}
-
-DOUBLE PseudoProjector::SIRT_from_precalc(MultidimArray<DOUBLE> &Iexp, std::vector<projecction>& precalc, DOUBLE shiftX, DOUBLE shiftY)
+DOUBLE PseudoProjector::SIRT(MultidimArray<DOUBLE> &Iexp, float3 *angles, idxtype numAngles, DOUBLE shiftX, DOUBLE shiftY)
 {
 	MultidimArray<DOUBLE> Itheo, Icorr, Idiff, Inorm;
-	return SIRT_from_precalc(Iexp, precalc, Itheo, Icorr, Idiff, Inorm, shiftX, shiftY);
+	return SIRT(Iexp, angles, numAngles, Itheo, Icorr, Idiff, Inorm, shiftX, shiftY);
 }
 
-DOUBLE PseudoProjector::SIRT_from_precalc(MultidimArray<DOUBLE> &Iexp, std::vector<projecction>& precalc, MultidimArray<DOUBLE>& Itheo, MultidimArray<DOUBLE>& Icorr, MultidimArray<DOUBLE>& Idiff, MultidimArray<DOUBLE>& Inorm, DOUBLE shiftX, DOUBLE shiftY)
+DOUBLE PseudoProjector::SIRT(MultidimArray<DOUBLE> &Iexp, float3 *angles, idxtype numAngles, MultidimArray<DOUBLE>& Itheo, MultidimArray<DOUBLE>& Icorr, MultidimArray<DOUBLE>& Idiff, MultidimArray<DOUBLE>& Inorm, DOUBLE shiftX, DOUBLE shiftY)
 {
-	Itheo.resizeNoCopy(precalc.size(), Dims.y, Dims.x);
-	Icorr.resizeNoCopy(precalc.size(), Dims.y, Dims.x);
-	Idiff.resizeNoCopy(precalc.size(), Dims.y, Dims.x);
+	//idxtype GPU_MEMLIMIT = 9 * 1024 * 1024 * 1024; //8 GB GPU Memory Limit
+	cudaErrchk(cudaSetDevice(1));
+	float3 * d_atomPositions;
+	cudaErrchk(cudaMalloc((void**)&d_atomPositions, atoms.NAtoms * sizeof(float3)));
+	cudaErrchk(cudaMemcpy(d_atomPositions, atoms.AtomPositions.data(), atoms.NAtoms * sizeof(float3), cudaMemcpyHostToDevice));
 
-	MultidimArray<DOUBLE> SuperItheo, SuperIcorr, superInorm;
-	SuperItheo.initZeros(precalc.size(), super*Dims.y, super*Dims.x);
-	SuperIcorr.initZeros(precalc.size(), super*Dims.y, super*Dims.x);
-	superInorm.initZeros(precalc.size(), super*Dims.y, super*Dims.x);
+	float * d_atomIntensities;
+	cudaErrchk(cudaMalloc((void**)&d_atomIntensities, atoms.NAtoms * sizeof(float3)));
+	cudaErrchk(cudaMemcpy(d_atomIntensities, atoms.AtomWeights.data(), atoms.NAtoms * sizeof(float), cudaMemcpyHostToDevice));
+
+	idxtype GPU_FREEMEM;
+	idxtype GPU_MEMLIMIT;
+	cudaMemGetInfo(&GPU_FREEMEM, &GPU_MEMLIMIT);
+
+	int3 dimsvolume = {Dims.x, Dims.y, Dims.z };
+	int3 superDimsvolume = { Dims.x * super, Dims.y * super, Dims.z * super };
+
+	int2 superDimsproj = { Dims.x * super, Dims.y * super };
+	int2 dimsproj = { Dims.x,  Dims.y };
+
+	idxtype space = Elements2(dimsproj) * sizeof(float);
+	idxtype ElementsPerBatch = 0.9*(GPU_FREEMEM / ((2*Elements2(superDimsproj)+ Elements2(dimsproj)+ Elements2(dimsproj)) * sizeof(float)));
+	/*if (ElementsPerBatch < numAngles) {
+		std::cerr << "You need to implement processing in batches if you want to have this many projections" << std::endl;
+		return 0.0;
+	}*/
+
+	ElementsPerBatch = std::min(numAngles, (idxtype)2048);	//Hard limit of elementsPerBatch @ instead of calculating
+	Itheo.resizeNoCopy(numAngles, dimsproj.y, dimsproj.x);
+	Icorr.resizeNoCopy(numAngles, dimsproj.y, dimsproj.x);
+	Idiff.resizeNoCopy(numAngles, dimsproj.y, dimsproj.x);
+	Inorm.resizeNoCopy(numAngles, dimsproj.y, dimsproj.x);
+
+	/*MultidimArray<DOUBLE> SuperItheo, SuperIcorr, superInorm;
+	SuperItheo.initZeros(numAngles, superDimsproj.y, superDimsproj.x);
+	SuperIcorr.initZeros(numAngles, superDimsproj.y, superDimsproj.x);
+	superInorm.initZeros(numAngles, superDimsproj.y, superDimsproj.x);*/
 	DOUBLE mean_error = 0.0;
-#pragma omp parallel
+	int ndims = DimensionCount(gtom::toInt3(superDimsproj));
+	int nSuper[3] = {1, superDimsproj.y, superDimsproj.x };
+	int n[3] = {1, dimsproj.y, dimsproj.x };
+	cufftHandle planForward, planBackward;
+	cufftType directionF = IS_TFLOAT_DOUBLE ? CUFFT_D2Z : CUFFT_R2C;
+
+	cufftErrchk(cufftPlanMany(&planForward, ndims, nSuper + (3 - ndims),
+		NULL, 1, 0,
+		NULL, 1, 0,
+		directionF, ElementsPerBatch));
+
+	cufftType directionB = IS_TFLOAT_DOUBLE ? CUFFT_Z2D : CUFFT_C2R;
+	cufftErrchk(cufftPlanMany(&planBackward, ndims, n + (3 - ndims),
+		NULL, 1, 0,
+		NULL, 1, 0,
+		directionB, ElementsPerBatch));
+
 	{
-		//Initialize array for the slice view
-		MultidimArray<DOUBLE> tmpSuperItheo, tmpIcorr, tmpSuperInorm;
-		tmpSuperInorm.xdim = tmpSuperItheo.xdim = tmpIcorr.xdim = Dims.x;
-		tmpSuperInorm.ydim = tmpSuperItheo.ydim = tmpIcorr.ydim = Dims.y;
-		tmpSuperInorm.destroyData = tmpSuperItheo.destroyData = tmpIcorr.destroyData = false;
-		tmpSuperItheo.yxdim = tmpSuperItheo.nzyxdim = tmpSuperItheo.zyxdim = tmpSuperItheo.xdim*tmpSuperItheo.ydim;
-		tmpSuperInorm.yxdim = tmpIcorr.yxdim = tmpIcorr.nzyxdim = tmpIcorr.zyxdim = tmpIcorr.xdim*tmpSuperItheo.ydim;
 
-#pragma omp for
-		for (int imgIdx = 0; imgIdx < precalc.size(); imgIdx++) {
-			tmpSuperItheo.data = &(A3D_ELEM(Itheo, imgIdx, 0, 0));
-			tmpIcorr.data = &(A3D_ELEM(Icorr, imgIdx, 0, 0));
-			tmpSuperInorm.data = &(A3D_ELEM(Inorm, imgIdx, 0, 0));
+		idxtype numBatches = (int)(std::ceil(((float)numAngles) / ((float)ElementsPerBatch)));
 
-			MultidimArray<DOUBLE> *Iexp = precalc[imgIdx].image;
-
-			this->project_Pseudo(tmpSuperItheo, tmpSuperInorm, precalc[imgIdx].atomPositons,
-				precalc[imgIdx].Euler, shiftX, shiftY, PSEUDO_FORWARD);
-
-
-			
-			//FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY2D((*Iexp))
-			//{
-				// Compute difference image and error
-
-				/*DIRECT_A3D_ELEM(Idiff, imgIdx, i, j) = DIRECT_A3D_ELEM((*Iexp), 0, i, j) - DIRECT_A3D_ELEM(Itheo, imgIdx, i, j);
-				mean_error += DIRECT_A3D_ELEM(Idiff, imgIdx, i, j) * DIRECT_A3D_ELEM(Idiff, imgIdx, i, j);
-
-				// Compute the correction image
-
-				DIRECT_A3D_ELEM(Inorm, imgIdx, i, j) = XMIPP_MAX(DIRECT_A3D_ELEM(Inorm, imgIdx, i, j), 1);
-				*/
-				//DIRECT_A3D_ELEM(Icorr, imgIdx, i, j) =
-				//	this->lambdaART *(DIRECT_A3D_ELEM((*Iexp), 0, i, j) - DIRECT_A3D_ELEM(Itheo, imgIdx, i, j));
-			//}
-			
-		}
+		float * d_superProjections; 
+		cudaErrchk(cudaMalloc(&d_superProjections, ElementsPerBatch*Elements2(superDimsproj)*sizeof(float)));
+		float * d_iExp;
+		cudaErrchk(cudaMalloc(&d_iExp,ElementsPerBatch*Elements2(dimsproj) * sizeof(float)));
+		float * d_projections;
+		cudaErrchk(cudaMalloc(&d_projections, numBatches*ElementsPerBatch * Elements2(dimsproj) * sizeof(float)));
+		
 
 		
-	}
+		for (idxtype startIm = 0; startIm < numAngles; startIm+=ElementsPerBatch)
+		{
+			idxtype batch = std::min(ElementsPerBatch, numAngles - startIm);
+			float * d_projectionsBatch = d_projections + startIm * Elements2(dimsproj);
 
+
+			float3 * h_angles = angles+startIm;
+			cudaMemcpy(d_iExp, Iexp.data+startIm*Elements2(dimsproj), batch*Elements2(dimsproj) * sizeof(float), cudaMemcpyHostToDevice);
+			RealspacePseudoProjectForward(d_atomPositions, d_atomIntensities, atoms.NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
+			cudaErrchk(cudaPeekAtLastError());
+
+			//We have planned for ElementsPerBatch many transforms, therefore we scale also the non existing parts between the end of batch and the end of d_superProj
+			d_Scale(d_superProjections, d_projectionsBatch, gtom::toInt3(superDimsproj), gtom::toInt3(dimsproj), T_INTERP_FOURIER, &planForward, &planBackward, ElementsPerBatch);
+			cudaErrchk(cudaMemcpy(Itheo.data + startIm * Elements2(dimsproj), d_projectionsBatch, batch*Elements2(dimsproj) * sizeof(float), cudaMemcpyDeviceToHost));
+			gtom::d_SubtractVector(d_iExp, d_projectionsBatch, d_projectionsBatch, batch*Elements2(dimsproj), 1);
+			cudaErrchk(cudaMemcpy(Idiff.data + startIm * Elements2(dimsproj), d_projectionsBatch, batch*Elements2(dimsproj) * sizeof(float), cudaMemcpyDeviceToHost));
+			gtom::d_MultiplyByScalar(d_projectionsBatch, d_projectionsBatch, batch*Elements2(dimsproj), lambdaART);
+			cudaErrchk(cudaMemcpy(Icorr.data + startIm * Elements2(dimsproj), d_projectionsBatch, batch*Elements2(dimsproj) * sizeof(float), cudaMemcpyDeviceToHost));
+		}
+		
+		cudaErrchk(cudaFree(d_iExp));
+		cufftDestroy(planForward);
+		cufftDestroy(planBackward);
+
+		cufftErrchk(cufftPlanMany(&planForward, ndims, n + (3 - ndims),
+			NULL, 1, 0,
+			NULL, 1, 0,
+			directionF, ElementsPerBatch));
+
+		cufftType directionB = IS_TFLOAT_DOUBLE ? CUFFT_Z2D : CUFFT_C2R;
+		cufftErrchk(cufftPlanMany(&planBackward, ndims, nSuper + (3 - ndims),
+			NULL, 1, 0,
+			NULL, 1, 0,
+			directionB, ElementsPerBatch));
+
+		for (idxtype startIm = 0; startIm < numAngles; startIm += ElementsPerBatch)
+		{
+			idxtype batch = std::min(ElementsPerBatch, numAngles - startIm);
+			float * d_projectionsBatch = d_projections + startIm * Elements2(dimsproj);
+			float3 * h_angles = angles + startIm;
+
+			d_Scale(d_projectionsBatch, d_superProjections, gtom::toInt3(dimsproj), gtom::toInt3(superDimsproj), T_INTERP_FOURIER, &planForward, &planBackward, ElementsPerBatch);
+			cudaErrchk(cudaMemcpy(Inorm.data + startIm * Elements2(dimsproj), d_projectionsBatch, batch*Elements2(dimsproj) * sizeof(float), cudaMemcpyDeviceToHost));
+			RealspacePseudoProjectBackward(d_atomPositions, d_atomIntensities, atoms.NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
+			cudaErrchk(cudaPeekAtLastError());
+			
+		}
+		cudaErrchk(cudaMemcpy(atoms.AtomWeights.data(), d_atomIntensities, atoms.NAtoms*sizeof(*(atoms.AtomWeights.data())), cudaMemcpyDeviceToHost));
+		cufftDestroy(planForward);
+		cufftDestroy(planBackward);
+		cudaFree(d_superProjections);
+		cudaFree(d_projections);
+
+	}
+	/*
 	float * d_superItheo = MallocDeviceFromHost(SuperItheo.data, SuperItheo.nzyxdim);
 	float* d_Itheo = MallocDevice(Iexp.nzyxdim);
 	Scale(d_superItheo, d_Itheo, make_int3(SuperItheo.xdim, SuperItheo.ydim,1), make_int3(Itheo.xdim, Itheo.ydim, 1), SuperItheo.zdim,0,0,NULL,NULL);
@@ -750,36 +775,10 @@ DOUBLE PseudoProjector::SIRT_from_precalc(MultidimArray<DOUBLE> &Iexp, std::vect
 	float* d_SuperIcorr = MallocDevice(SuperItheo.nzyxdim);
 	Scale(d_Icorr, d_SuperIcorr, make_int3(Icorr.xdim, Icorr.ydim, 1), make_int3(SuperIcorr.xdim, SuperIcorr.ydim, 1), SuperIcorr.zdim, 0, 0, NULL, NULL);
 	CopyDeviceToHost(d_SuperIcorr, SuperIcorr.data, SuperIcorr.nzyxdim);
-	FreeDevice(d_SuperIcorr);
-#pragma omp parallel
-		{
-			MultidimArray<DOUBLE> tmpSuperItheo, tmpSuperIcorr;
-#pragma omp for
-		for (int imgIdx = 0; imgIdx < precalc.size(); imgIdx++) {
-			tmpSuperItheo.data = &(A3D_ELEM(Itheo, imgIdx, 0, 0));
-			tmpSuperIcorr.data = &(A3D_ELEM(Icorr, imgIdx, 0, 0));
-
-			this->project_Pseudo(tmpSuperItheo, tmpSuperIcorr, precalc[imgIdx].atomPositons,
-				precalc[imgIdx].Euler, shiftX, shiftY, PSEUDO_BACKWARD);
-		}
-	}
-	{
-		//MRCImage<DOUBLE> tmpIm(Itheo);
-		//tmpIm.writeAs<float>("D:\\EMD\\9233\\emd_9233_Scaled_1.5_75k_bs64_it15_moving\\Itheo.mrc", true);
-	}
-	{
-		//MRCImage<DOUBLE> tmpIm(Icorr);
-		//tmpIm.writeAs<float>("D:\\EMD\\9233\\emd_9233_Scaled_1.5_75k_bs64_it15_moving\\Icorr.mrc",true);
-	}
-	{
-		//MRCImage<DOUBLE> tmpIm(Idiff);
-		//tmpIm.writeAs<float>("D:\\EMD\\9233\\emd_9233_Scaled_1.5_75k_bs64_it15_moving\\Idiff.mrc",true);
-	}
-	{
-		//MRCImage<DOUBLE> tmpIm(Inorm);
-		//tmpIm.writeAs<float>("D:\\EMD\\9233\\emd_9233_Scaled_1.5_75k_bs64_it15_moving\\Inorm.mrc",true);
-	}
-	return mean_error;
+	FreeDevice(d_SuperIcorr);*/
+	cudaFree(d_atomPositions);
+	cudaFree(d_atomIntensities);
+	return 0.0;
 }
 
 DOUBLE PseudoProjector::ART_single_image(const MultidimArray<DOUBLE>& Iexp, DOUBLE rot, DOUBLE tilt, DOUBLE psi, DOUBLE shiftX, DOUBLE shiftY)

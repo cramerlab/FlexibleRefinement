@@ -35,7 +35,9 @@
 
 //#define DEBUGFJ
 namespace fs = std::filesystem;
- /* Pseudo atoms ------------------------------------------------------------ */
+using namespace gtom;
+
+/* Pseudo atoms ------------------------------------------------------------ */
 PseudoAtom::PseudoAtom()
 {
 	location.initZeros(3);
@@ -90,15 +92,15 @@ void ProgVolumeToPseudoatoms::show() const
 void ProgVolumeToPseudoatoms::placeSeedsEquidistantPoints() {
 	MRCImage<int> mask = MRCImage<int>(mask_prm.get_binary_mask());
 	mask.setZeroOrigin();
-	float3 MaskCenter = mask.getCenterOfMass();
+	FR_float3 MaskCenter = mask.getCenterOfMass();
 	int3 Dims = toInt3(mask().xdim, mask().ydim, mask().zdim);
 
-	MultidimArray<float3> BestSolution;
+	MultidimArray<FR_float3> BestSolution;
 
 	float a = 0, b = Dims.x / 2;
 	DOUBLE R = (a + b) / 2;
-	float3 Offset = make_float3(0, 0, 0);
-	std::vector<float3> InsideMask;
+	FR_float3 Offset = make_FR_float3(0, 0, 0);
+	std::vector<FR_float3> InsideMask;
 	int outerLim = 2;
 	for (int o = 0; o < outerLim; o++)
 	{
@@ -122,7 +124,7 @@ void ProgVolumeToPseudoatoms::placeSeedsEquidistantPoints() {
 
 			FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY3D(BestSolution)
 			{
-				DIRECT_A3D_ELEM(BestSolution, k, i, j) = make_float3((2 * j + (i + k) % 2) * R + Offset.x, Root3 * (i + 1.0 / 3.0 * (k % 2))* R + Offset.y, ZTerm * k* R + Offset.z);
+				DIRECT_A3D_ELEM(BestSolution, k, i, j) = make_FR_float3((2 * j + (i + k) % 2) * R + Offset.x, Root3 * (i + 1.0 / 3.0 * (k % 2))* R + Offset.y, ZTerm * k* R + Offset.z);
 				if ((2 * j + (i + k) % 2) * R + Offset.x > maxX) {
 					maxX = (2 * j + (i + k) % 2) * R + Offset.x;
 					maxXY = Root3 * (i + 1.0 / 3.0 * (k % 2))* R + Offset.y;
@@ -135,8 +137,8 @@ void ProgVolumeToPseudoatoms::placeSeedsEquidistantPoints() {
 			InsideMask.reserve(BestSolution.nzyxdim);
 			FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY3D(BestSolution)
 			{
-				float3 c = DIRECT_A3D_ELEM(BestSolution, k, i, j);
-				int3 ip = toInt3(DIRECT_A3D_ELEM(BestSolution, k, i, j));
+				FR_float3 c = DIRECT_A3D_ELEM(BestSolution, k, i, j);
+				int3 ip = toInt3((int)c.x, (int) c.y, (int)c.z);
 				if (ip.x >= 0 && ip.x < Dims.x && ip.y >= 0 && ip.y < Dims.y && ip.z >= 0 && ip.z < Dims.z && DIRECT_A3D_ELEM(mask(),ip.z, ip.y, ip.x) > 0)
 						InsideMask.emplace_back(DIRECT_A3D_ELEM(BestSolution, k, i, j));
 			}
@@ -148,7 +150,7 @@ void ProgVolumeToPseudoatoms::placeSeedsEquidistantPoints() {
 				a = R;
 		}
 
-		float3 CenterOfPoints = mean(InsideMask);
+		FR_float3 CenterOfPoints = mean(InsideMask);
 		Offset = MaskCenter - CenterOfPoints;
 		if (o != outerLim - 1) {
 			a = 0.8f * R;
@@ -164,13 +166,7 @@ void ProgVolumeToPseudoatoms::placeSeedsEquidistantPoints() {
 	Atoms.AtomPositions.reserve(InsideMask.size());
 	Atoms.AtomWeights.reserve(InsideMask.size());
 	for (auto v : InsideMask) {
-		Matrix1D<DOUBLE> pos(3);
-		/*v.x = v.x - Vin().xdim / 2;
-		v.y = v.y - Vin().ydim / 2;
-		v.z = v.z - Vin().zdim / 2;*/
-		VEC_ELEM(pos, 0) = v.x;
-		VEC_ELEM(pos, 1) = v.y;
-		VEC_ELEM(pos, 2) = v.z;
+		float3 pos = { v.x, v.y, v.z };
 		Atoms.AtomPositions.push_back(pos);
 		Atoms.AtomWeights.push_back(1.0);
 	}
@@ -375,17 +371,17 @@ void ProgVolumeToPseudoatoms::writeResults()
 			fprintf(fhOut,
 				"ATOM  %8d DENS DENS %7d    %8.3f%8.3f%8.3f%14.10f     1      DENS\n",
 				n + 1, n + 1,
-				(float)(Atoms.AtomPositions[n](0)),
-				(float)(Atoms.AtomPositions[n](1)),
-				(float)(Atoms.AtomPositions[n](2)),
+				(float)(Atoms.AtomPositions[n].x),
+				(float)(Atoms.AtomPositions[n].y),
+				(float)(Atoms.AtomPositions[n].z),
 				(float)intensity);
 		else
 			fprintf(fhOut,
 				"ATOM  %8d DENS DENS %7d    %8.3f%8.3f%8.3f     1%14.10f      DENS\n",
 				n + 1, n + 1,
-				(float)(Atoms.AtomPositions[n](0)),
-				(float)(Atoms.AtomPositions[n](1)),
-				(float)(Atoms.AtomPositions[n](2)),
+				(float)(Atoms.AtomPositions[n].x),
+				(float)(Atoms.AtomPositions[n].y),
+				(float)(Atoms.AtomPositions[n].z),
 				(float)intensity);
 	}
 	fclose(fhOut);
