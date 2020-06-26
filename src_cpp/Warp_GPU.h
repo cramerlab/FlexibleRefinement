@@ -19,11 +19,12 @@ extern "C" void __stdcall CopyHostToDevice(float* h_source, float* d_dest, long 
 
 //Tools.cu
 extern "C" void Scale(float* d_input, float* d_output, int3 dimsinput, int3 dimsoutput, uint batch, int planforw, int planback, float2* d_inputfft, float2* d_outputfft);
+extern "C" void SphereMask(float* d_input, float* d_output, int3 dims, float radius, float sigma, bool decentered, uint batch);
 
 
 //Wrappers
 void ResizeMapGPU(MultidimArray<float> &img, int3 newDim);
-
+void SphereMaskGPU(float* d_input, float* d_output, int3 dims, float radius, float sigma, bool decentered, uint batch);
 void ResizeMapGPU(MultidimArray<float> &img, int2 newDim);
 void Substract_GPU(MultidimArray<float> &img, float substrahend);
 void Substract_GPU(MultidimArray<float> &img, MultidimArray<DOUBLE> &substrahend);

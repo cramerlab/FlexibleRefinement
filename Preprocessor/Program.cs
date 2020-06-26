@@ -517,8 +517,12 @@ namespace Preprocessor
                     {
                         for (int x = 0; x < projections.Dims.X; x++)
                         {
-                            noiseData[z][y * projections.Dims.X + x] = SNR*(float)(rand.NextDouble()) * (max - min) + min;
-
+                            if (min < 0)
+                            {
+                                noiseData[z][y * projections.Dims.X + x] = SNR * (float)(rand.NextDouble()) * (max);
+                            }
+                            else
+                                noiseData[z][y * projections.Dims.X + x] = SNR * (float)(rand.NextDouble()) * (max-min)+min;
                         }
                     }
                 }

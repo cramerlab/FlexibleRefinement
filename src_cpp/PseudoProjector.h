@@ -80,7 +80,7 @@ public:
 	void addToPrecalcs(std::vector< projecction> &precalc, MultidimArray<DOUBLE> &Iexp, std::vector<float3> angles, std::vector<Matrix1D<DOUBLE>> *atomPositions, DOUBLE shiftX, DOUBLE shiftY);
 
 	DOUBLE SIRT(MultidimArray<DOUBLE> &Iexp, float3 *angles, idxtype batch, DOUBLE shiftX, DOUBLE shiftY);
-	DOUBLE SIRT(MultidimArray<DOUBLE> &Iexp, float3 *angles, idxtype batch, MultidimArray<DOUBLE>& Itheo, MultidimArray<DOUBLE>& Icorr, MultidimArray<DOUBLE>& Idiff, MultidimArray<DOUBLE>& Inorm, DOUBLE shiftX, DOUBLE shiftY);
+	DOUBLE SIRT(MultidimArray<DOUBLE> &Iexp, float3 *angles, idxtype batch, MultidimArray<DOUBLE>* Itheo, MultidimArray<DOUBLE>* Icorr, MultidimArray<DOUBLE>* Idiff, MultidimArray<DOUBLE>* Inorm, DOUBLE shiftX, DOUBLE shiftY);
 	DOUBLE ART_single_image(const MultidimArray<DOUBLE> &Iexp, DOUBLE rot, DOUBLE tilt, DOUBLE psi, DOUBLE shiftX, DOUBLE shiftY);
 	DOUBLE ART_single_image(const MultidimArray<DOUBLE> &Iexp, MultidimArray<DOUBLE> &Itheo, MultidimArray<DOUBLE> &Icorr, MultidimArray<DOUBLE> &Idiff, DOUBLE rot, DOUBLE tilt, DOUBLE psi, DOUBLE shiftX, DOUBLE shiftY);
 
@@ -91,6 +91,7 @@ public:
 	DOUBLE ART_multi_Image_step(DOUBLE * Iexp, float3 * angles, DOUBLE *gaussTables, DOUBLE *gaussTables2, DOUBLE border, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages);
 	DOUBLE ART_multi_Image_step(DOUBLE * Iexp, float3 * angles, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages);
 	DOUBLE ART_multi_Image_step_DB(DOUBLE * Iexp, DOUBLE * Itheo, DOUBLE * Icorr, DOUBLE * Idiff, float3 * angles, DOUBLE *gaussTables, DOUBLE *gaussTables2, DOUBLE tableLength, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages);
+	DOUBLE projectForward(float3 *angles, idxtype numAngles, MultidimArray<DOUBLE>& Itheo, DOUBLE shiftX, DOUBLE shiftY);
 
 	MRCImage<DOUBLE> *create3DImage(DOUBLE oversampling = 1.0);
 

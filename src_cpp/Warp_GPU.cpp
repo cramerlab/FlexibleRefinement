@@ -12,6 +12,16 @@ void ResizeMapGPU(MultidimArray<float> &img, int3 newDim)
 	FreeDevice(dout);
 }
 
+void SphereMaskGPU(float * input, float * output, int3 dims, float radius, float sigma, bool decentered, uint batch)
+{
+	float * d_input = MallocDeviceFromHost(input, Elements(dims));
+	float * d_output = MallocDevice(Elements(dims));
+	SphereMask(d_input, d_output, dims, radius, sigma, decentered, batch);
+	cudaMemcpy(output, d_output, Elements(dims)*sizeof(float),cudaMemcpyDeviceToHost);
+	cudaFree(d_input);
+	cudaFree(d_output);
+}
+
 
 void ResizeMapGPU(MultidimArray<float> &img, int2 newDim)
 {

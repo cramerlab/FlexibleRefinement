@@ -64,7 +64,7 @@ __global__ void RealspacePseudoProjectForwardKernel(float3* d_atomPositions, flo
 		glm::vec3 pos = glm::vec3(atomPos.x, atomPos.y, atomPos.z)*supersample;
 		pos -= volumecenter;
 		pos = rotation * pos;
-		pos += projectioncenter;
+		pos += volumecenter;
 
 		// Bilinear interpolation
 		int X0 = floor(pos.x);
@@ -121,10 +121,7 @@ void RealspacePseudoProjectBackward(float3* d_atomPositions,
 	//To be most efficient (no atomic add operations), we can parallelize over atoms and have each thread process all projections for one atom.
 	dim3 grid = dim3(tmin(1024, (nAtoms + 127) / 128), 1, 1);
 	uint elements = 128;
-
-
 	RealspacePseudoProjectBackwardKernel << <grid, elements >> > (d_atomPositions, d_atomIntensities, nAtoms, dimsvolume, supersample, d_projections, batch, dimsproj, d_matrices);
-
 	cudaFree(d_matrices);
 }
 
@@ -142,7 +139,7 @@ __global__ void RealspacePseudoProjectBackwardKernel(float3* d_atomPositions, fl
 			glm::vec3 pos = glm::vec3(atomPos.x, atomPos.y, atomPos.z)*supersample;
 			pos -= volumecenter;
 			pos = rotation * pos;
-			pos += projectioncenter;
+			pos += volumecenter;
 
 			int X0 = (int)pos.x;
 			float ix = pos.x - X0;
