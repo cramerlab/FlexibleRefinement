@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="HeaderFiles">
+      <UniqueIdentifier>{61a8a861-87b3-46e7-8890-7e71d08538b4}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src_cpp\pseudoatoms.cpp" />
+    <ClCompile Include="..\src_cpp\funcs.cpp" />
+    <ClCompile Include="..\src_cpp\Types.cpp" />
+    <ClCompile Include="..\src_cpp\Warp_GPU.cpp" />
+    <ClCompile Include="..\src_cpp\AtomFittingMain.cpp" />
+    <ClCompile Include="..\src_cpp\readMRC.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src_cpp\pseudoatoms.h" />
+    <ClInclude Include="..\src_cpp\funcs.h" />
+    <ClInclude Include="..\src_cpp\liblionImports.h" />
+    <ClInclude Include="..\src_cpp\Types.h" />
+    <ClInclude Include="..\src_cpp\Warp_GPU.h" />
+    <ClInclude Include="..\src_cpp\readMRC.h" />
+  </ItemGroup>
+</Project>

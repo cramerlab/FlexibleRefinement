@@ -91,7 +91,7 @@ public:
 	DOUBLE ART_multi_Image_step(DOUBLE * Iexp, float3 * angles, DOUBLE *gaussTables, DOUBLE *gaussTables2, DOUBLE border, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages);
 	DOUBLE ART_multi_Image_step(DOUBLE * Iexp, float3 * angles, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages);
 	DOUBLE ART_multi_Image_step_DB(DOUBLE * Iexp, DOUBLE * Itheo, DOUBLE * Icorr, DOUBLE * Idiff, float3 * angles, DOUBLE *gaussTables, DOUBLE *gaussTables2, DOUBLE tableLength, DOUBLE shiftX, DOUBLE shiftY, unsigned int numImages);
-	DOUBLE projectForward(float3 *angles, idxtype numAngles, MultidimArray<DOUBLE>& Itheo, DOUBLE shiftX, DOUBLE shiftY);
+	void projectForward(float3 *angles, idxtype numAngles, MultidimArray<DOUBLE>& Itheo, DOUBLE shiftX, DOUBLE shiftY);
 
 	MRCImage<DOUBLE> *create3DImage(DOUBLE oversampling = 1.0);
 

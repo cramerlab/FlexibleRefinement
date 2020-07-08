@@ -15,7 +15,7 @@ public:
 	std::vector<float3> AtomPositions;
 	PseudoAtomMode Mode;
 	Matrix1D<DOUBLE> GaussianTable;
-	void RasterizeToVolume(MultidimArray<DOUBLE> &vol, int3 Dims, DOUBLE super);
+	void RasterizeToVolume(MultidimArray<DOUBLE> &vol, int3 Dims, DOUBLE super, bool resize=true);
 	void IntensityFromVolume(MultidimArray<DOUBLE> &vol, DOUBLE super);
 	std::vector< DOUBLE > AtomWeights;
 	DOUBLE TableLength;
@@ -53,6 +53,41 @@ public:
 		FOR_ALL_ELEMENTS_IN_MATRIX1D(GaussianTable)
 			GaussianTable(i) = gaussian1D(i / ((DOUBLE)GaussFactor), sigma);
 		GaussianTable *= gaussian1D(0, sigma);
+	}
+
+	void MoveAtoms(MultidimArray<DOUBLE>& refVol, int3 Dims, DOUBLE super, bool resize);
+
+	static idxtype readAtomsFromFile(FileName pdbFile, std::vector<float3> &AtomPositions, std::vector<DOUBLE> &AtomIntensities, idxtype N=100000) {
+		std::ifstream ifs(pdbFile);
+		if (ifs.fail()) {
+			std::cerr << "Failed to open " << pdbFile << std::endl;
+			exit(EXIT_FAILURE);
+		}
+		std::string line;
+		DOUBLE sigma = 0.0;
+
+		AtomPositions.clear();
+		AtomPositions.reserve(N);
+
+		AtomIntensities.clear();
+		AtomIntensities.reserve(N);
+
+		idxtype NAtoms = 0;
+		while (std::getline(ifs, line)) {
+			if (line[0] == 'R' && line.rfind("REMARK fixedGaussian") != std::string::npos) {
+				sscanf(line.c_str(), "REMARK fixedGaussian %lf\n", &sigma);
+			}
+			if (line.rfind("ATOM") != std::string::npos) {
+				float3 atom;
+				Matrix1D<DOUBLE> position(3);
+				double intensity;
+				sscanf(line.c_str(), "ATOM\t%*d\tDENS\tDENS\t%*d\t%f\t%f\t%f\t%*d\t%lf\tDENS", &(atom.x), &(atom.y), &(atom.z), &intensity);
+				AtomIntensities.emplace_back((DOUBLE)intensity);
+				AtomPositions.emplace_back(atom);
+				NAtoms++;
+			}
+		}
+		return NAtoms;
 	}
 
 };

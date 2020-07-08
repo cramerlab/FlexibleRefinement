@@ -1,7 +1,7 @@
 #include "pseudoatoms.h"
 using namespace relion;
 
-void Pseudoatoms::RasterizeToVolume(MultidimArray<DOUBLE>& vol, int3 Dims, DOUBLE super)
+void Pseudoatoms::RasterizeToVolume(MultidimArray<DOUBLE>& vol, int3 Dims, DOUBLE super, bool resize)
 {
 	if (Mode == ATOM_INTERPOLATE)
 	{
@@ -72,8 +72,8 @@ void Pseudoatoms::RasterizeToVolume(MultidimArray<DOUBLE>& vol, int3 Dims, DOUBL
 		}
 
 		Weights.coreDeallocate();
-
-		ResizeMapGPU(vol, Dims);
+		if(resize)
+			ResizeMapGPU(vol, Dims);
 		return;
 	}
 	else if (Mode == ATOM_GAUSSIAN) {
@@ -89,6 +89,97 @@ void Pseudoatoms::RasterizeToVolume(MultidimArray<DOUBLE>& vol, int3 Dims, DOUBL
 			resizeMap(vol, Dims.x);
 		}
 	}
+}
+
+
+void Pseudoatoms::MoveAtoms(MultidimArray<DOUBLE>& refVol, int3 Dims, DOUBLE super, bool resize)
+{
+	if (Mode == ATOM_INTERPOLATE)
+	{
+		MultidimArray<float> rastered;
+		RasterizeToVolume(rastered,Dims,super);
+		MultidimArray<float> DiffIm = refVol;
+		Substract_GPU(DiffIm, refVol);
+		ResizeMapGPU(DiffIm, { (int)(Dims.x*super + 0.5), (int)(Dims.y*super + 0.5), (int)(Dims.z*super + 0.5) });
+#pragma omp parallel for
+		for (int p = 0; p < AtomPositions.size(); p++)
+		{
+			float3 superPos = AtomPositions[p] * super;
+
+			int X0 = (int)(superPos.x);
+			DOUBLE ix = (superPos.x) - X0;
+			int X1 = X0 + 1;
+
+			int Y0 = (int)(superPos.y);
+			DOUBLE iy = (superPos.y) - Y0;
+			int Y1 = Y0 + 1;
+
+			int Z0 = (int)(superPos.z);
+			DOUBLE iz = (superPos.z) - Z0;
+			int Z1 = Z0 + 1;
+
+			DOUBLE v0 = 1.0f - iz;
+			DOUBLE vd0 = -1;
+			DOUBLE v1 = iz;
+			DOUBLE vd1 = 1;
+
+			DOUBLE v00 = (1.0f - iy) * v0;
+			DOUBLE v0d0 = (1.0f - iy) * vd0;
+			DOUBLE vd00 = - 1 * v0;
+
+			DOUBLE v10 = iy * v0;
+			DOUBLE v1d0 = iy * vd0;
+			DOUBLE vd10 = 1 * v0;
+
+
+			DOUBLE v01 = (1.0f - iy) * v1;
+			DOUBLE v0d1 = (1.0f - iy) * vd1;
+			DOUBLE vd01 = ( - 1) * v1;
+
+			DOUBLE v11 = iy * v1;
+			DOUBLE v1d1 = iy * vd1;
+			DOUBLE vd11 = 1 * v1;
+
+
+			DOUBLE v00d0 = (1.0f - ix) * v0d0;
+			DOUBLE v0d00 = (1.0f - ix) * vd00;
+			DOUBLE vd000 = (- 1) * v00;
+
+			DOUBLE v10d0 = ix * v0d0;
+			DOUBLE v1d00 = ix * vd00;
+			DOUBLE vd100 = 1 * v00;
+
+			DOUBLE v01d0 = (1.0f - ix) * v1d0;
+			DOUBLE v0d10 = (1.0f - ix) * vd10;
+			DOUBLE vd010 = (-1) * v10;
+
+			DOUBLE v11d0 = ix * v1d0;
+			DOUBLE v1d10 = ix * vd10;
+			DOUBLE vd110 = 1 * v10;
+
+			DOUBLE v00d1 = (1.0f - ix) * v0d1;
+			DOUBLE v0d01 = (1.0f - ix) * vd01;
+			DOUBLE vd001 = (-1.0f) * v01;
+
+			DOUBLE v10d1 = ix * v0d1;
+			DOUBLE v1d01 = ix * vd01;
+			DOUBLE vd101 = 1 * v01;
+
+			DOUBLE v01d1 = (1.0f - ix) * v1d1;
+			DOUBLE v0d11 = (1.0f - ix) * vd11;
+			DOUBLE vd011 = (-1.0f) * v11;
+
+			DOUBLE v11d1 = ix * v1d1;
+			DOUBLE v1d11 = ix * vd11;
+			DOUBLE vd111 = 1 * v11;
+
+		}
+
+
+
+		return;
+	}
+
 }
 
 void Pseudoatoms::IntensityFromVolume(MultidimArray<DOUBLE>& vol, DOUBLE super)

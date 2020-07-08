@@ -15,6 +15,28 @@ namespace Preprocessor
     class Program
     {
 
+        static Random _rand = new Random();
+
+        public static double Draw(double μ = 0.5, double σ = 0.5)
+        {
+            while (true)
+            {
+                // Get random values from interval [0,1]
+                var x = _rand.NextDouble();
+                var y = _rand.NextDouble();
+
+                // Is the point (x,y) under the curve of the density function?
+                if (y < f(x, μ, σ))
+                    return x;
+            }
+        }
+
+        // Normal (or gauss) distribution function
+        public static double f(double x, double μ = 0.5, double σ = 0.5)
+        {
+            return 1d / Math.Sqrt(2 * σ * σ * Math.PI) * Math.Exp(-((x - μ) * (x - μ)) / (2 * σ * σ));
+        }
+
         static void downsampleToDim()
         {
             string inputVol = @"D:\EMPIAR\10168\emd_4180_res7_10k_conv_it3_oversampled2.mrc";
@@ -494,6 +516,7 @@ namespace Preprocessor
 
             float min = 100000;
             float max = -1000000;
+            double avgSqrd = 0.0;
 
             for (int z = 0; z < projections.Dims.Z; z++)
             {
@@ -503,9 +526,11 @@ namespace Preprocessor
                     {
                         max = Math.Max(max, projectionsData[z][y * projections.Dims.X + x]);
                         min = Math.Min(min, projectionsData[z][y * projections.Dims.X + x]);
+                        avgSqrd += Math.Pow(projectionsData[z][y * projections.Dims.X + x], 2);
                     }
                 }
             }
+            avgSqrd /= projections.ElementsReal;
             for (int i = 1; i <= 10; i++)
             {
                 float SNR = 1.0f / i;
@@ -519,10 +544,10 @@ namespace Preprocessor
                         {
                             if (min < 0)
                             {
-                                noiseData[z][y * projections.Dims.X + x] = SNR * (float)(rand.NextDouble()) * (max);
+                                noiseData[z][y * projections.Dims.X + x] = (float)Draw(SNR * avgSqrd, (max - min) / 8);
                             }
                             else
-                                noiseData[z][y * projections.Dims.X + x] = SNR * (float)(rand.NextDouble()) * (max-min)+min;
+                                noiseData[z][y * projections.Dims.X + x] = (float)Draw(SNR * avgSqrd, (max - min) / 8);
                         }
                     }
                 }
@@ -538,7 +563,7 @@ namespace Preprocessor
         {
             // The code provided will print ‘Hello World’ to the console.
             // Press Ctrl+F5 (or go to Debug > Start Without Debugging) to run your app.
-            
+            /*
                         Star starInFile = new Star(@"D:\EMD\9233\emd_9233_Scaled_2.0.projections_uniform.star");
                         Star starOutFile = new Star(starInFile.GetColumnNames());
 
@@ -549,7 +574,7 @@ namespace Preprocessor
                             row[3] = $@"{j + 1}@D:\EMD\9233\Projections_2.0_uniform\combined.mrc";
                             starOutFile.AddRow(row);
                         }
-                        starOutFile.Save(@"D:\EMD\9233\emd_9233_Scaled_2.0.projections_uniform_combined.star");
+                        starOutFile.Save(@"D:\EMD\9233\emd_9233_Scaled_2.0.projections_uniform_combined.star");*/
             // Go to http://aka.ms/dotnet-get-started-console to continue learning how to build a console app!
             //downsampleToDim();
             //downsampler();

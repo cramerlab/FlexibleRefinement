@@ -632,7 +632,7 @@ DOUBLE PseudoProjector::SIRT(MultidimArray<DOUBLE> &Iexp, float3 *angles, idxtyp
 	return SIRT(Iexp, angles, numAngles, NULL, NULL, NULL, NULL, shiftX, shiftY);
 }
 
-DOUBLE PseudoProjector::projectForward(float3 *angles, idxtype numAngles, MultidimArray<DOUBLE>& Itheo, DOUBLE shiftX, DOUBLE shiftY)
+void PseudoProjector::projectForward(float3 *angles, idxtype numAngles, MultidimArray<DOUBLE>& Itheo, DOUBLE shiftX, DOUBLE shiftY)
 {
 	cudaErrchk(cudaSetDevice(1));
 	float3 * d_atomPositions;

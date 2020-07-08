@@ -72,28 +72,29 @@ void doNonMoved() {
 	idxtype numThreads = 24;
 	omp_set_num_threads(numThreads);
 	idxtype numIt = 15;
-	/*
-	FileName starFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + ".projections_uniform_combined_4.star";
+	
+	FileName starFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + ".projections_uniform_combined.distorted_10.star";
 
 	FileName refFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + ".mrc";
 	FileName refMaskFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + "_mask.mrc";
 	FileName pdbFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + "_" + std::to_string(N / 1000) + "k.pdb";		//PDB File containing pseudo atom coordinates
-	FileName fnOut = pdbFileName.withoutExtension() + "_SNR4_bs" + std::to_string(batchSize);
-	*/
-
+	FileName fnOut = starFileName.withoutExtension();
+	
+	
+	/*
 	FileName starFileName = "D:\\Dev\\pseudoatoms\\refProjectionsWeighted.star";
 	FileName refFileName = "D:\\Dev\\pseudoatoms\\ref.mrc";
 	FileName refMaskFileName = "D:\\Dev\\pseudoatoms\\mask.mrc";
 	FileName pdbFileName = "D:\\Dev\\pseudoatoms\\ref.pdb";
 	FileName fnOut = pdbFileName.withoutExtension() + "_gpuRecon";
-
+	*/
 	//Read Images
 	MRCImage<DOUBLE> origVol = MRCImage<DOUBLE>::readAs(refFileName);
 	MRCImage<DOUBLE> origMasked = MRCImage<DOUBLE>::readAs(refFileName);
-	SphereMaskGPU(origMasked().data, origMasked().data, toInt3(origVol().xdim, origVol().ydim, origVol().zdim), 64 / 2, 10, false, 1);
-	/*MRCImage<DOUBLE> Mask = MRCImage<DOUBLE>::readAs(refMaskFileName);
+	//SphereMaskGPU(origMasked().data, origMasked().data, toInt3(origVol().xdim, origVol().ydim, origVol().zdim), 64 / 2, 10, false, 1);
+	MRCImage<DOUBLE> Mask = MRCImage<DOUBLE>::readAs(refMaskFileName);
 	origMasked.setData(origMasked()*Mask());
-	origMasked.writeAs<float>(refFileName.withoutExtension() + "_masked.mrc", true);*/
+	origMasked.writeAs<float>(refFileName.withoutExtension() + "_masked.mrc", true);
 
 	// Read Atom Coordinates
 	std::ifstream ifs(pdbFileName);
@@ -227,9 +228,9 @@ void doNonMoved() {
 		MRCImage<DOUBLE> *after1Itoversample = proj.create3DImage(super);
 		after1Itoversample->writeAs<float>(fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + ".mrc", true);
 		writeFSC(origVol(), (*after1Itoversample)(), fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + ".fsc");
-		//writeFSC(origMasked(), (*after1Itoversample)()*Mask(), fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + "_masked.fsc");
-		SphereMaskGPU((*after1Itoversample)().data, (*after1Itoversample)().data, toInt3(origVol().xdim, origVol().ydim, origVol().zdim), 64 / 2, 10, false, 1);
-		writeFSC(origMasked(), (*after1Itoversample)(), fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + "_masked.fsc");
+		writeFSC(origMasked(), (*after1Itoversample)()*Mask(), fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + "_masked.fsc");
+		//SphereMaskGPU((*after1Itoversample)().data, (*after1Itoversample)().data, toInt3(origVol().xdim, origVol().ydim, origVol().zdim), 64 / 2, 10, false, 1);
+		//writeFSC(origMasked(), (*after1Itoversample)(), fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + "_masked.fsc");
 		delete after1Itoversample;
 
 	}
