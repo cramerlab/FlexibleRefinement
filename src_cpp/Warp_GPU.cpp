@@ -44,4 +44,9 @@ void Substract_GPU(MultidimArray<float> &img, MultidimArray<float> &substrahend)
 	float* dSubtrahends = MallocDeviceFromHost(substrahend.data, substrahend.nzyxdim);
 
 	SubtractFromSlices(din, dSubtrahends, din, img.nzyxdim, 1);
+
+	cudaMemcpy(img.data, din, img.nzyxdim*sizeof(*din), cudaMemcpyDeviceToHost);
+	cudaFree(din);
+	cudaFree(dSubtrahends);
+
 }
