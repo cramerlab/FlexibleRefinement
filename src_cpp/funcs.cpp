@@ -1,5 +1,5 @@
 #include "funcs.h"
-
+#include "metadata_table.h"
 
 DOUBLE Lerp(DOUBLE a, DOUBLE b, DOUBLE x)
 {
@@ -101,12 +101,14 @@ void drawOneGaussian(Matrix1D<DOUBLE> &gaussianTable, DOUBLE boundary, DOUBLE k,
 
 void writeFSC(MultidimArray<DOUBLE> &V1, MultidimArray<DOUBLE> &V2, FileName outpath) {
 	MultidimArray<DOUBLE> fsc;
+	MetaDataTable MDfsc;
 	getFSC(V1, V2, fsc);
+	MDfsc.setName("fsc");
+	FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY1D(fsc)
 	{
-		std::ofstream ofs(outpath);
-
-		FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY1D(fsc) {
-			ofs << i << "\t" << DIRECT_A1D_ELEM(fsc, i) << std::endl;
-		}
+		MDfsc.addObject();
+		MDfsc.setValue(EMDL_SPECTRAL_IDX, (int)i);
+		MDfsc.setValue(EMDL_POSTPROCESS_FSC_GENERAL, DIRECT_A1D_ELEM(fsc, i));
 	}
+	MDfsc.write(outpath);
 }

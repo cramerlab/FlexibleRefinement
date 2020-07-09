@@ -75,24 +75,18 @@ __global__ void RealspacePseudoProjectForwardKernel(float3* d_atomPositions, flo
 		float iy = pos.y - Y0;
 		int Y1 = Y0 + 1;
 
-		float v0 = 1.0f - iy;
-		float v1 = iy;
+		float v0 = 1.0f - ix;
+		float v1 = ix;
 
-		float v00 = (1.0f - ix) * v0;
-		float v10 = ix * v0;
-		float v01 = (1.0f - ix) * v1;
-		float v11 = ix * v1;
+		float v00 = (1.0f - iy) * v0;
+		float v10 = iy * v0;
+		float v01 = (1.0f - iy) * v1;
+		float v11 = iy * v1;
 
 		d_projections[Y0*dimsproj.x + X0] += weight * v00;
 		d_projections[Y0*dimsproj.x + X1] += weight * v01;
 		d_projections[Y1*dimsproj.x + X0] += weight * v10;
 		d_projections[Y1*dimsproj.x + X1] += weight * v11;
-
-
-		/*atomicAdd((d_projections + (Y0*dimsproj.x + X0)), weight * v00);
-		atomicAdd((d_projections + (Y0*dimsproj.x + X1)), weight * v01);
-		atomicAdd((d_projections + (Y1*dimsproj.x + X0)), weight * v10);
-		atomicAdd((d_projections + (Y1*dimsproj.x + X1)), weight * v11);*/
 	}
 }
 

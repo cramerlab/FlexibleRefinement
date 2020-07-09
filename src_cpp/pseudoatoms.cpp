@@ -1,4 +1,5 @@
 #include "pseudoatoms.h"
+#include "readMRC.h"
 using namespace relion;
 
 void Pseudoatoms::RasterizeToVolume(MultidimArray<DOUBLE>& vol, int3 Dims, DOUBLE super, bool resize)
@@ -29,22 +30,22 @@ void Pseudoatoms::RasterizeToVolume(MultidimArray<DOUBLE>& vol, int3 Dims, DOUBL
 			DOUBLE iz = (superPos.z) - Z0;
 			int Z1 = Z0 + 1;
 
-			DOUBLE v0 = 1.0f - iz;
-			DOUBLE v1 = iz;
+			DOUBLE v0 = 1.0f - ix;
+			DOUBLE v1 = ix;
 
 			DOUBLE v00 = (1.0f - iy) * v0;
 			DOUBLE v10 = iy * v0;
 			DOUBLE v01 = (1.0f - iy) * v1;
 			DOUBLE v11 = iy * v1;
 
-			DOUBLE v000 = (1.0f - ix) * v00;
-			DOUBLE v100 = ix * v00;
-			DOUBLE v010 = (1.0f - ix) * v10;
-			DOUBLE v110 = ix * v10;
-			DOUBLE v001 = (1.0f - ix) * v01;
-			DOUBLE v101 = ix * v01;
-			DOUBLE v011 = (1.0f - ix) * v11;
-			DOUBLE v111 = ix * v11;
+			DOUBLE v000 = (1.0f - iz) * v00;
+			DOUBLE v100 = iz * v00;
+			DOUBLE v010 = (1.0f - iz) * v10;
+			DOUBLE v110 = iz * v10;
+			DOUBLE v001 = (1.0f - iz) * v01;
+			DOUBLE v101 = iz * v01;
+			DOUBLE v011 = (1.0f - iz) * v11;
+			DOUBLE v111 = iz * v11;
 
 			A3D_ELEM(vol, Z0, Y0, X0) += AtomWeights[p] * v000;
 			A3D_ELEM(vol, Z0, Y0, X1) += AtomWeights[p] * v001;
@@ -92,15 +93,27 @@ void Pseudoatoms::RasterizeToVolume(MultidimArray<DOUBLE>& vol, int3 Dims, DOUBL
 }
 
 
-void Pseudoatoms::MoveAtoms(MultidimArray<DOUBLE>& refVol, int3 Dims, DOUBLE super, bool resize)
+void Pseudoatoms::MoveAtoms(MultidimArray<DOUBLE>& superRefVol, int3 Dims, DOUBLE super, bool resize)
 {
 	if (Mode == ATOM_INTERPOLATE)
 	{
-		MultidimArray<float> rastered;
-		RasterizeToVolume(rastered,Dims,super);
-		MultidimArray<float> DiffIm = refVol;
-		Substract_GPU(DiffIm, refVol);
-		ResizeMapGPU(DiffIm, { (int)(Dims.x*super + 0.5), (int)(Dims.y*super + 0.5), (int)(Dims.z*super + 0.5) });
+		MultidimArray<float> SuperRastered;
+		RasterizeToVolume(SuperRastered,Dims,super, false);
+		MultidimArray<float> SuperDiffVol = SuperRastered;
+
+		Substract_GPU(SuperDiffVol, superRefVol);
+		{
+			MRCImage<float> DiffIm(SuperDiffVol);
+			DiffIm.writeAs<float>("D:\\EMD\\9233\\AtomFitting\\moving_SuperDiffIm.mrc", true);
+		}
+
+		{
+			MRCImage<float> SuperRefIm(superRefVol);
+			SuperRefIm.writeAs<float>("D:\\EMD\\9233\\AtomFitting\\moving_SuperRefVol.mrc", true);
+			MRCImage<float> SuperRasteredIm(SuperRastered);
+			SuperRasteredIm.writeAs<float>("D:\\EMD\\9233\\AtomFitting\\moving_rasteredVol.mrc", true);
+
+		}
 #pragma omp parallel for
 		for (int p = 0; p < AtomPositions.size(); p++)
 		{
@@ -118,9 +131,9 @@ void Pseudoatoms::MoveAtoms(MultidimArray<DOUBLE>& refVol, int3 Dims, DOUBLE sup
 			DOUBLE iz = (superPos.z) - Z0;
 			int Z1 = Z0 + 1;
 
-			DOUBLE v0 = 1.0f - iz;
+			DOUBLE v0 = 1.0f - ix;
 			DOUBLE vd0 = -1;
-			DOUBLE v1 = iz;
+			DOUBLE v1 = ix;
 			DOUBLE vd1 = 1;
 
 			DOUBLE v00 = (1.0f - iy) * v0;
@@ -140,38 +153,52 @@ void Pseudoatoms::MoveAtoms(MultidimArray<DOUBLE>& refVol, int3 Dims, DOUBLE sup
 			DOUBLE v1d1 = iy * vd1;
 			DOUBLE vd11 = 1 * v1;
 
-
-			DOUBLE v00d0 = (1.0f - ix) * v0d0;
-			DOUBLE v0d00 = (1.0f - ix) * vd00;
+			DOUBLE v000 = DIRECT_A3D_ELEM(SuperDiffVol, Z0, Y0, X0);
+			DOUBLE v00d0 = (1.0f - iz) * v0d0;
+			DOUBLE v0d00 = (1.0f - iz) * vd00;
 			DOUBLE vd000 = (- 1) * v00;
 
-			DOUBLE v10d0 = ix * v0d0;
-			DOUBLE v1d00 = ix * vd00;
+			DOUBLE v100 = DIRECT_A3D_ELEM(SuperDiffVol, Z1, Y0, X0);
+			DOUBLE v10d0 = iz * v0d0;
+			DOUBLE v1d00 = iz * vd00;
 			DOUBLE vd100 = 1 * v00;
 
-			DOUBLE v01d0 = (1.0f - ix) * v1d0;
-			DOUBLE v0d10 = (1.0f - ix) * vd10;
+			DOUBLE v010 = DIRECT_A3D_ELEM(SuperDiffVol, Z0, Y1, X0);
+			DOUBLE v01d0 = (1.0f - iz) * v1d0;
+			DOUBLE v0d10 = (1.0f - iz) * vd10;
 			DOUBLE vd010 = (-1) * v10;
 
-			DOUBLE v11d0 = ix * v1d0;
-			DOUBLE v1d10 = ix * vd10;
+			DOUBLE v110 = DIRECT_A3D_ELEM(SuperDiffVol, Z1, Y1, X0);
+			DOUBLE v11d0 = iz * v1d0;
+			DOUBLE v1d10 = iz * vd10;
 			DOUBLE vd110 = 1 * v10;
 
-			DOUBLE v00d1 = (1.0f - ix) * v0d1;
-			DOUBLE v0d01 = (1.0f - ix) * vd01;
+			DOUBLE v001 = DIRECT_A3D_ELEM(SuperDiffVol, Z0, Y0, X1);
+			DOUBLE v00d1 = (1.0f - iz) * v0d1;
+			DOUBLE v0d01 = (1.0f - iz) * vd01;
 			DOUBLE vd001 = (-1.0f) * v01;
 
-			DOUBLE v10d1 = ix * v0d1;
-			DOUBLE v1d01 = ix * vd01;
+			DOUBLE v101 = DIRECT_A3D_ELEM(SuperDiffVol, Z1, Y0, X1);
+			DOUBLE v10d1 = iz * v0d1;
+			DOUBLE v1d01 = iz * vd01;
 			DOUBLE vd101 = 1 * v01;
 
-			DOUBLE v01d1 = (1.0f - ix) * v1d1;
-			DOUBLE v0d11 = (1.0f - ix) * vd11;
+			DOUBLE v011 = DIRECT_A3D_ELEM(SuperDiffVol, Z0, Y1, X1);
+			DOUBLE v01d1 = (1.0f - iz) * v1d1;
+			DOUBLE v0d11 = (1.0f - iz) * vd11;
 			DOUBLE vd011 = (-1.0f) * v11;
 
-			DOUBLE v11d1 = ix * v1d1;
-			DOUBLE v1d11 = ix * vd11;
+			DOUBLE v111 = DIRECT_A3D_ELEM(SuperDiffVol, Z1, Y1, X1);
+			DOUBLE v11d1 = iz * v1d1;
+			DOUBLE v1d11 = iz * vd11;
 			DOUBLE vd111 = 1 * v11;
+
+			float3 movement = {
+				 (v00d1 * v001 + v01d1 * v011 + v10d1 * v101 + v11d1 * v111) - (v00d0 * v000 + v01d0 * v010 + v10d0 * v100 + v11d0 * v110),
+				 (v0d10 * v010 + v1d10 * v110 + v0d11 * v011 + v1d11 * v111) - (v1d00 * v100 + v0d00 * v000 + v0d01 * v001 + v1d01 * v101),
+				 (vd100 * v100 + vd110 * v110 + vd101 * v101 + vd111 * v111) - (vd000 * v000 + vd010 * v010 + vd001 * v001 + vd011 * v011) };
+			if (true)
+				;
 
 		}
 
@@ -207,13 +234,13 @@ void Pseudoatoms::IntensityFromVolume(MultidimArray<DOUBLE>& vol, DOUBLE super)
 		int Z1 = Z0 + 1;
 
 		DOUBLE v000 = A3D_ELEM(volSuper, Z0, Y0, X0);
-		DOUBLE v001 = A3D_ELEM(volSuper, Z0, Y0, X0);
-		DOUBLE v010 = A3D_ELEM(volSuper, Z0, Y0, X0);
-		DOUBLE v011 = A3D_ELEM(volSuper, Z0, Y0, X0);
-		DOUBLE v100 = A3D_ELEM(volSuper, Z0, Y0, X0);
-		DOUBLE v101 = A3D_ELEM(volSuper, Z0, Y0, X0);
-		DOUBLE v110 = A3D_ELEM(volSuper, Z0, Y0, X0);
-		DOUBLE v111 = A3D_ELEM(volSuper, Z0, Y0, X0);
+		DOUBLE v001 = A3D_ELEM(volSuper, Z0, Y0, X1);
+		DOUBLE v010 = A3D_ELEM(volSuper, Z0, Y1, X0);
+		DOUBLE v011 = A3D_ELEM(volSuper, Z0, Y1, X1);
+		DOUBLE v100 = A3D_ELEM(volSuper, Z1, Y0, X0);
+		DOUBLE v101 = A3D_ELEM(volSuper, Z1, Y0, X1);
+		DOUBLE v110 = A3D_ELEM(volSuper, Z1, Y1, X0);
+		DOUBLE v111 = A3D_ELEM(volSuper, Z1, Y1, X1);
 
 		DOUBLE v00 = Lerp(v000, v001, ix);
 		DOUBLE v01 = Lerp(v010, v011, ix);

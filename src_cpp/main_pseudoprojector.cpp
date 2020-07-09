@@ -73,13 +73,19 @@ void doNonMoved() {
 	omp_set_num_threads(numThreads);
 	idxtype numIt = 15;
 	
-	FileName starFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + ".projections_uniform_combined.distorted_10.star";
+	/*FileName starFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + ".projections_uniform_combined.distorted_10.star";
+
+	FileName refFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + ".mrc";
+	FileName refMaskFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + "_mask.mrc";
+	FileName pdbFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + "_" + std::to_string(N / 1000) + "k.pdb";		//PDB File containing pseudo atom coordinates
+	FileName fnOut = starFileName.withoutExtension();*/
+
+	FileName starFileName = "D:\\Dev\\pseudoatoms\\20s\\refProjectionsWeighted.star";
 
 	FileName refFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + ".mrc";
 	FileName refMaskFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + "_mask.mrc";
 	FileName pdbFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + "_" + std::to_string(N / 1000) + "k.pdb";		//PDB File containing pseudo atom coordinates
 	FileName fnOut = starFileName.withoutExtension();
-	
 	
 	/*
 	FileName starFileName = "D:\\Dev\\pseudoatoms\\refProjectionsWeighted.star";
