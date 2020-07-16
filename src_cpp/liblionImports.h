@@ -13,5 +13,5 @@
 #include "src/symmetries.h"
 #include "src/strings.h"
 
-#define RFLOAT double
+#define RFLOAT float
 #endif // !LIBLION_IMPORTS

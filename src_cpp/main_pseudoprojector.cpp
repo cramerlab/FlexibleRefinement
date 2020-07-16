@@ -28,25 +28,25 @@ void defineParams(cxxopts::Options &options)
 	options.add_options()
 		("i,input", "Input", cxxopts::value<std::string>(), "Input PDB file of atoms")
 		("o,output", "rootname", cxxopts::value<std::string>(), "Rootname for output")
-		("sigma", "s", cxxopts::value<DOUBLE>()->default_value("1.5"), "Sigma of Gaussians used")
+		("sigma", "s", cxxopts::value<RDOUBLE>()->default_value("1.5"), "Sigma of Gaussians used")
 		("initialSeeds", "N", cxxopts::value<size_t>()->default_value("300"), "Initial number of Atoms")
 		("growSeeds", "percentage", cxxopts::value<size_t>()->default_value("30"), "Percentage of growth, At each iteration the smallest percentage/2 pseudoatoms will be removed, and percentage new pseudoatoms will be created.")
-		("filterInput", "f", cxxopts::value<DOUBLE>(), "Low-pass filter input using this threshold")
-		("stop", "p", cxxopts::value<DOUBLE>()->default_value("0.001"), "Stop criterion (0<p<1) for inner iterations. At each iteration the current number of gaussians will be optimized until the average error does not decrease at least this amount relative to the previous iteration.")
-		("targetError", "p", cxxopts::value<DOUBLE>()->default_value("0.02"), "Finish when the average representation error is below this threshold (in percentage; by default, 2%)")
+		("filterInput", "f", cxxopts::value<RDOUBLE>(), "Low-pass filter input using this threshold")
+		("stop", "p", cxxopts::value<RDOUBLE>()->default_value("0.001"), "Stop criterion (0<p<1) for inner iterations. At each iteration the current number of gaussians will be optimized until the average error does not decrease at least this amount relative to the previous iteration.")
+		("targetError", "p", cxxopts::value<RDOUBLE>()->default_value("0.02"), "Finish when the average representation error is below this threshold (in percentage; by default, 2%)")
 		("dontAllowMovement", "true", cxxopts::value<bool>()->default_value("false"), "Don't allow pseudoatoms to move")
-		("dontAllowIntensity", "f", cxxopts::value<DOUBLE>()->default_value("0.01"), "Don't allow pseudoatoms to change intensity. f determines the fraction of intensity")
+		("dontAllowIntensity", "f", cxxopts::value<RDOUBLE>()->default_value("0.01"), "Don't allow pseudoatoms to change intensity. f determines the fraction of intensity")
 		("intensityColumn", "s", cxxopts::value<std::string>()->default_value("Bfactor"), "Where to write the intensity in the PDB file")
 		("Nclosest", "N", cxxopts::value<size_t>()->default_value("3"), "N closest atoms, it is used only for the distance histogram")
-		("minDistance", "d", cxxopts::value<DOUBLE>()->default_value("0.001"), "Minimum distance between two pseudoatoms (in Angstroms). Set it to -1 to disable")
-		("penalty", "p", cxxopts::value<DOUBLE>()->default_value("10"), "Penalty for overshooting")
-		("sampling_rate", "Ts", cxxopts::value<DOUBLE>()->default_value("1"), "Sampling rate Angstroms/pixel")
+		("minDistance", "d", cxxopts::value<RDOUBLE>()->default_value("0.001"), "Minimum distance between two pseudoatoms (in Angstroms). Set it to -1 to disable")
+		("penalty", "p", cxxopts::value<RDOUBLE>()->default_value("10"), "Penalty for overshooting")
+		("sampling_rate", "Ts", cxxopts::value<RDOUBLE>()->default_value("1"), "Sampling rate Angstroms/pixel")
 		("dontScale", "true", cxxopts::value<bool>()->default_value("false"), "Don't scale atom weights in the PDB")
-		("binarize", "threshold", cxxopts::value<DOUBLE>()->default_value("0.5"), "Binarize the volume")
+		("binarize", "threshold", cxxopts::value<RDOUBLE>()->default_value("0.5"), "Binarize the volume")
 		("thr", "t", cxxopts::value<size_t>()->default_value("1"), "Number of Threads")
 		("mask", "mask_type", cxxopts::value<std::string>(), "Which mask type to use. Options are real_file and binary_file")
 		("maskfile", "f", cxxopts::value<std::string>(), "Path of mask file")
-		("center", "c", cxxopts::value<std::vector<DOUBLE>>()->default_value("0,0,0"), "Center of Mask")
+		("center", "c", cxxopts::value<std::vector<RDOUBLE>>()->default_value("0,0,0"), "Center of Mask")
 		("v,verbose", "v", cxxopts::value<int>()->default_value("0"), "Verbosity Level");
 }
 
@@ -57,7 +57,97 @@ params readParams(cxxopts::ParseResult &res) {
 }
 
 
+void weightProjections(MultidimArray<RDOUBLE> &projections, float3 * angles, int3 dims)
+{
+	int maxR = dims.x / 2;
+	float* Weights = new float[maxR];
 
+	for (int r = 0; r < maxR; r++)
+	{
+		float Sum = 0;
+
+		float3 Point = { (float)r, 0, 0 };
+
+		for (int a = 0; a < projections.zdim; a++)
+		{
+			glm::vec3 Normal = glm::transpose(Matrix3Euler(angles[a])) * glm::vec3(0, 0, 1);
+			float Dist = abs(Normal.x*Point.x + Normal.y*Point.y + Normal.z*Point.z);
+			Sum += std::max((float)0, 1 - Dist);
+		}
+
+		Weights[r] = 1.0f / std::max(1.0f, Sum);
+	}
+
+	MultidimArray<float> Weights2D(dims.y, dims.x / 2 + 1);
+
+	int i = 0;
+	for (int y = 0; y < dims.y; y++)
+	{
+		int yy = y < dims.y / 2 + 1 ? y : y - dims.y;
+
+		for (int x = 0; x < dims.x / 2 + 1; x++)
+		{
+			int xx = x;
+			float r = (float)sqrt(xx * xx + yy * yy);
+			Weights2D.data[i++] = Weights[std::min(maxR - 1, (int)std::round(r))];
+		}
+	}
+
+	idxtype batch = 1024;
+
+	int3 sliceDim = { projections.xdim, projections.ydim, 1 };
+	int3 sliceFTDim = { projections.xdim / 2 + 1, projections.ydim, 1 };
+	int sliceFTElements = sliceFTDim.x*sliceFTDim.y;
+	int ndims = DimensionCount(sliceDim);
+	int sliceElements = projections.xdim * projections.ydim;
+	for (int idx = 0; idx < projections.zdim;) {
+		int batchElements = std::min(projections.zdim - idx, batch);
+		float * d_projections = MallocDeviceFromHost(projections.data + sliceElements*idx, projections.yxdim*batchElements);
+		float * d_weights = MallocDeviceFromHost(Weights2D.data, Weights2D.yxdim);
+		tcomplex * d_fft;
+		cudaMalloc(&d_fft, sliceFTElements*batchElements * sizeof(*d_fft));
+		d_FFTR2C(d_projections, d_fft, ndims, sliceDim, batchElements);
+		{
+			MultidimArray<float> fft(batchElements, dims.y, dims.x / 2 + 1);
+			tcomplex * fft_complex = (tcomplex*)malloc(sliceFTElements*sizeof(tcomplex)*batchElements);
+			cudaMemcpy(fft_complex, d_fft, sizeof(tcomplex)*sliceFTElements*batchElements, cudaMemcpyDeviceToHost);
+			for (size_t i = 0; i < sliceFTElements*batchElements; i++)
+			{
+				fft.data[i] = fft_complex[i].x;
+			}
+			MRCImage<float> fftIm(fft);
+			fftIm.writeAs<float>("D:\\Dev\\pseudoatoms\\20s\\refProjections_fft.mrc", true);
+		}
+		d_ComplexMultiplyByVector(d_fft, d_weights, d_fft, sliceFTElements, batchElements);
+		{
+			MultidimArray<float> fft(batchElements, dims.y, dims.x / 2 + 1);
+			tcomplex * fft_complex = (tcomplex*)malloc(sliceFTElements * sizeof(tcomplex)*batchElements);
+			cudaMemcpy(fft_complex, d_fft, sizeof(tcomplex)*sliceFTElements*batchElements, cudaMemcpyDeviceToHost);
+			for (size_t i = 0; i < sliceFTElements*batchElements; i++)
+			{
+				fft.data[i] = fft_complex[i].x;
+			}
+			MRCImage<float> fftIm(fft);
+			fftIm.writeAs<float>("D:\\Dev\\pseudoatoms\\20s\\refProjections_fft_weighted.mrc", true);
+		}
+		d_IFFTC2R(d_fft, d_projections, ndims, sliceDim, batchElements, true);
+		{
+			MultidimArray<float> projTemp(batchElements, dims.y, dims.x);
+
+			cudaMemcpy(projTemp.data, d_projections, sizeof(float)*sliceElements*batchElements, cudaMemcpyDeviceToHost);
+
+			MRCImage<float> projIm(projTemp);
+			projIm.writeAs<float>("D:\\Dev\\pseudoatoms\\20s\\refProjections_weighted.mrc", true);
+		}
+
+		cudaMemcpy(projections.data+ sliceElements*idx, d_projections, sliceElements*batchElements * sizeof(float), cudaMemcpyDeviceToHost);
+		cudaFree(d_fft);
+		cudaFree(d_projections);
+		cudaFree(d_weights);
+		idx += batchElements;
+	}
+
+}
 
 
 
@@ -67,12 +157,12 @@ void doNonMoved() {
 	idxtype N = 800000;
 	Algo algo = SIRT;
 	FileName pixsize = "2.0";
-	DOUBLE super = 4.0;
-	bool writeProjections = false;	//Wether or not to write out projections before and after each iteration
+	RDOUBLE super = 4.0;
+	bool writeProjections = true;	//Wether or not to write out projections before and after each iteration
 	idxtype numThreads = 24;
 	omp_set_num_threads(numThreads);
 	idxtype numIt = 15;
-	
+
 	/*FileName starFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + ".projections_uniform_combined.distorted_10.star";
 
 	FileName refFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + ".mrc";
@@ -80,13 +170,13 @@ void doNonMoved() {
 	FileName pdbFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + "_" + std::to_string(N / 1000) + "k.pdb";		//PDB File containing pseudo atom coordinates
 	FileName fnOut = starFileName.withoutExtension();*/
 
-	FileName starFileName = "D:\\Dev\\pseudoatoms\\20s\\refProjectionsWeighted.star";
+	FileName starFileName = "D:\\Dev\\pseudoatoms\\20s\\dimitry_refProjections.star";
 
 	FileName refFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + ".mrc";
 	FileName refMaskFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + "_mask.mrc";
 	FileName pdbFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + "_" + std::to_string(N / 1000) + "k.pdb";		//PDB File containing pseudo atom coordinates
-	FileName fnOut = starFileName.withoutExtension();
-	
+	FileName fnOut = "D:\\Dev\\pseudoatoms\\20s\\myCode\\ownWeighting";
+
 	/*
 	FileName starFileName = "D:\\Dev\\pseudoatoms\\refProjectionsWeighted.star";
 	FileName refFileName = "D:\\Dev\\pseudoatoms\\ref.mrc";
@@ -95,12 +185,13 @@ void doNonMoved() {
 	FileName fnOut = pdbFileName.withoutExtension() + "_gpuRecon";
 	*/
 	//Read Images
-	MRCImage<DOUBLE> origVol = MRCImage<DOUBLE>::readAs(refFileName);
-	MRCImage<DOUBLE> origMasked = MRCImage<DOUBLE>::readAs(refFileName);
+	MRCImage<RDOUBLE> origVol = MRCImage<RDOUBLE>::readAs(refFileName);
+	MRCImage<RDOUBLE> origMasked = MRCImage<RDOUBLE>::readAs(refFileName);
 	//SphereMaskGPU(origMasked().data, origMasked().data, toInt3(origVol().xdim, origVol().ydim, origVol().zdim), 64 / 2, 10, false, 1);
-	MRCImage<DOUBLE> Mask = MRCImage<DOUBLE>::readAs(refMaskFileName);
+	MRCImage<RDOUBLE> Mask = MRCImage<RDOUBLE>::readAs(refMaskFileName);
 	origMasked.setData(origMasked()*Mask());
 	origMasked.writeAs<float>(refFileName.withoutExtension() + "_masked.mrc", true);
+	int3 refDims = { origVol().xdim, origVol().ydim, origVol().zdim };
 
 	// Read Atom Coordinates
 	std::ifstream ifs(pdbFileName);
@@ -111,13 +202,13 @@ void doNonMoved() {
 	std::string line;
 
 
-	DOUBLE sigma = 0.0;
+	RDOUBLE sigma = 0.0;
 	std::vector<float3> StartAtoms;
-	std::vector<DOUBLE> atompositions;
-	std::vector<Matrix1D<DOUBLE>> MatrixAtomPositions;
+	std::vector<RDOUBLE> atompositions;
+	std::vector<Matrix1D<RDOUBLE>> MatrixAtomPositions;
 
-	std::vector<DOUBLE> RefIntensities;
-	std::vector<DOUBLE> StartIntensities;
+	std::vector<RDOUBLE> RefIntensities;
+	std::vector<RDOUBLE> StartIntensities;
 	StartAtoms.reserve(N);
 	atompositions.reserve(3 * N);
 	MatrixAtomPositions.reserve(N);
@@ -130,11 +221,11 @@ void doNonMoved() {
 		}
 		if (line.rfind("ATOM") != std::string::npos) {
 			float3 atom;
-			Matrix1D<DOUBLE> position(3);
+			Matrix1D<RDOUBLE> position(3);
 			double intensity;
 			sscanf(line.c_str(), "ATOM\t%*d\tDENS\tDENS\t%*d\t%f\t%f\t%f\t%*d\t%lf\tDENS", &(atom.x), &(atom.y), &(atom.z), &intensity);
-			RefIntensities.emplace_back((DOUBLE)intensity);
-			StartIntensities.emplace_back((DOUBLE)0.0);
+			RefIntensities.emplace_back((RDOUBLE)intensity);
+			StartIntensities.emplace_back((RDOUBLE)0.0);
 			StartAtoms.emplace_back(atom);
 			atompositions.emplace_back(atom.x);
 			atompositions.emplace_back(atom.y);
@@ -158,7 +249,7 @@ void doNonMoved() {
 	}
 	idxtype numProj = MD.numberOfObjects();
 	float3 *angles = (float3 *)malloc(sizeof(float3)*numProj);
-	MultidimArray<DOUBLE> projections;
+	MultidimArray<RDOUBLE> projections;
 	auto rng = std::default_random_engine{};
 	std::vector<idxtype> idxLookup;
 	idxLookup.reserve(numProj);
@@ -172,7 +263,7 @@ void doNonMoved() {
 		FileName imageName;
 		FileName prevImageName = "";
 		char imageName_cstr[1000];
-		MRCImage<DOUBLE> im;
+		MRCImage<RDOUBLE> im;
 		idxtype idx = 0;
 		int num;
 		FOR_ALL_OBJECTS_IN_METADATA_TABLE(MD) {
@@ -187,7 +278,7 @@ void doNonMoved() {
 			sscanf(imageName.c_str(), "%d@%s", &num, imageName_cstr);
 			imageName = imageName_cstr;
 			if (imageName != prevImageName) {
-				im = MRCImage<DOUBLE>::readAs(imageName);
+				im = MRCImage<RDOUBLE>::readAs(imageName);
 				if (!isInit) {
 					projections.resize(numProj, im().ydim, im().xdim);
 					isInit = true;
@@ -200,18 +291,24 @@ void doNonMoved() {
 			idx++;
 		}
 	}
+	
 	if (writeProjections)
 	{
-		MRCImage<DOUBLE> projectionsIM(projections);
-		projectionsIM.writeAs<float>(starFileName.withoutExtension() + ".mrc", true);
+		MRCImage<RDOUBLE> projectionsIM(projections);
+		projectionsIM.writeAs<float>(fnOut + "readProjections.mrc", true);
+	}
+	weightProjections(projections, angles, refDims);
+	if (writeProjections)
+	{
+		MRCImage<RDOUBLE> projectionsIM(projections);
+		projectionsIM.writeAs<float>(fnOut + "readProjectionsWeighted.mrc", true);
 	}
 
-
-	PseudoProjector proj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (DOUBLE *)atompositions.data(), (DOUBLE *)StartIntensities.data(), super, NAtoms);
+	PseudoProjector proj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (RDOUBLE *)atompositions.data(), (RDOUBLE *)StartIntensities.data(), super, NAtoms);
 	proj.lambdaART = 0.1 / projections.zdim;
-	PseudoProjector RefProj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (DOUBLE *)atompositions.data(), (DOUBLE *)RefIntensities.data(), super, NAtoms);
+	PseudoProjector RefProj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (RDOUBLE *)atompositions.data(), (RDOUBLE *)RefIntensities.data(), super, NAtoms);
 
-	MRCImage<DOUBLE> *RefImage = RefProj.create3DImage(super);
+	MRCImage<RDOUBLE> *RefImage = RefProj.create3DImage(super);
 	RefImage->writeAs<float>(fnOut + "_ref3DIm.mrc", true);
 
 	// Do Iterative reconstruction
@@ -219,19 +316,19 @@ void doNonMoved() {
 	{
 		if (algo == SIRT) {
 			//proj.SIRT(projections, angles, numProj,0,0);
-			MultidimArray<DOUBLE> Itheo, Icorr, Idiff, Inorm;
+			MultidimArray<RDOUBLE> Itheo, Icorr, Idiff, Inorm;
 			proj.SIRT(projections, angles, numProj, &Itheo, &Icorr, &Idiff, &Inorm, 0.0, 0.0);
-			MRCImage<DOUBLE> imItheo(Itheo);
+			MRCImage<RDOUBLE> imItheo(Itheo);
 			imItheo.writeAs<float>(fnOut + "_" + std::to_string(itIdx + 1) + "stit_Itheo.mrc", true);
-			MRCImage<DOUBLE> imIcorr(Icorr);
+			MRCImage<RDOUBLE> imIcorr(Icorr);
 			imIcorr.writeAs<float>(fnOut + "_" + std::to_string(itIdx + 1) + "stit_Icorr.mrc", true);
-			MRCImage<DOUBLE> imIdiff(Idiff);
+			MRCImage<RDOUBLE> imIdiff(Idiff);
 			imIdiff.writeAs<float>(fnOut + "_" + std::to_string(itIdx + 1) + "stit_Idiff.mrc", true);
-			MRCImage<DOUBLE> imInorm(Inorm);
+			MRCImage<RDOUBLE> imInorm(Inorm);
 			imInorm.writeAs<float>(fnOut + "_" + std::to_string(itIdx + 1) + "stit_Inorm.mrc", true);
 		}
 
-		MRCImage<DOUBLE> *after1Itoversample = proj.create3DImage(super);
+		MRCImage<RDOUBLE> *after1Itoversample = proj.create3DImage(super);
 		after1Itoversample->writeAs<float>(fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + ".mrc", true);
 		writeFSC(origVol(), (*after1Itoversample)(), fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + ".fsc");
 		writeFSC(origMasked(), (*after1Itoversample)()*Mask(), fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + "_masked.fsc");
@@ -241,8 +338,6 @@ void doNonMoved() {
 
 	}
 }
-
-
 
 
 int main(int argc, char** argv) {
@@ -279,11 +374,11 @@ int main(int argc, char** argv) {
 	//FileName refPDB = "D:\\EMD\\9233\\emd_9233_Scaled_1.5_40k_bs64_it3.pdb";
 	FileName pdbFileDirName = "D:\\EMD\\9233\\emd_9233_Scaled_1.5_75k_bs64_it15_moving\\";		//PDB File containing pseudo atom coordinates
 	FileName fnOut = pdbFileDirName + "out_" + (algorithm == ART ? "ART" : "SIRT") + "_lbd0.0001_bs" + std::to_string(batchSize);
-	MRCImage<DOUBLE> origVol = MRCImage<DOUBLE>::readAs(refFileName);
-	MRCImage<DOUBLE> Mask = MRCImage<DOUBLE>::readAs(refFileName.withoutExtension() + "_mask.mrc");
-	MRCImage<DOUBLE> origVolMasked = MRCImage<DOUBLE>::readAs(refFileName);
+	MRCImage<RDOUBLE> origVol = MRCImage<RDOUBLE>::readAs(refFileName);
+	MRCImage<RDOUBLE> Mask = MRCImage<RDOUBLE>::readAs(refFileName.withoutExtension() + "_mask.mrc");
+	MRCImage<RDOUBLE> origVolMasked = MRCImage<RDOUBLE>::readAs(refFileName);
 	origVolMasked.setData(Mask()*origVol());
-	MRCImage<DOUBLE> refReconVol = MRCImage<DOUBLE>::readAs(refReconFileName);
+	MRCImage<RDOUBLE> refReconVol = MRCImage<RDOUBLE>::readAs(refReconFileName);
 
 	writeFSC(origVol(), refReconVol(), refReconFileName.withoutExtension() + ".fsc");
 	writeFSC(origVolMasked(), refReconVol()*Mask(), refReconFileName.withoutExtension() + "_masked.fsc");
@@ -295,12 +390,12 @@ int main(int argc, char** argv) {
 
 	bool writeProjections = false;	//Wether or not to write out projections before and after each iteration
 
-	DOUBLE sigma = 0.0;
+	RDOUBLE sigma = 0.0;
 	std::vector<float3> StartAtoms;
-	std::vector<DOUBLE> StartAtompositionsFlat;
-	std::vector<DOUBLE> StartIntensities;
+	std::vector<RDOUBLE> StartAtompositionsFlat;
+	std::vector<RDOUBLE> StartIntensities;
 
-	std::vector< Matrix1D<DOUBLE> > StartAtomPositionsMatrix;
+	std::vector< Matrix1D<RDOUBLE> > StartAtomPositionsMatrix;
 	/*Reading initial PDB*/
 	{
 		std::ifstream ifs(startPDB);
@@ -324,12 +419,12 @@ int main(int argc, char** argv) {
 				float3 atom;
 				double intensity;
 				sscanf(line.c_str(), "ATOM\t%*d\tDENS\tDENS\t%*d\t%f\t%f\t%f\t%*d\t%lf\tDENS", &(atom.x), &(atom.y), &(atom.z), &intensity);
-				StartIntensities.emplace_back((DOUBLE)intensity);
+				StartIntensities.emplace_back((RDOUBLE)intensity);
 				StartAtoms.emplace_back(atom);
 				StartAtompositionsFlat.emplace_back(atom.x);
 				StartAtompositionsFlat.emplace_back(atom.y);
 				StartAtompositionsFlat.emplace_back(atom.z);
-				Matrix1D<DOUBLE> a(3);
+				Matrix1D<RDOUBLE> a(3);
 				a(0) = atom.x;
 				a(1) = atom.y;
 				a(2) = atom.z;
@@ -340,8 +435,8 @@ int main(int argc, char** argv) {
 	}
 
 	std::vector<float3> RefAtoms;
-	std::vector<DOUBLE> RefAtompositionsFlat;
-	std::vector<DOUBLE> RefIntensities;
+	std::vector<RDOUBLE> RefAtompositionsFlat;
+	std::vector<RDOUBLE> RefIntensities;
 	//Read ref pdb
 	{
 		std::ifstream ifs(refPDB);
@@ -358,7 +453,7 @@ int main(int argc, char** argv) {
 				float3 atom;
 				double intensity;
 				sscanf(line.c_str(), "ATOM\t%*d\tDENS\tDENS\t%*d\t%f\t%f\t%f\t%*d\t%lf\tDENS", &(atom.x), &(atom.y), &(atom.z), &intensity);
-				RefIntensities.emplace_back((DOUBLE)intensity);
+				RefIntensities.emplace_back((RDOUBLE)intensity);
 				RefAtoms.emplace_back(atom);
 				RefAtompositionsFlat.emplace_back(atom.x);
 				RefAtompositionsFlat.emplace_back(atom.y);
@@ -411,8 +506,8 @@ int main(int argc, char** argv) {
 	float3 *angles = (float3 *)malloc(sizeof(float3)*numProj);
 
 	idxtype idx = 0;
-	MRCImage<DOUBLE> im;
-	MultidimArray<DOUBLE> projections;
+	MRCImage<RDOUBLE> im;
+	MultidimArray<RDOUBLE> projections;
 
 
 	bool isInit = false;
@@ -433,7 +528,7 @@ int main(int argc, char** argv) {
 		sscanf(imageName.c_str(), "%d@%s", &num, imageName_cstr);
 		imageName = imageName_cstr;
 		if (imageName != prevImageName) {
-			im = MRCImage<DOUBLE>::readAs(imageName);
+			im = MRCImage<RDOUBLE>::readAs(imageName);
 			if (!isInit) {
 				projections.resize(numProj, im().ydim, im().xdim);
 				isInit = true;
@@ -449,30 +544,30 @@ int main(int argc, char** argv) {
 
 
 	if (writeProjections) {
-		MRCImage<DOUBLE> projectionsIM(projections);
+		MRCImage<RDOUBLE> projectionsIM(projections);
 		projectionsIM.writeAs<float>(starFileName.withoutExtension() + ".mrc", true);
 	}
 
 
-	PseudoProjector proj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (DOUBLE *)StartAtompositionsFlat.data(), RefIntensities.data(), sigma, StartAtoms.size());
-	PseudoProjector RefProj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (DOUBLE *)RefAtompositionsFlat.data(), StartIntensities.data(), sigma, RefAtoms.size());
+	PseudoProjector proj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (RDOUBLE *)StartAtompositionsFlat.data(), RefIntensities.data(), sigma, StartAtoms.size());
+	PseudoProjector RefProj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (RDOUBLE *)RefAtompositionsFlat.data(), StartIntensities.data(), sigma, RefAtoms.size());
 	proj.lambdaART = 0.0001;
 
 
 	
 	proj.setAtomPositions(RefAtoms);
 	/*
-	MRCImage<DOUBLE> *initialRep = proj.create3DImage();
+	MRCImage<RDOUBLE> *initialRep = proj.create3DImage();
 	initialRep->writeAs<float>(fnOut + "_initialRep.mrc", true);
 	delete initialRep;
 	*/
-	MRCImage<DOUBLE> *initialRepOversampled = proj.create3DImage(2.0);
+	MRCImage<RDOUBLE> *initialRepOversampled = proj.create3DImage(2.0);
 	initialRepOversampled->writeAs<float>(fnOut + "_initialRep_oversampled2.mrc", true);
 	writeFSC(origVol(), (*initialRepOversampled)(), fnOut + "_initialRep_oversampled2.fsc");
 	writeFSC(origVolMasked(), (*initialRepOversampled)()*Mask(), fnOut + "_initialRep_oversampled2_masked.fsc");
 	delete initialRepOversampled;
 	/*
-	MRCImage<DOUBLE> *RefRepOversampled = RefProj.create3DImage(2.0);
+	MRCImage<RDOUBLE> *RefRepOversampled = RefProj.create3DImage(2.0);
 	RefRepOversampled->writeAs<float>(fnOut + "_RefRep_oversampled2.mrc", true);
 	writeFSC(origVol(), (*RefRepOversampled)(), fnOut + "_RefRep_oversampled2.fsc");
 	writeFSC(origVolMasked(), Mask()*(*RefRepOversampled)(), fnOut + "_RefRep_oversampled2_masked.fsc");
@@ -481,8 +576,8 @@ int main(int argc, char** argv) {
 
 
 
-	MultidimArray<DOUBLE> pseudoProjectionsData;
-	MRCImage<DOUBLE> pseudoProjections;
+	MultidimArray<RDOUBLE> pseudoProjectionsData;
+	MRCImage<RDOUBLE> pseudoProjections;
 
 
 
@@ -498,7 +593,7 @@ int main(int argc, char** argv) {
 			}
 			idxtype zStart = n * projPerMovement;
 			idxtype zEnd = (n + 1)*projPerMovement;
-			MultidimArray<DOUBLE> slice;
+			MultidimArray<RDOUBLE> slice;
 			slice.xdim = projections.xdim;
 			slice.ydim = projections.ydim;
 			slice.zdim = std::min(projections.zdim, (size_t)zEnd) - zStart;
@@ -544,7 +639,7 @@ int main(int argc, char** argv) {
 //		for (idxtype batchIdx = 0; batchIdx < numProj;) {
 //			/*
 //			RefProj.setAtomPositions(atomPosition[positionIdx]);
-//			MRCImage<DOUBLE> *RefRepMoved = RefProj.create3DImage(2.0);
+//			MRCImage<RDOUBLE> *RefRepMoved = RefProj.create3DImage(2.0);
 //			RefRepMoved->writeAs<float>(fnOut + "_RefRepMoved_" + std::to_string(positionIdx) + "_oversampled2.mrc", true);
 //
 //			delete RefRepMoved;
@@ -559,9 +654,9 @@ int main(int argc, char** argv) {
 //		}
 //#pragma omp parallel
 //		{
-//			MultidimArray<DOUBLE> ITheo(projections.ydim, projections.xdim);
+//			MultidimArray<RDOUBLE> ITheo(projections.ydim, projections.xdim);
 //			ITheo.coreDeallocate();
-//			MultidimArray<DOUBLE> INorm(projections.ydim, projections.xdim);
+//			MultidimArray<RDOUBLE> INorm(projections.ydim, projections.xdim);
 //			ITheo.destroyData = false;
 //#pragma omp for
 //			for (int n = 0; n < precalc.size(); n++)
@@ -585,23 +680,23 @@ int main(int argc, char** argv) {
 
 	{
 
-		MultidimArray<DOUBLE> Itheo(projections.xdim, projections.ydim);
-		MultidimArray<DOUBLE> Icorr(projections.xdim, projections.ydim);
+		MultidimArray<RDOUBLE> Itheo(projections.xdim, projections.ydim);
+		MultidimArray<RDOUBLE> Icorr(projections.xdim, projections.ydim);
 		std::shuffle(std::begin(idxLookup), std::end(idxLookup), rng);
 		for (size_t tmp = 0; tmp < 5; tmp++)
 		{
 			Itheo.initZeros();
 			idxtype idx = idxLookup[tmp];
 			proj.project_Pseudo(Itheo, Icorr, precalc[idx].atomPositons, precalc[idx].Euler, 0.0, 0.0, PSEUDO_FORWARD);
-			DOUBLE sumProj = 0.0;
-			DOUBLE sumRef = 0.0;
+			RDOUBLE sumProj = 0.0;
+			RDOUBLE sumRef = 0.0;
 			FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY3D(Itheo) {
 				sumProj += DIRECT_A3D_ELEM(Itheo, k, i, j);
 				sumRef += DIRECT_A3D_ELEM(projections, idx, i, j);
 			}
 			std::cout << "sumProj: " << sumProj << std::endl;
 			std::cout << "sumRef: " << sumRef << std::endl;
-			DOUBLE corrFactor = sumRef / sumProj;
+			RDOUBLE corrFactor = sumRef / sumProj;
 			for (size_t i = 0; i < proj.atoms.AtomWeights.size(); i++)
 			{
 				proj.atoms.AtomWeights[i] = proj.atoms.AtomWeights[i] * corrFactor;
@@ -625,7 +720,7 @@ int main(int argc, char** argv) {
 					}
 					int numLeft = std::min((int)numProj - batchidx * batchSize, batchSize);
 
-					MultidimArray<DOUBLE> slice = projections.getZSlices(batchidx * batchSize, batchidx * batchSize + numLeft);
+					MultidimArray<RDOUBLE> slice = projections.getZSlices(batchidx * batchSize, batchidx * batchSize + numLeft);
 					if (numLeft != 0) {
 						proj.ART_batched(slice, numLeft, angles + batchidx * batchSize, 0.0, 0.0);
 					}
@@ -642,8 +737,8 @@ int main(int argc, char** argv) {
 		//SIRT
 		if (algorithm == SIRT) {
 			if (writeProjections) {
-				MultidimArray<DOUBLE> Itheo, Icorr, Idiff, Inorm;
-				MRCImage<DOUBLE> im;
+				MultidimArray<RDOUBLE> Itheo, Icorr, Idiff, Inorm;
+				MRCImage<RDOUBLE> im;
 				//proj.SIRT_from_precalc(projections, precalc, Itheo, Icorr, Idiff, Inorm, 0.0, 0.0);
 				im.setData(Itheo);
 				im.writeAs<float>(fnOut + "_it" + std::to_string(itIdx + 1) + "_Itheo.mrc");
@@ -660,13 +755,13 @@ int main(int argc, char** argv) {
 			proj.lambdaART = proj.lambdaART / sqrt(2);
 		}
 		proj.setAtomPositions(RefAtoms);
-		MRCImage<DOUBLE> *after1Itoversample = proj.create3DImage(3.0);
+		MRCImage<RDOUBLE> *after1Itoversample = proj.create3DImage(3.0);
 		after1Itoversample->writeAs<float>(fnOut + "_it" + std::to_string(itIdx+1)+ "_oversampled3.mrc", true);
 		writeFSC(origVol(), (*after1Itoversample)(), fnOut + "_it" + std::to_string(itIdx+1) + "_oversampled3.fsc");
 		writeFSC(origVolMasked(), Mask()*(*after1Itoversample)(), fnOut + "_it" + std::to_string(itIdx+1) + "_oversampled3_masked.fsc");
 		delete after1Itoversample;
 
-		//MRCImage<DOUBLE> * after1It = proj.create3DImage(1.0);
+		//MRCImage<RDOUBLE> * after1It = proj.create3DImage(1.0);
 		//after1It->writeAs<float>(fnOut + "_it" + std::to_string(itIdx) + ".mrc", true);
 		//delete after1It;
 		proj.writePDB(fnOut + "_it" + std::to_string(itIdx+1));
@@ -704,7 +799,7 @@ int main(int argc, char** argv) {
 				positionIdx++;
 			}
 			int numLeft = std::min((int)numProj - batchidx * batchSize, batchSize);
-			MultidimArray<DOUBLE> slice = projections.getZSlices(batchidx * batchSize, batchidx * batchSize + numLeft);
+			MultidimArray<RDOUBLE> slice = projections.getZSlices(batchidx * batchSize, batchidx * batchSize + numLeft);
 			if (numLeft != 0) {
 				proj.ART_batched(slice, numLeft, angles + batchidx * batchSize, 0.0, 0.0);
 			}
@@ -717,12 +812,12 @@ int main(int argc, char** argv) {
 		proj.ART_multi_Image_step(projections.data, angles, 0.0, 0.0, numProj);
 	}
 	proj.setAtomPositions(StartAtomPositions);
-	MRCImage<DOUBLE> *after2Itoversample = proj.create3DImage(2.0);
+	MRCImage<RDOUBLE> *after2Itoversample = proj.create3DImage(2.0);
 	after2Itoversample->writeAs<float>(fnOut + "_it2_oversampled2.mrc");
 	writeFSC(origVol(), (*after2Itoversample)(), fnOut + "_it2_oversampled2.fsc");
 	delete after2Itoversample;
 
-	MRCImage<DOUBLE> *after2It = proj.create3DImage(1.0);
+	MRCImage<RDOUBLE> *after2It = proj.create3DImage(1.0);
 	after2It->writeAs<float>(fnOut + "_it2.mrc", true);
 	delete after2It;
 	proj.writePDB(fnOut + "_it2");
@@ -747,7 +842,7 @@ int main(int argc, char** argv) {
 				positionIdx++;
 			}
 			int numLeft = std::min((int)numProj - batchidx * batchSize, batchSize);
-			MultidimArray<DOUBLE> slice = projections.getZSlices(batchidx * batchSize, batchidx * batchSize + numLeft);
+			MultidimArray<RDOUBLE> slice = projections.getZSlices(batchidx * batchSize, batchidx * batchSize + numLeft);
 			if (numLeft != 0) {
 				proj.ART_batched(slice, numLeft, angles + batchidx * batchSize, 0.0, 0.0);
 			}
@@ -760,12 +855,12 @@ int main(int argc, char** argv) {
 		proj.ART_multi_Image_step(projections.data, angles, 0.0, 0.0, numProj);
 	}
 	proj.setAtomPositions(StartAtomPositions);
-	MRCImage<DOUBLE> *after3Itoversample = proj.create3DImage(2.0);
+	MRCImage<RDOUBLE> *after3Itoversample = proj.create3DImage(2.0);
 	after3Itoversample->writeAs<float>(fnOut + "_it3_oversampled2.mrc", true);
 	writeFSC(origVol(), (*after3Itoversample)(), fnOut + "_it3_oversampled2.fsc");
 	delete after3Itoversample;
 
-	MRCImage<DOUBLE> *after3It = proj.create3DImage(1.0);
+	MRCImage<RDOUBLE> *after3It = proj.create3DImage(1.0);
 	after3It->writeAs<float>(fnOut + "_it3.mrc", true);
 	delete after3It;
 	proj.writePDB(fnOut + "_it3");

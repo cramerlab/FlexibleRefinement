@@ -10,20 +10,20 @@
 
 using namespace relion;
 
-void drawOneGaussian(MultidimArray<DOUBLE> &gaussianTable, DOUBLE boundary, DOUBLE k, DOUBLE i, DOUBLE j, MultidimArray<DOUBLE> &V, DOUBLE intensity, DOUBLE gaussFactor = 1000);
+void drawOneGaussian(MultidimArray<RDOUBLE> &gaussianTable, RDOUBLE boundary, RDOUBLE k, RDOUBLE i, RDOUBLE j, MultidimArray<RDOUBLE> &V, RDOUBLE intensity, RDOUBLE gaussFactor = 1000);
 
-void drawOneGaussian(Matrix1D<DOUBLE> &gaussianTable, DOUBLE boundary, DOUBLE k, DOUBLE i, DOUBLE j, MultidimArray<DOUBLE> &V, DOUBLE intensity, DOUBLE gaussFactor = 1000);
+void drawOneGaussian(Matrix1D<RDOUBLE> &gaussianTable, RDOUBLE boundary, RDOUBLE k, RDOUBLE i, RDOUBLE j, MultidimArray<RDOUBLE> &V, RDOUBLE intensity, RDOUBLE gaussFactor = 1000);
 
-void Uproject_to_plane(const Matrix1D<DOUBLE> &r,
-	const Matrix2D<DOUBLE> &euler, Matrix1D<DOUBLE> &result);
+void Uproject_to_plane(const Matrix1D<RDOUBLE> &r,
+	const Matrix2D<RDOUBLE> &euler, Matrix1D<RDOUBLE> &result);
 
-void Uproject_to_plane(const Matrix1D<DOUBLE> &point,
-	const Matrix1D<DOUBLE> &direction, DOUBLE distance,
-	Matrix1D<DOUBLE> &result);
+void Uproject_to_plane(const Matrix1D<RDOUBLE> &point,
+	const Matrix1D<RDOUBLE> &direction, RDOUBLE distance,
+	Matrix1D<RDOUBLE> &result);
 
-void writeFSC(MultidimArray<DOUBLE> &V1, MultidimArray<DOUBLE> &V2, FileName outpath);
+void writeFSC(MultidimArray<RDOUBLE> &V1, MultidimArray<RDOUBLE> &V2, FileName outpath);
 
-DOUBLE Lerp(DOUBLE a, DOUBLE b, DOUBLE x);
+RDOUBLE Lerp(RDOUBLE a, RDOUBLE b, RDOUBLE x);
 
-//DOUBLE gaussian1D(DOUBLE x, DOUBLE sigma, DOUBLE mu = 0);
+//RDOUBLE gaussian1D(RDOUBLE x, RDOUBLE sigma, RDOUBLE mu = 0);
 #endif // !FUNCS

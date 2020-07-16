@@ -29,26 +29,26 @@
 /*---------------------------------------------------------------------------*/
 /* Multidim Masks                                                            */
 /*---------------------------------------------------------------------------*/
-void RaisedCosineMask(MultidimArray<DOUBLE> &mask, DOUBLE r1, DOUBLE r2, 
-                                    int mode, DOUBLE x0, DOUBLE y0, DOUBLE z0)
+void RaisedCosineMask(MultidimArray<RDOUBLE> &mask, RDOUBLE r1, RDOUBLE r2, 
+                                    int mode, RDOUBLE x0, RDOUBLE y0, RDOUBLE z0)
 {
-    DOUBLE K = PI / (r2 - r1);
-    DOUBLE r1_2=r1*r1;
-    DOUBLE r2_2=r2*r2;
+    RDOUBLE K = PI / (r2 - r1);
+    RDOUBLE r1_2=r1*r1;
+    RDOUBLE r2_2=r2*r2;
     for (int k=STARTINGZ(mask); k<=FINISHINGZ(mask); ++k)
     {
-    	DOUBLE k2=(k - z0) * (k - z0);
+    	RDOUBLE k2=(k - z0) * (k - z0);
         for (int i=STARTINGY(mask); i<=FINISHINGY(mask); ++i)
         {
-        	DOUBLE i2_k2=k2+(i - y0) * (i - y0);
+        	RDOUBLE i2_k2=k2+(i - y0) * (i - y0);
             for (int j=STARTINGX(mask); j<=FINISHINGX(mask); ++j)
             {
-            	DOUBLE r2=i2_k2+(j - x0) * (j - x0);
+            	RDOUBLE r2=i2_k2+(j - x0) * (j - x0);
                 if (r2 <= r1_2)
                     A3D_ELEM(mask, k, i, j) = 1;
                 else if (r2 < r2_2)
                 {
-                    DOUBLE r=sqrt(r2);
+                    RDOUBLE r=sqrt(r2);
                     A3D_ELEM(mask, k, i, j) = 0.5*(1 + cos(K * (r - r1)));
                 }
                 else
@@ -60,12 +60,12 @@ void RaisedCosineMask(MultidimArray<DOUBLE> &mask, DOUBLE r1, DOUBLE r2,
     }
 }
 
-void RaisedCrownMask(MultidimArray<DOUBLE> &mask,
-                     DOUBLE r1, DOUBLE r2, DOUBLE pix_width, int mode,
-                     DOUBLE x0, DOUBLE y0, DOUBLE z0)
+void RaisedCrownMask(MultidimArray<RDOUBLE> &mask,
+                     RDOUBLE r1, RDOUBLE r2, RDOUBLE pix_width, int mode,
+                     RDOUBLE x0, RDOUBLE y0, RDOUBLE z0)
 {
     RaisedCosineMask(mask, r1 - pix_width, r1 + pix_width, OUTSIDE_MASK, x0, y0, z0);
-    MultidimArray<DOUBLE> aux;
+    MultidimArray<RDOUBLE> aux;
     aux.resize(mask);
     RaisedCosineMask(aux, r2 - pix_width, r2 + pix_width, INNER_MASK, x0, y0, z0);
     FOR_ALL_ELEMENTS_IN_ARRAY3D(mask)
@@ -76,15 +76,15 @@ void RaisedCrownMask(MultidimArray<DOUBLE> &mask,
     }
 }
 
-void KaiserMask(MultidimArray<DOUBLE> &mask, DOUBLE delta, DOUBLE Deltaw)
+void KaiserMask(MultidimArray<RDOUBLE> &mask, RDOUBLE delta, RDOUBLE Deltaw)
 {
     // Convert Deltaw from a frequency normalized to 1, to a freq. normalized to PI
     Deltaw *= PI;
 
     // Design Kaiser selfWindow
-    DOUBLE A = -20 * log10(delta);
+    RDOUBLE A = -20 * log10(delta);
     int    M = CEIL((A - 8) / (2.285 * Deltaw));
-    DOUBLE beta;
+    RDOUBLE beta;
     if (A > 50)
         beta = 0.1102 * (A - 8.7);
     else if (A >= 21)
@@ -110,32 +110,32 @@ void KaiserMask(MultidimArray<DOUBLE> &mask, DOUBLE delta, DOUBLE Deltaw)
     }
 
     mask.setXmippOrigin();
-    DOUBLE iI0Beta = 1.0 / bessi0(beta);
+    RDOUBLE iI0Beta = 1.0 / bessi0(beta);
     FOR_ALL_ELEMENTS_IN_ARRAY3D(mask)
     {
-        DOUBLE r = sqrt((DOUBLE)(i * i + j * j + k * k));
+        RDOUBLE r = sqrt((RDOUBLE)(i * i + j * j + k * k));
         if (r <= M)
             A3D_ELEM(mask, k, i, j) = bessi0(beta * sqrt(1-(r/M)*(r/M))) * iI0Beta;
     }
 
 }
 
-void SincMask(MultidimArray<DOUBLE> &mask,
-              DOUBLE omega, int mode, DOUBLE x0, DOUBLE y0, DOUBLE z0)
+void SincMask(MultidimArray<RDOUBLE> &mask,
+              RDOUBLE omega, int mode, RDOUBLE x0, RDOUBLE y0, RDOUBLE z0)
 {
     FOR_ALL_ELEMENTS_IN_ARRAY3D(mask)
     {
-        DOUBLE r = sqrt( (k - z0) * (k - z0) + (i - y0) * (i - y0) + (j - x0) * (j - x0) );
+        RDOUBLE r = sqrt( (k - z0) * (k - z0) + (i - y0) * (i - y0) + (j - x0) * (j - x0) );
         A3D_ELEM(mask, k, i, j) = omega/PI * SINC(omega/PI * r);
         if (mode == OUTSIDE_MASK)
             A3D_ELEM(mask, k, i, j) = 1 - A3D_ELEM(mask, k, i, j);
     }
 }
 
-void SincKaiserMask(MultidimArray<DOUBLE> &mask,
-                    DOUBLE omega, DOUBLE delta, DOUBLE Deltaw)
+void SincKaiserMask(MultidimArray<RDOUBLE> &mask,
+                    RDOUBLE omega, RDOUBLE delta, RDOUBLE Deltaw)
 {
-    MultidimArray<DOUBLE> kaiser;
+    MultidimArray<RDOUBLE> kaiser;
     kaiser.resizeNoCopy(mask);
     KaiserMask(kaiser, delta, Deltaw);
     mask.resize(kaiser);
@@ -144,26 +144,26 @@ void SincKaiserMask(MultidimArray<DOUBLE> &mask,
     mask *= kaiser;
 }
 
-void BlackmanMask(MultidimArray<DOUBLE> &mask, int mode,
-                  DOUBLE x0, DOUBLE y0, DOUBLE z0)
+void BlackmanMask(MultidimArray<RDOUBLE> &mask, int mode,
+                  RDOUBLE x0, RDOUBLE y0, RDOUBLE z0)
 {
-    DOUBLE Xdim2 = XMIPP_MAX(1, (XSIZE(mask) - 1) * (XSIZE(mask) - 1));
-    DOUBLE Ydim2 = XMIPP_MAX(1, (YSIZE(mask) - 1) * (YSIZE(mask) - 1));
-    DOUBLE Zdim2 = XMIPP_MAX(1, (ZSIZE(mask) - 1) * (ZSIZE(mask) - 1));
+    RDOUBLE Xdim2 = XMIPP_MAX(1, (XSIZE(mask) - 1) * (XSIZE(mask) - 1));
+    RDOUBLE Ydim2 = XMIPP_MAX(1, (YSIZE(mask) - 1) * (YSIZE(mask) - 1));
+    RDOUBLE Zdim2 = XMIPP_MAX(1, (ZSIZE(mask) - 1) * (ZSIZE(mask) - 1));
     FOR_ALL_ELEMENTS_IN_ARRAY3D(mask)
     {
-        DOUBLE r = sqrt((k - z0) * (k - z0) / Zdim2 + (i - y0) * (i - y0) / Xdim2 + (j - x0) * (j - x0) / Ydim2);
+        RDOUBLE r = sqrt((k - z0) * (k - z0) / Zdim2 + (i - y0) * (i - y0) / Xdim2 + (j - x0) * (j - x0) / Ydim2);
         A3D_ELEM(mask, k, i, j) = 0.42 + 0.5 * cos(2 * PI * r) + 0.08 * cos(4 * PI * r);
         if (mode == OUTSIDE_MASK)
             A3D_ELEM(mask, k, i, j) = 1 - A3D_ELEM(mask, k, i, j);
     }
 }
 
-void SincBlackmanMask(MultidimArray<DOUBLE> &mask,
-                      DOUBLE omega, DOUBLE power_percentage, int mode,
-                      DOUBLE x0, DOUBLE y0, DOUBLE z0)
+void SincBlackmanMask(MultidimArray<RDOUBLE> &mask,
+                      RDOUBLE omega, RDOUBLE power_percentage, int mode,
+                      RDOUBLE x0, RDOUBLE y0, RDOUBLE z0)
 {
-    MultidimArray<DOUBLE> blackman;
+    MultidimArray<RDOUBLE> blackman;
 
     int N = CEIL(1 / omega * CEIL(-1 / 2 + 1 / (PI * (1 - power_percentage / 100))));
 
@@ -187,22 +187,22 @@ void SincBlackmanMask(MultidimArray<DOUBLE> &mask,
 }
 
 void BinaryCircularMask(MultidimArray<int> &mask,
-                        DOUBLE radius, int mode, DOUBLE x0, DOUBLE y0, DOUBLE z0)
+                        RDOUBLE radius, int mode, RDOUBLE x0, RDOUBLE y0, RDOUBLE z0)
 {
     mask.initZeros();
-    DOUBLE radius2 = radius * radius;
+    RDOUBLE radius2 = radius * radius;
     for (int k=STARTINGZ(mask); k<=FINISHINGZ(mask); ++k)
     {
-        DOUBLE diff=k - z0;
-        DOUBLE z2=diff*diff;
+        RDOUBLE diff=k - z0;
+        RDOUBLE z2=diff*diff;
         for (int i=STARTINGY(mask); i<=FINISHINGY(mask); ++i)
         {
             diff=i - y0;
-            DOUBLE z2y2=z2+diff*diff;
+            RDOUBLE z2y2=z2+diff*diff;
             for (int j=STARTINGX(mask); j<=FINISHINGX(mask); ++j)
             {
                 diff=j - x0;
-                DOUBLE r2 = z2y2+diff*diff;
+                RDOUBLE r2 = z2y2+diff*diff;
                 if (r2 <= radius2 && mode == INNER_MASK)
                     A3D_ELEM(mask, k, i, j) = 1;
                 else if (r2 >= radius2 && mode == OUTSIDE_MASK)
@@ -212,13 +212,13 @@ void BinaryCircularMask(MultidimArray<int> &mask,
     }
 }
 
-void BlobCircularMask(MultidimArray<DOUBLE> &mask,
-                      DOUBLE r1, blobtype blob, int mode,
-                      DOUBLE x0, DOUBLE y0, DOUBLE z0)
+void BlobCircularMask(MultidimArray<RDOUBLE> &mask,
+                      RDOUBLE r1, blobtype blob, int mode,
+                      RDOUBLE x0, RDOUBLE y0, RDOUBLE z0)
 {
     FOR_ALL_ELEMENTS_IN_ARRAY3D(mask)
     {
-        DOUBLE r = sqrt((k - z0) * (k - z0) + (i - y0) * (i - y0) + (j - x0) * (j - x0));
+        RDOUBLE r = sqrt((k - z0) * (k - z0) + (i - y0) * (i - y0) + (j - x0) * (j - x0));
         if (mode == INNER_MASK)
         {
             if (r <= r1)
@@ -238,14 +238,14 @@ void BlobCircularMask(MultidimArray<DOUBLE> &mask,
 }
 
 void BinaryCrownMask(MultidimArray<int> &mask,
-                     DOUBLE R1, DOUBLE R2, int mode, DOUBLE x0, DOUBLE y0, DOUBLE z0)
+                     RDOUBLE R1, RDOUBLE R2, int mode, RDOUBLE x0, RDOUBLE y0, RDOUBLE z0)
 {
     mask.initZeros();
-    DOUBLE R12 = R1 * R1;
-    DOUBLE R22 = R2 * R2;
+    RDOUBLE R12 = R1 * R1;
+    RDOUBLE R22 = R2 * R2;
     FOR_ALL_ELEMENTS_IN_ARRAY3D(mask)
     {
-        DOUBLE r2 = (k - z0) * (k - z0) + (i - y0) * (i - y0) + (j - x0) * (j - x0);
+        RDOUBLE r2 = (k - z0) * (k - z0) + (i - y0) * (i - y0) + (j - x0) * (j - x0);
         bool in_crown = (r2 >= R12 && r2 <= R22);
         if (in_crown  && mode == INNER_MASK)
             A3D_ELEM(mask, k, i, j) = 1;
@@ -254,15 +254,15 @@ void BinaryCrownMask(MultidimArray<int> &mask,
     }
 }
 
-void BinaryTubeMask(MultidimArray<int> &mask, DOUBLE R1, DOUBLE R2, DOUBLE H, 
-                                  int mode, DOUBLE x0, DOUBLE y0, DOUBLE z0)
+void BinaryTubeMask(MultidimArray<int> &mask, RDOUBLE R1, RDOUBLE R2, RDOUBLE H, 
+                                  int mode, RDOUBLE x0, RDOUBLE y0, RDOUBLE z0)
 {
     mask.initZeros();
-    DOUBLE R12 = R1 * R1;
-    DOUBLE R22 = R2 * R2;
+    RDOUBLE R12 = R1 * R1;
+    RDOUBLE R22 = R2 * R2;
     FOR_ALL_ELEMENTS_IN_ARRAY3D(mask)
     {
-        DOUBLE r2 = (i - y0) * (i - y0) + (j - x0) * (j - x0);
+        RDOUBLE r2 = (i - y0) * (i - y0) + (j - x0) * (j - x0);
         bool in_tube = (r2 >= R12 && r2 <= R22 && ABS(k)<H);
         if (in_tube  && mode == INNER_MASK)
             A3D_ELEM(mask, k, i, j) = 1;
@@ -271,11 +271,11 @@ void BinaryTubeMask(MultidimArray<int> &mask, DOUBLE R1, DOUBLE R2, DOUBLE H,
     }
 }
 
-void BlobCrownMask(MultidimArray<DOUBLE> &mask,
-                   DOUBLE r1, DOUBLE r2, blobtype blob, int mode,
-                   DOUBLE x0, DOUBLE y0, DOUBLE z0)
+void BlobCrownMask(MultidimArray<RDOUBLE> &mask,
+                   RDOUBLE r1, RDOUBLE r2, blobtype blob, int mode,
+                   RDOUBLE x0, RDOUBLE y0, RDOUBLE z0)
 {
-    MultidimArray<DOUBLE> aux;
+    MultidimArray<RDOUBLE> aux;
     aux.resize(mask);
     if (mode == INNER_MASK)
     {
@@ -303,7 +303,7 @@ void BlobCrownMask(MultidimArray<DOUBLE> &mask,
 }
 
 void BinaryFrameMask(MultidimArray<int> &mask, int Xrect, int Yrect, int Zrect, 
-                                   int mode, DOUBLE x0, DOUBLE y0, DOUBLE z0)
+                                   int mode, RDOUBLE x0, RDOUBLE y0, RDOUBLE z0)
 {
     mask.initZeros();
     FOR_ALL_ELEMENTS_IN_ARRAY3D(mask)
@@ -318,16 +318,16 @@ void BinaryFrameMask(MultidimArray<int> &mask, int Xrect, int Yrect, int Zrect,
     }
 }
 
-void GaussianMask(MultidimArray<DOUBLE> &mask,
-                  DOUBLE sigma, int mode, DOUBLE x0, DOUBLE y0, DOUBLE z0)
+void GaussianMask(MultidimArray<RDOUBLE> &mask,
+                  RDOUBLE sigma, int mode, RDOUBLE x0, RDOUBLE y0, RDOUBLE z0)
 {
-    DOUBLE sigma2 = sigma * sigma;
+    RDOUBLE sigma2 = sigma * sigma;
 
-    DOUBLE K = 1. / pow(sqrt(2.*PI)*sigma,(DOUBLE)mask.getDim());
+    RDOUBLE K = 1. / pow(sqrt(2.*PI)*sigma,(RDOUBLE)mask.getDim());
 
     FOR_ALL_ELEMENTS_IN_ARRAY3D(mask)
     {
-        DOUBLE r2 = (k - z0) * (k - z0) + (i - y0) * (i - y0) + (j - x0) * (j - x0);
+        RDOUBLE r2 = (k - z0) * (k - z0) + (i - y0) * (i - y0) + (j - x0) * (j - x0);
         A3D_ELEM(mask, k, i, j) = K * exp(-0.5 * r2 / sigma2);
 
         if (mode == OUTSIDE_MASK)
@@ -345,19 +345,19 @@ void GaussianMask(MultidimArray<DOUBLE> &mask,
     V2_PLUS_V2(center,corner1,corner2); \
     V2_BY_CT(center,center,0.5); \
     FOR_ALL_ELEMENTS_IN_ARRAY2D_BETWEEN(corner1,corner2) { \
-        DOUBLE r2=(XX(r)-XX(center))*(XX(r)-XX(center))+ \
+        RDOUBLE r2=(XX(r)-XX(center))*(XX(r)-XX(center))+ \
                   (YY(r)-YY(center))*(YY(r)-YY(center)); \
         A2D_ELEM(mask,YY(r),XX(r))=(r2<=radius2); \
     }
-void BinaryDWTCircularMask2D(MultidimArray<int> &mask, DOUBLE radius,
+void BinaryDWTCircularMask2D(MultidimArray<int> &mask, RDOUBLE radius,
                              int smin, int smax, const std::string &quadrant)
 {
-    //DOUBLE radius2 = radius * radius / (4 * (smin + 1));
+    //RDOUBLE radius2 = radius * radius / (4 * (smin + 1));
     //mask.initZeros();
     //for (int s = smin; s <= smax; s++)
     //{
     //    Matrix1D<int> corner1(2), corner2(2), r(2);
-    //    Matrix1D<DOUBLE> center(2);
+    //    Matrix1D<RDOUBLE> center(2);
     //    if (quadrant == "xx")
     //    {
     //        DWTCIRCULAR2D_BLOCK(s, "01");
@@ -370,17 +370,17 @@ void BinaryDWTCircularMask2D(MultidimArray<int> &mask, DOUBLE radius,
     //}
 }
 
-void SeparableSincKaiserMask2D(MultidimArray<DOUBLE> &mask,
-                               DOUBLE omega, DOUBLE delta, DOUBLE Deltaw)
+void SeparableSincKaiserMask2D(MultidimArray<RDOUBLE> &mask,
+                               RDOUBLE omega, RDOUBLE delta, RDOUBLE Deltaw)
 {
     // Convert Deltaw from a frequency normalized to 1, to a freq. normalized to PI
     Deltaw *= PI;
     omega *= PI;
 
     // Design Kaiser selfWindow
-    DOUBLE A = -20 * log10(delta);
-    DOUBLE M = CEIL((A - 8) / (2.285 * Deltaw));
-    DOUBLE beta;
+    RDOUBLE A = -20 * log10(delta);
+    RDOUBLE M = CEIL((A - 8) / (2.285 * Deltaw));
+    RDOUBLE beta;
     if (A > 50)
         beta = 0.1102 * (A - 8.7);
     else if (A >= 21)
@@ -391,12 +391,12 @@ void SeparableSincKaiserMask2D(MultidimArray<DOUBLE> &mask,
     // "Draw" Separable Kaiser Sinc selfWindow
     mask.resize((size_t)(2*M + 1),(size_t)(2*M + 1));
     mask.setXmippOrigin();
-    DOUBLE iI0Beta = 1.0 / bessi0(beta);
+    RDOUBLE iI0Beta = 1.0 / bessi0(beta);
     FOR_ALL_ELEMENTS_IN_ARRAY2D(mask)
     {
         mask(i, j) = omega/PI * SINC(omega/PI * i) * omega/PI * SINC(omega/PI * j) *
-                     bessi0(beta * sqrt((DOUBLE)(1 - (i / M) * (i / M)))) * iI0Beta *
-                     bessi0(beta * sqrt((DOUBLE)(1 - (j / M) * (j / M)))) * iI0Beta;
+                     bessi0(beta * sqrt((RDOUBLE)(1 - (i / M) * (i / M)))) * iI0Beta *
+                     bessi0(beta * sqrt((RDOUBLE)(1 - (j / M) * (j / M)))) * iI0Beta;
     }
 }
 
@@ -429,20 +429,20 @@ void mask2D_8neig(MultidimArray<int> &mask, int value1, int value2, int center)
     V3_PLUS_V3(center,corner1,corner2); \
     V3_BY_CT(center,center,0.5); \
     FOR_ALL_ELEMENTS_IN_ARRAY3D_BETWEEN(corner1,corner2) { \
-        DOUBLE r2=(XX(r)-XX(center))*(XX(r)-XX(center))+ \
+        RDOUBLE r2=(XX(r)-XX(center))*(XX(r)-XX(center))+ \
                   (YY(r)-YY(center))*(YY(r)-YY(center))+ \
                   (ZZ(r)-ZZ(center))*(ZZ(r)-ZZ(center)); \
         A3D_ELEM(mask,ZZ(r),YY(r),XX(r))=(r2<=radius2); \
     }
-void BinaryDWTSphericalMask3D(MultidimArray<int> &mask, DOUBLE radius,
+void BinaryDWTSphericalMask3D(MultidimArray<int> &mask, RDOUBLE radius,
                               int smin, int smax, const std::string &quadrant)
 {
     //mask.initZeros();
-    //DOUBLE radius2 = radius * radius / (4 * (smin + 1));
+    //RDOUBLE radius2 = radius * radius / (4 * (smin + 1));
     //for (int s = smin; s <= smax; s++)
     //{
     //    Matrix1D<int> corner1(3), corner2(3), r(3);
-    //    Matrix1D<DOUBLE> center(3);
+    //    Matrix1D<RDOUBLE> center(3);
     //    if (quadrant == "xxx")
     //    {
     //        DWTSPHERICALMASK_BLOCK(s, "001");
@@ -461,14 +461,14 @@ void BinaryDWTSphericalMask3D(MultidimArray<int> &mask, DOUBLE radius,
 
 
 void BinaryCylinderMask(MultidimArray<int> &mask,
-                        DOUBLE R, DOUBLE H, int mode, DOUBLE x0, DOUBLE y0, DOUBLE z0)
+                        RDOUBLE R, RDOUBLE H, int mode, RDOUBLE x0, RDOUBLE y0, RDOUBLE z0)
 {
     mask.initZeros();
-    DOUBLE R2 = R * R;
-    DOUBLE H_2 = H / 2;
+    RDOUBLE R2 = R * R;
+    RDOUBLE H_2 = H / 2;
     FOR_ALL_ELEMENTS_IN_ARRAY3D(mask)
     {
-        DOUBLE r2 = (i - y0) * (i - y0) + (j - x0) * (j - x0);
+        RDOUBLE r2 = (i - y0) * (i - y0) + (j - x0) * (j - x0);
         int in_cyilinder = (r2 <= R2 && ABS(k - z0) <= H_2);
         if (in_cyilinder  && mode == INNER_MASK)
             A3D_ELEM(mask, k, i, j) = 1;
@@ -477,7 +477,7 @@ void BinaryCylinderMask(MultidimArray<int> &mask,
     }
 }
 
-void BinaryConeMask(MultidimArray<int> &mask, DOUBLE theta, int mode,bool centerOrigin)
+void BinaryConeMask(MultidimArray<int> &mask, RDOUBLE theta, int mode,bool centerOrigin)
 {
 
     int halfX, halfY,halfZ;
@@ -512,8 +512,8 @@ void BinaryConeMask(MultidimArray<int> &mask, DOUBLE theta, int mode,bool center
             jpp=j;
         }
 
-        DOUBLE rad = tan(PI * theta / 180.) * (DOUBLE)k;
-        if ((DOUBLE)(i*i + j*j) < (rad*rad))
+        RDOUBLE rad = tan(PI * theta / 180.) * (RDOUBLE)k;
+        if ((RDOUBLE)(i*i + j*j) < (rad*rad))
             A3D_ELEM(mask, kpp, ipp, jpp) = 0;
         else
             A3D_ELEM(mask, kpp, ipp, jpp) = 1;
@@ -522,8 +522,8 @@ void BinaryConeMask(MultidimArray<int> &mask, DOUBLE theta, int mode,bool center
     }
 }
 
-void BinaryWedgeMask(MultidimArray<int> &mask, DOUBLE theta0, DOUBLE thetaF,
-                     const Matrix2D<DOUBLE> &A, bool centerOrigin)
+void BinaryWedgeMask(MultidimArray<int> &mask, RDOUBLE theta0, RDOUBLE thetaF,
+                     const Matrix2D<RDOUBLE> &A, bool centerOrigin)
 {
     int halfX, halfY,halfZ;
     int minX,minY,minZ;
@@ -543,8 +543,8 @@ void BinaryWedgeMask(MultidimArray<int> &mask, DOUBLE theta0, DOUBLE thetaF,
     maxZ = (int)((mask.zdim-0.5)/2);
 
 
-    DOUBLE xp, zp;
-    DOUBLE tg0, tgF, limx0, limxF;
+    RDOUBLE xp, zp;
+    RDOUBLE tg0, tgF, limx0, limxF;
 
     tg0 = -tan(PI * (-90. - thetaF) / 180.);
     tgF = -tan(PI * (90. - theta0) / 180.);
@@ -555,9 +555,9 @@ void BinaryWedgeMask(MultidimArray<int> &mask, DOUBLE theta0, DOUBLE thetaF,
     // ROB: A=A.inv(); A no const
     FOR_ALL_ELEMENTS_IN_ARRAY3D(mask)
     {
-        DOUBLE di=(DOUBLE)i;
-        DOUBLE dj=(DOUBLE)j;
-        DOUBLE dk=(DOUBLE)k;
+        RDOUBLE di=(RDOUBLE)i;
+        RDOUBLE dj=(RDOUBLE)j;
+        RDOUBLE dk=(RDOUBLE)k;
         xp = MAT_ELEM(A, 0, 0) * dj + MAT_ELEM(A, 0, 1) * di + MAT_ELEM(A, 0, 2) * dk;
         zp = MAT_ELEM(A, 2, 0) * dj + MAT_ELEM(A, 2, 1) * di + MAT_ELEM(A, 2, 2) * dk;
 
@@ -671,7 +671,7 @@ void Mask::resize(size_t Xdim)
         imask.resize(Xdim);
         imask.setXmippOrigin();
         break;
-    case DOUBLE_MASK:
+    case RDOUBLE_MASK:
         dmask.resize(Xdim);
         dmask.setXmippOrigin();
         break;
@@ -686,7 +686,7 @@ void Mask::resize(size_t Ydim, size_t Xdim)
         imask.resize(Ydim, Xdim);
         imask.setXmippOrigin();
         break;
-    case DOUBLE_MASK:
+    case RDOUBLE_MASK:
         dmask.resize(Ydim, Xdim);
         dmask.setXmippOrigin();
         break;
@@ -701,7 +701,7 @@ void Mask::resize(size_t Zdim, size_t Ydim, size_t Xdim)
         imask.resize(Zdim, Ydim, Xdim);
         imask.setXmippOrigin();
         break;
-    case DOUBLE_MASK:
+    case RDOUBLE_MASK:
         dmask.resize(Zdim, Ydim, Xdim);
         dmask.setXmippOrigin();
         break;
@@ -818,7 +818,7 @@ void Mask::resize(size_t Zdim, size_t Ydim, size_t Xdim)
 //    {
 //        if (i + 3 >= argc)
 //            REPORT_ERROR(ERR_ARG_MISSING, "MaskProgram: wedge mask needs two angles");
-//        if (!(allowed_data_types & DOUBLE_MASK))
+//        if (!(allowed_data_types & RDOUBLE_MASK))
 //            REPORT_ERROR( "MaskProgram: binary masks are not allowed");
 //        R1 = textToFloat(argv[i+2]);
 //        R2 = textToFloat(argv[i+3]);
@@ -894,7 +894,7 @@ void Mask::resize(size_t Zdim, size_t Ydim, size_t Xdim)
 //    {
 //        if (i + 2 >= argc)
 //            REPORT_ERROR(ERR_ARG_MISSING, "MaskProgram: gaussian mask needs a sigma");
-//        if (!(allowed_data_types & DOUBLE_MASK))
+//        if (!(allowed_data_types & RDOUBLE_MASK))
 //            REPORT_ERROR( "MaskProgram: continuous masks are not allowed");
 //        sigma = textToFloat(argv[i+2]);
 //        if (sigma < 0)
@@ -957,7 +957,7 @@ void Mask::resize(size_t Zdim, size_t Ydim, size_t Xdim)
 //        if (!(allowed_data_types & INT_MASK))
 //            REPORT_ERROR( "MaskProgram: continuous masks are not allowed");
 //        R1 = textToFloat(argv[i+2]);
-//        DOUBLE aux = textToFloat(argv[i+3]);
+//        RDOUBLE aux = textToFloat(argv[i+3]);
 //        blob_radius= ABS(aux);
 //        if (aux < 0)
 //            mode = INNER_MASK;
@@ -979,7 +979,7 @@ void Mask::resize(size_t Zdim, size_t Ydim, size_t Xdim)
 //            REPORT_ERROR( "MaskProgram: continuous masks are not allowed");
 //        R1 = textToFloat(argv[i+2]);
 //        R2 = textToFloat(argv[i+3]);
-//        DOUBLE aux = textToFloat(argv[i+4]);
+//        RDOUBLE aux = textToFloat(argv[i+4]);
 //        blob_radius= ABS(aux);
 //        if (aux < 0)
 //            mode = INNER_MASK;
@@ -1174,7 +1174,7 @@ void Mask::show() const
 //        << "                               th0 and thF (around the Y-axis) \n"
 //        << "   |-mask <binary file>      : Read from file\n"
 //        ;
-//    if (allowed_data_types & DOUBLE_MASK)
+//    if (allowed_data_types & RDOUBLE_MASK)
 //        std::cerr << "   |-mask gaussian <sigma>   : 2D or 3D gaussian\n"
 //        << "                               if sigma > 0 => outside gaussian\n"
 //        << "                               if sigma < 0 => inside gaussian\n"
@@ -1203,10 +1203,10 @@ void Mask::show() const
 // Write -------------------------------------------------------------------
 void Mask::write_mask(const FileName &fn)
 {
-    MRCImage<DOUBLE> img;
+    MRCImage<RDOUBLE> img;
     if (datatype() == INT_MASK)
         typeCast(imask, img());
-    else if (datatype() == DOUBLE_MASK)
+    else if (datatype() == RDOUBLE_MASK)
         img()=dmask;
     img.write(fn);
 }
@@ -1259,8 +1259,8 @@ void Mask::write_mask(const FileName &fn)
 //        program->addParamsLine("                                          :th0 and thF (around the Y-axis) ");
 //        program->addParamsLine("         binary_file <binary_file>      : Read from file and cast to binary");
 //    }
-//    //program->addParamsLine("== DOUBLE MASK ==");
-//    if (allowed_data_types & DOUBLE_MASK)
+//    //program->addParamsLine("== RDOUBLE MASK ==");
+//    if (allowed_data_types & RDOUBLE_MASK)
 //    {
 //        program->addParamsLine("         real_file <float_file>       : Read from file and do not cast");
 //        program->addParamsLine("         gaussian <sigma>   : 2D or 3D gaussian");
@@ -1314,7 +1314,7 @@ void Mask::readParams(cxxopts::ParseResult &options)
     {
         //if (!(allowed_data_types & INT_MASK))
         //    REPORT_ERROR("MaskProgram: binary masks are not allowed");
-        //R1 = program->getDOUBLEParam("--mask","circular");
+        //R1 = program->getRDOUBLEParam("--mask","circular");
         //if (R1 < 0)
         //{
         //    Mask::mode = INNER_MASK;
@@ -1331,7 +1331,7 @@ void Mask::readParams(cxxopts::ParseResult &options)
     {
         //if (!(allowed_data_types & INT_MASK))
         //    REPORT_ERROR("MaskProgram: binary masks are not allowed");
-        //R1 = program->getDOUBLEParam("--mask","DWT_circular",0);
+        //R1 = program->getRDOUBLEParam("--mask","DWT_circular",0);
         //smin = program->getIntParam("--mask","DWT_circular",1);
         //smax = program->getIntParam("--mask","DWT_circular",2);
         //quadrant = program->getParam("--mask","DWT_circular",3);
@@ -1363,7 +1363,7 @@ void Mask::readParams(cxxopts::ParseResult &options)
     {
         //if (!(allowed_data_types & INT_MASK))
         //    REPORT_ERROR("MaskProgram: binary masks are not allowed");
-        //R1 = program->getDOUBLEParam("--mask","cone");
+        //R1 = program->getRDOUBLEParam("--mask","cone");
         //if (R1 < 0)
         //{
         //    Mask::mode = INNER_MASK;
@@ -1376,10 +1376,10 @@ void Mask::readParams(cxxopts::ParseResult &options)
     /*// Wedge mask ............................................................*/
     else if (mask_type == "wedge")
     {
-        //if (!(allowed_data_types & DOUBLE_MASK))
+        //if (!(allowed_data_types & RDOUBLE_MASK))
         //    REPORT_ERROR("MaskProgram: binary masks are not allowed");
-        //R1 = program->getDOUBLEParam("--mask","wedge",0);
-        //R2 = program->getDOUBLEParam("--mask","wedge",1);
+        //R1 = program->getRDOUBLEParam("--mask","wedge",0);
+        //R2 = program->getRDOUBLEParam("--mask","wedge",1);
         //type = BINARY_WEDGE_MASK;
     }
     /*// Crown mask ...........................................................*/
@@ -1388,8 +1388,8 @@ void Mask::readParams(cxxopts::ParseResult &options)
         //if (!(allowed_data_types & INT_MASK))
         //    REPORT_ERROR("MaskProgram: binary masks are not allowed");
 
-        //R1 = program->getDOUBLEParam("--mask","crown",0);
-        //R2 = program->getDOUBLEParam("--mask","crown",1);
+        //R1 = program->getRDOUBLEParam("--mask","crown",0);
+        //R2 = program->getRDOUBLEParam("--mask","crown",1);
 
         //if (R1 < 0 && R2 < 0)
         //{
@@ -1410,8 +1410,8 @@ void Mask::readParams(cxxopts::ParseResult &options)
         //if (!(allowed_data_types & INT_MASK))
         //    REPORT_ERROR("MaskProgram: binary masks are not allowed");
 
-        //R1 = program->getDOUBLEParam("--mask","cylinder",0);
-        //H = program->getDOUBLEParam("--mask","cylinder",1);
+        //R1 = program->getRDOUBLEParam("--mask","cylinder",0);
+        //H = program->getRDOUBLEParam("--mask","cylinder",1);
 
         //if (R1 < 0 && H < 0)
         //{
@@ -1432,9 +1432,9 @@ void Mask::readParams(cxxopts::ParseResult &options)
         //if (!(allowed_data_types & INT_MASK))
         //    REPORT_ERROR("MaskProgram: binary masks are not allowed");
 
-        //R1 = program->getDOUBLEParam("--mask","tube",0);
-        //R2 = program->getDOUBLEParam("--mask","tube",1);
-        //H = program->getDOUBLEParam("--mask","tube",2);
+        //R1 = program->getRDOUBLEParam("--mask","tube",0);
+        //R2 = program->getRDOUBLEParam("--mask","tube",1);
+        //H = program->getRDOUBLEParam("--mask","tube",2);
 
         //if (R1 < 0 && R2 < 0 && H<0)
         //{
@@ -1453,10 +1453,10 @@ void Mask::readParams(cxxopts::ParseResult &options)
     /*// Gaussian mask ........................................................*/
     else if (mask_type == "gaussian")
     {
-        //if (!(allowed_data_types & DOUBLE_MASK))
+        //if (!(allowed_data_types & RDOUBLE_MASK))
         //    REPORT_ERROR("MaskProgram: continuous masks are not allowed");
 
-        //sigma = program->getDOUBLEParam("--mask","gaussian");
+        //sigma = program->getRDOUBLEParam("--mask","gaussian");
 
         //if (sigma < 0)
         //{
@@ -1474,8 +1474,8 @@ void Mask::readParams(cxxopts::ParseResult &options)
         //if (!(allowed_data_types & INT_MASK))
         //    REPORT_ERROR("MaskProgram: continuous masks are not allowed");
 
-        //R1 = program->getDOUBLEParam("--mask","raised_cosine",0);
-        //R2 = program->getDOUBLEParam("--mask","raised_cosine",1);
+        //R1 = program->getRDOUBLEParam("--mask","raised_cosine",0);
+        //R2 = program->getRDOUBLEParam("--mask","raised_cosine",1);
 
         //if (R1 < 0 && R2 < 0)
         //{
@@ -1496,9 +1496,9 @@ void Mask::readParams(cxxopts::ParseResult &options)
         //if (!(allowed_data_types & INT_MASK))
         //    REPORT_ERROR("MaskProgram: continuous masks are not allowed");
 
-        //R1 = program->getDOUBLEParam("--mask","raised_crown",0);
-        //R2 = program->getDOUBLEParam("--mask","raised_crown",1);
-        //pix_width = program->getDOUBLEParam("--mask","raised_crown",2);
+        //R1 = program->getRDOUBLEParam("--mask","raised_crown",0);
+        //R2 = program->getRDOUBLEParam("--mask","raised_crown",1);
+        //pix_width = program->getRDOUBLEParam("--mask","raised_crown",2);
 
         //if (R1 < 0 && R2 < 0)
         //{
@@ -1519,8 +1519,8 @@ void Mask::readParams(cxxopts::ParseResult &options)
         //if (!(allowed_data_types & INT_MASK))
         //    REPORT_ERROR("MaskProgram: continuous masks are not allowed");
 
-        //R1 = program->getDOUBLEParam("--mask","blob_circular",0);
-        //DOUBLE aux = program->getDOUBLEParam("--mask","blob_circular",1);
+        //R1 = program->getRDOUBLEParam("--mask","blob_circular",0);
+        //RDOUBLE aux = program->getRDOUBLEParam("--mask","blob_circular",1);
         //blob_radius= ABS(aux);
 
         //if (aux < 0)
@@ -1540,9 +1540,9 @@ void Mask::readParams(cxxopts::ParseResult &options)
         //if (!(allowed_data_types & INT_MASK))
         //    REPORT_ERROR("MaskProgram: continuous masks are not allowed");
 
-        //R1 = program->getDOUBLEParam("--mask","blob_crown",0);
-        //R2 = program->getDOUBLEParam("--mask","blob_crown",1);
-        //DOUBLE aux = program->getDOUBLEParam("--mask","blob_crown",2);
+        //R1 = program->getRDOUBLEParam("--mask","blob_crown",0);
+        //R2 = program->getRDOUBLEParam("--mask","blob_crown",1);
+        //RDOUBLE aux = program->getRDOUBLEParam("--mask","blob_crown",2);
         //blob_radius= ABS(aux);
 
         //if (aux < 0)
@@ -1554,7 +1554,7 @@ void Mask::readParams(cxxopts::ParseResult &options)
 
         //type = BLOB_CROWN_MASK;
         //blob_order= program->getIntParam("-m");
-        //blob_alpha= program->getDOUBLEParam("-a");
+        //blob_alpha= program->getRDOUBLEParam("-a");
     }
     /*// Blackman mask ........................................................*/
     else if (mask_type == "blackman")
@@ -1568,7 +1568,7 @@ void Mask::readParams(cxxopts::ParseResult &options)
         //if (!(allowed_data_types & INT_MASK))
         //    REPORT_ERROR( "MaskProgram: binary masks are not allowed");
 
-        //omega = program->getDOUBLEParam("--mask","sinc");
+        //omega = program->getRDOUBLEParam("--mask","sinc");
 
         //if (omega < 0)
         //{
@@ -1589,7 +1589,7 @@ void Mask::readParams(cxxopts::ParseResult &options)
     else if (mask_type == "real_file")
     {
         fn_mask = options["maskfile"].as<std::string>();
-		dmask = (MRCImage<DOUBLE>::readAs(fn_mask))();
+		dmask = (MRCImage<RDOUBLE>::readAs(fn_mask))();
         type = READ_REAL_MASK;
     }
     else
@@ -1599,7 +1599,7 @@ void Mask::readParams(cxxopts::ParseResult &options)
 void Mask::generate_mask(bool apply_geo)
 {
 
-    Matrix2D<DOUBLE> AA(4, 4);
+    Matrix2D<RDOUBLE> AA(4, 4);
     AA.initIdentity();
     blobtype blob;
     if (type==BLOB_CIRCULAR_MASK || type==BLOB_CROWN_MASK)
@@ -1664,7 +1664,7 @@ void Mask::generate_mask(bool apply_geo)
         break;
     case READ_BINARY_MASK:
 	{
-		MRCImage<DOUBLE> tmp = MRCImage<DOUBLE>::readAs(fn_mask);
+		MRCImage<RDOUBLE> tmp = MRCImage<RDOUBLE>::readAs(fn_mask);
 		dmask = tmp();
 		imask.resizeNoCopy(dmask);
 		FOR_ALL_ELEMENTS_IN_ARRAY3D(dmask)
@@ -1675,7 +1675,7 @@ void Mask::generate_mask(bool apply_geo)
 	}
     case READ_REAL_MASK://ROB
 	{
-		MRCImage<DOUBLE> tmp = MRCImage<DOUBLE>::readAs(fn_mask);
+		MRCImage<RDOUBLE> tmp = MRCImage<RDOUBLE>::readAs(fn_mask);
 		dmask = tmp();
 		dmask.setXmippOrigin();
 		break;
@@ -1694,7 +1694,7 @@ void Mask::generate_mask(bool apply_geo)
                 REPORT_ERROR("Error: apply_geo only implemented for 2D masks");
             apply_geo_binary_2D_mask(imask, mask_geo);
             break;
-        case DOUBLE_MASK:
+        case RDOUBLE_MASK:
             if (ZSIZE(dmask) > 1)
                 REPORT_ERROR("Error: apply_geo only implemented for 2D masks");
             apply_geo_cont_2D_mask(dmask, mask_geo);
@@ -1710,13 +1710,13 @@ void Mask::generate_mask(bool apply_geo)
 
 // Apply geometric transformation to a binary mask ========================
 void apply_geo_binary_2D_mask(MultidimArray<int> &mask,
-                              const Matrix2D<DOUBLE> &A)
+                              const Matrix2D<RDOUBLE> &A)
 {
-    //MultidimArray<DOUBLE> tmp;
+    //MultidimArray<RDOUBLE> tmp;
     //tmp.resize(mask);
     //typeCast(mask, tmp);
-    //DOUBLE outside = DIRECT_A2D_ELEM(tmp, 0, 0);
-    //MultidimArray<DOUBLE> tmp2;
+    //RDOUBLE outside = DIRECT_A2D_ELEM(tmp, 0, 0);
+    //MultidimArray<RDOUBLE> tmp2;
     //tmp2 = tmp;
     //// Instead of IS_INV for images use IS_NOT_INV for masks!
     //applyGeometry(1, tmp, tmp2, A, IS_NOT_INV, DONT_WRAP, outside);
@@ -1730,18 +1730,18 @@ void apply_geo_binary_2D_mask(MultidimArray<int> &mask,
 }
 
 // Apply geometric transformation to a continuous mask =====================
-void apply_geo_cont_2D_mask(MultidimArray<DOUBLE> &mask,
-                            const Matrix2D<DOUBLE> &A)
+void apply_geo_cont_2D_mask(MultidimArray<RDOUBLE> &mask,
+                            const Matrix2D<RDOUBLE> &A)
 {
-    //DOUBLE outside = DIRECT_A2D_ELEM(mask, 0, 0);
-    //MultidimArray<DOUBLE> tmp = mask;
+    //RDOUBLE outside = DIRECT_A2D_ELEM(mask, 0, 0);
+    //MultidimArray<RDOUBLE> tmp = mask;
     //// Instead of IS_INV for images use IS_NOT_INV for masks!
     //applyGeometry(1, tmp, mask, A, IS_NOT_INV, DONT_WRAP, outside);
 }
 
 int count_with_mask(const MultidimArray<int> &mask,
                     const MultidimArray< Complex> &m, 
-                    int mode, DOUBLE th1, DOUBLE th2)
+                    int mode, RDOUBLE th1, RDOUBLE th2)
 {
     SPEED_UP_tempsInt;
     int N = 0;
@@ -1765,13 +1765,13 @@ int count_with_mask(const MultidimArray<int> &mask,
     return N;
 }
 
-void rangeAdjust_within_mask(const MultidimArray<DOUBLE> *mask,
-                             const MultidimArray<DOUBLE> &m1, 
-                                   MultidimArray<DOUBLE> &m2)
+void rangeAdjust_within_mask(const MultidimArray<RDOUBLE> *mask,
+                             const MultidimArray<RDOUBLE> &m1, 
+                                   MultidimArray<RDOUBLE> &m2)
 {
-    Matrix2D<DOUBLE> A(2, 2);
+    Matrix2D<RDOUBLE> A(2, 2);
     A.initZeros();
-    Matrix1D<DOUBLE> b(2);
+    Matrix1D<RDOUBLE> b(2);
     b.initZeros();
     SPEED_UP_tempsInt;
     // Compute Least squares solution
@@ -1858,10 +1858,10 @@ void rangeAdjust_within_mask(const MultidimArray<DOUBLE> *mask,
 //
 //    count_above  = checkParam("--count_above");
 //    if (count_above)
-//        th_above  = getDOUBLEParam("-count_above");
+//        th_above  = getRDOUBLEParam("-count_above");
 //    count_below  = checkParam("--count_below");
 //    if (count_below)
-//        th_below  = getDOUBLEParam("--count_below");
+//        th_below  = getRDOUBLEParam("--count_below");
 //    create_mask  = checkParam("--create_mask");
 //    if (create_mask)
 //        fn_mask  = getParam("--create_mask");
@@ -1891,7 +1891,7 @@ void rangeAdjust_within_mask(const MultidimArray<DOUBLE> *mask,
 //{
 //    static size_t imageCount = 0;
 //    ++imageCount;
-//    Image<DOUBLE> image;
+//    Image<RDOUBLE> image;
 //    image.readApplyGeo(fnImg, rowIn);
 //    image().setXmippOrigin();
 //

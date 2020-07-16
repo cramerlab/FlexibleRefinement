@@ -2,17 +2,17 @@
 
 /** Speed up temporary variables */
 #define SPEED_UP_temps0 \
-    DOUBLE spduptmp0;
+    RDOUBLE spduptmp0;
 
 /** Speed up temporary variables */
 #define SPEED_UP_temps01 \
 	SPEED_UP_temps0; \
-    DOUBLE spduptmp1;
+    RDOUBLE spduptmp1;
 
 /** Speed up temporary variables */
 #define SPEED_UP_temps012 \
 	SPEED_UP_temps01; \
-    DOUBLE spduptmp2;
+    RDOUBLE spduptmp2;
 
 #define dMn(m, n)  ((m).mdata[(n)])
 

@@ -27,5 +27,5 @@ void ResizeMapGPU(MultidimArray<float> &img, int3 newDim);
 void SphereMaskGPU(float* d_input, float* d_output, int3 dims, float radius, float sigma, bool decentered, uint batch);
 void ResizeMapGPU(MultidimArray<float> &img, int2 newDim);
 void Substract_GPU(MultidimArray<float> &img, float substrahend);
-void Substract_GPU(MultidimArray<float> &img, MultidimArray<DOUBLE> &substrahend);
+void Substract_GPU(MultidimArray<float> &img, MultidimArray<RDOUBLE> &substrahend);
 #endif

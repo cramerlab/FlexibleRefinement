@@ -32,10 +32,10 @@ void RealspacePseudoProjectForward(float3* d_atomPositions,
 	dim3 grid = dim3(1, batch, 1);
 	uint elements = 1;
 
-	/* This layout had a parallelisation over the atomnumber as well, but required and atomic add operation
-	dim3 grid = dim3(tmin(1024, (nAtoms + 127) / 128), batch, 1);
-	uint elements = 128;
-	*/
+	// This layout had a parallelisation over the atomnumber as well, but required atomic add operation
+	/*dim3 grid = dim3(tmin(1024, (nAtoms + 127) / 128), batch, 1);
+	uint elements = 128;*/
+	
 
 	RealspacePseudoProjectForwardKernel << <grid, elements >> > (d_atomPositions, d_atomIntensities, nAtoms, dimsvolume, supersample, d_projections, dimsproj, d_matrices);
 
@@ -115,8 +115,11 @@ void RealspacePseudoProjectBackward(float3* d_atomPositions,
 	//To be most efficient (no atomic add operations), we can parallelize over atoms and have each thread process all projections for one atom.
 	dim3 grid = dim3(tmin(1024, (nAtoms + 127) / 128), 1, 1);
 	uint elements = 128;
+
 	RealspacePseudoProjectBackwardKernel << <grid, elements >> > (d_atomPositions, d_atomIntensities, nAtoms, dimsvolume, supersample, d_projections, batch, dimsproj, d_matrices);
 	cudaFree(d_matrices);
+
+
 }
 
 __global__ void RealspacePseudoProjectBackwardKernel(float3* d_atomPositions, float* d_atomIntensities, unsigned int nAtoms, int3 dimsvolume, float supersample, float* d_projections, unsigned int nProjections, int2 dimsproj, glm::mat3* d_rotations)

@@ -1,8 +1,5 @@
-
 #ifndef GPU_PROJECT
 #define GPU_PROJECT
-
-
 #include "GTOM.cuh"
 #include "cudaHelpers.cuh"
 using namespace gtom;

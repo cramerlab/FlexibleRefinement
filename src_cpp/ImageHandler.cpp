@@ -13,8 +13,8 @@ int main(int argc, char **argv)
 	FileName f1 = argv[1];
 	FileName f2 = argv[2];
 	FileName out = argv[3];
-	MRCImage<DOUBLE> im1 = MRCImage<DOUBLE>::readAs(f1);
-	MRCImage<DOUBLE> im2 = MRCImage<DOUBLE>::readAs(f2);
+	MRCImage<RDOUBLE> im1 = MRCImage<RDOUBLE>::readAs(f1);
+	MRCImage<RDOUBLE> im2 = MRCImage<RDOUBLE>::readAs(f2);
 	writeFSC(im1(), im2(), out);
 
 	return EXIT_SUCCESS;

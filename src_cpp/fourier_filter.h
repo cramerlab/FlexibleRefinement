@@ -34,11 +34,11 @@ using namespace relion;
 
 #define FFT_IDX2DIGFREQ(idx, size, freq) \
     freq = (size<=1)? 0:(( (((int)idx) <= (((int)(size)) >> 1)) ? ((int)(idx)) : -((int)(size)) + ((int)(idx))) / \
-           (DOUBLE)(size));
+           (RDOUBLE)(size));
 
-#define FFT_IDX2DIGFREQ_DOUBLE(idx, size, freq) \
-    freq = (size<=1)? 0:(( (((DOUBLE)idx) <= (((DOUBLE)(size)) / 2.0)) ? ((DOUBLE)(idx)) : -((DOUBLE)(size)) + ((DOUBLE)(idx))) / \
-           (DOUBLE)(size));
+#define FFT_IDX2DIGFREQ_RDOUBLE(idx, size, freq) \
+    freq = (size<=1)? 0:(( (((RDOUBLE)idx) <= (((RDOUBLE)(size)) / 2.0)) ? ((RDOUBLE)(idx)) : -((RDOUBLE)(size)) + ((RDOUBLE)(idx))) / \
+           (RDOUBLE)(size));
 
 #define FFT_IDX2DIGFREQ_FAST(idx, size, size_2, isize, freq) \
     freq = ( ((idx) <= (size_2)) ? (idx) : -(size) + (idx) ) * (isize);
@@ -52,7 +52,7 @@ using namespace relion;
 
    Example of use for highpass filtering
    @code
-      Image<DOUBLE> I;
+      Image<RDOUBLE> I;
       I.read("image.xmp");
       FourierFilter Filter;
       Filter.FilterBand=HIGHPASS;
@@ -65,7 +65,7 @@ using namespace relion;
    
    Example of use for wedge filtering
    @code
-        Image<DOUBLE> V;
+        Image<RDOUBLE> V;
         V.read("1rux64.vol");
         V().setXmippOrigin();
         FourierFilter Filter;
@@ -118,31 +118,31 @@ public:
 
     /** Cut frequency for Low and High pass filters, first freq for bandpass.
         Normalized to 1/2*/
-    DOUBLE w1;
+    RDOUBLE w1;
 
     /** Second frequency for bandpass and stopband. Normalized to 1/2 */
-    DOUBLE w2;
+    RDOUBLE w2;
 
     /** Input Image sampling rate */
-    DOUBLE sampling_rate;
+    RDOUBLE sampling_rate;
 
     /** Wedge and cone filter parameters */
-    DOUBLE t1, t2,rot,tilt,psi;
+    RDOUBLE t1, t2,rot,tilt,psi;
 
     /** Percentage of coefficients to throw */
-    DOUBLE percentage;
+    RDOUBLE percentage;
 
     /** Filename in which store the mask (valid only for fourier masks) */
     FileName maskFn;
 
     /** Pixels around the central frequency for the raised cosine */
-    DOUBLE raised_w;
+    RDOUBLE raised_w;
 
     ///** CTF parameters. */
     //CTFDescription ctf;
     
     /** Minimum CTF for inversion */
-    DOUBLE minCTF;
+    RDOUBLE minCTF;
 
     /** FSC file */
     FileName fnFSC;
@@ -162,7 +162,7 @@ public:
     //void readParams(XmippProgram * program);
 
     /** Process one image */
-    void apply(MultidimArray<DOUBLE> &img);
+    void apply(MultidimArray<RDOUBLE> &img);
 
     /** Empty constructor */
     FourierFilter();
@@ -176,56 +176,56 @@ public:
     /** Compute the mask value at a given frequency.
         The frequency must be normalized so that the maximum frequency
         in each direction is 0.5 */
-    DOUBLE maskValue(const Matrix1D<DOUBLE> &w);
+    RDOUBLE maskValue(const Matrix1D<RDOUBLE> &w);
 
     /** Generate nD mask. */
-    void generateMask(MultidimArray<DOUBLE> &v);
+    void generateMask(MultidimArray<RDOUBLE> &v);
 
     /** Apply mask in real space. */
-    void applyMaskSpace(MultidimArray<DOUBLE> &v);
+    void applyMaskSpace(MultidimArray<RDOUBLE> &v);
 
     /** Apply mask in Fourier space.
      * The image remains in Fourier space.
      */
-    void applyMaskFourierSpace(const MultidimArray<DOUBLE> &v, MultidimArray<Complex> &V);
+    void applyMaskFourierSpace(const MultidimArray<RDOUBLE> &v, MultidimArray<Complex> &V);
 
     /** Get the power of the nD mask. */
-    DOUBLE maskPower();
+    RDOUBLE maskPower();
     
     /** Correct phase */
     void correctPhase();
 public:
     // Auxiliary vector for representing frequency values
-    Matrix1D<DOUBLE> w;
+    Matrix1D<RDOUBLE> w;
 
     // Auxiliary mask for the filter in 3D
     MultidimArray<int> maskFourier;
 
     // Auxiliary mask for the filter in 3D
-    MultidimArray<DOUBLE> maskFourierd;
+    MultidimArray<RDOUBLE> maskFourierd;
 
     // Transformer
     FourierTransformer transformer;
 
     // Auxiliary variables for sparsify
-    MultidimArray<DOUBLE> vMag, vMagSorted;
+    MultidimArray<RDOUBLE> vMag, vMagSorted;
 
     // Auxiliary variables for FSC profile
-    std::vector<DOUBLE> freqContFSC, FSC;
+    std::vector<RDOUBLE> freqContFSC, FSC;
 };
 
 
 ///** Fast access to bandpass filter.
 // * Frequencies are normalized to 0.5 */
-void bandpassFilter(MultidimArray<DOUBLE> &img, DOUBLE w1, DOUBLE w2, DOUBLE raised_w);
+void bandpassFilter(MultidimArray<RDOUBLE> &img, RDOUBLE w1, RDOUBLE w2, RDOUBLE raised_w);
 //
 ///** Fast access to Gaussian filter.
 // * Frequencies are normalized to 0.5 */
-//void gaussianFilter(MultidimArray<DOUBLE> &img, DOUBLE w1);
+//void gaussianFilter(MultidimArray<RDOUBLE> &img, RDOUBLE w1);
 //
 ///** Fast access to real gaussian filter.
 // * Sigma is in pixel units.
 // */
-//void realGaussianFilter(MultidimArray<DOUBLE> &img, DOUBLE sigma);
+//void realGaussianFilter(MultidimArray<RDOUBLE> &img, RDOUBLE sigma);
 //@}
 #endif

@@ -132,19 +132,19 @@ bool EMDL::isString(const EMDLabel &label)
 }
 bool EMDL::isDouble(const EMDLabel &label)
 {
-    return (data[label].type == EMDL_DOUBLE);
+    return (data[label].type == EMDL_RDOUBLE);
 }
 bool EMDL::isNumber(const EMDLabel &label)
 {
-    return (data[label].type == EMDL_DOUBLE || data[label].type == EMDL_INT);
+    return (data[label].type == EMDL_RDOUBLE || data[label].type == EMDL_INT);
 }
 bool EMDL::isDoubleVector(const EMDLabel &label)
 {
-    return (data[label].type == EMDL_DOUBLE_VECTOR);
+    return (data[label].type == EMDL_RDOUBLE_VECTOR);
 }
 bool EMDL::isVector(const EMDLabel &label)
 {
-    return (data[label].type == EMDL_DOUBLE_VECTOR);
+    return (data[label].type == EMDL_RDOUBLE_VECTOR);
 }
 bool EMDL::isUnknown(const EMDLabel &label)
 {

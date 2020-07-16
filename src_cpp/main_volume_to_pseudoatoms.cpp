@@ -98,7 +98,7 @@ void ProgVolumeToPseudoatoms::placeSeedsEquidistantPoints() {
 	MultidimArray<FR_float3> BestSolution;
 
 	float a = 0, b = Dims.x / 2;
-	DOUBLE R = (a + b) / 2;
+	RDOUBLE R = (a + b) / 2;
 	FR_float3 Offset = make_FR_float3(0, 0, 0);
 	std::vector<FR_float3> InsideMask;
 	int outerLim = 2;
@@ -118,9 +118,9 @@ void ProgVolumeToPseudoatoms::placeSeedsEquidistantPoints() {
 				std::min(512, (int)std::ceil(Dims.z / SpacingX)));
 			BestSolution.resize(std::min(512, (int)std::ceil(Dims.z / SpacingX)), std::min(512, (int)std::ceil(Dims.y / SpacingX)), std::min(512, (int)std::ceil(Dims.x / SpacingX)));
 
-			DOUBLE maxX = 0.0;
-			DOUBLE maxXY = 0.0;
-			DOUBLE maxXZ = 0.0;
+			RDOUBLE maxX = 0.0;
+			RDOUBLE maxXY = 0.0;
+			RDOUBLE maxXZ = 0.0;
 
 			FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY3D(BestSolution)
 			{
@@ -180,11 +180,11 @@ void ProgVolumeToPseudoatoms::run()
 	if (intensityColumn != "occupancy" && intensityColumn != "Bfactor")
 		REPORT_ERROR( (std::string)"Unknown column: " + intensityColumn);
 
-	Vin = MRCImage<DOUBLE>::readAs(std::string(fnVol));
+	Vin = MRCImage<RDOUBLE>::readAs(std::string(fnVol));
 	Vin.setZeroOrigin();
 
 	if (doInputFilter) {
-		bandpassFilter(Vin(), inputFilterThresh, (DOUBLE)0, (DOUBLE)5);
+		bandpassFilter(Vin(), inputFilterThresh, (RDOUBLE)0, (RDOUBLE)5);
 		Vin.writeAs<float>(fnVol.withoutExtension() + "_lowpass.mrc", true);
 	}
 
@@ -207,11 +207,11 @@ void ProgVolumeToPseudoatoms::run()
 	super = 4.0;
 	gaussianTable.resize(CEIL(sigma*4*sqrt(3.0) * gaussFactor));
 	FOR_ALL_ELEMENTS_IN_ARRAY1D(gaussianTable)
-		gaussianTable(i) = gaussian1D(i / (DOUBLE)gaussFactor, sigma);
+		gaussianTable(i) = gaussian1D(i / (RDOUBLE)gaussFactor, sigma);
 
 	energyOriginal = 0;
-	DOUBLE N = 0;
-	DOUBLE minval = 1e38, maxval = -1e38;
+	RDOUBLE N = 0;
+	RDOUBLE minval = 1e38, maxval = -1e38;
 	MultidimArray<int> &iMask3D = mask_prm.get_binary_mask();
 	iMask3D.xinit = iMask3D.yinit = iMask3D.zinit = 0;
 	FOR_ALL_ELEMENTS_IN_ARRAY3D(Vin())
@@ -219,7 +219,7 @@ void ProgVolumeToPseudoatoms::run()
 		
 		if (useMask && iMask3D(k, i, j) == 0)
 			continue;
-		DOUBLE v = Vin(k, i, j);
+		RDOUBLE v = Vin(k, i, j);
 		energyOriginal += v * v;
 		minval = XMIPP_MIN(minval, v);
 		maxval = XMIPP_MAX(maxval, v);
@@ -262,20 +262,20 @@ void ProgVolumeToPseudoatoms::drawApproximation()
 	Atoms.RasterizeToVolume(Vcurrent(), make_int3(Vcurrent().xdim, Vcurrent().ydim, Vcurrent().zdim), oversampling);
 
 	energyDiff = 0;
-	DOUBLE N = 0;
+	RDOUBLE N = 0;
 	percentageDiff = 0;
 	const MultidimArray<int> &iMask3D = mask_prm.get_binary_mask();
-	const MultidimArray<DOUBLE> &mVcurrent = Vcurrent();
-	const MultidimArray<DOUBLE> &mVin = Vin();
+	const MultidimArray<RDOUBLE> &mVcurrent = Vcurrent();
+	const MultidimArray<RDOUBLE> &mVin = Vin();
 	FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(mVcurrent)
 	{
 		if (useMask && DIRECT_MULTIDIM_ELEM(iMask3D, n) == 0)
 			continue;
-		DOUBLE Vinv = DIRECT_MULTIDIM_ELEM(mVin, n);
+		RDOUBLE Vinv = DIRECT_MULTIDIM_ELEM(mVin, n);
 		if (Vinv <= 0)
 			continue;
-		DOUBLE vdiff = Vinv - DIRECT_MULTIDIM_ELEM(mVcurrent, n);
-		DOUBLE vperc = fabs(vdiff);
+		RDOUBLE vdiff = Vinv - DIRECT_MULTIDIM_ELEM(mVcurrent, n);
+		RDOUBLE vperc = fabs(vdiff);
 		energyDiff += vdiff * vdiff;
 		percentageDiff += vperc;
 		N++;
@@ -288,8 +288,8 @@ void ProgVolumeToPseudoatoms::drawApproximation()
 }
 
 /* Gaussian operations ----------------------------------------------------- */
-DOUBLE ProgVolumeToPseudoatoms::computeAverage(int k, int i, int j,
-	MultidimArray<DOUBLE> &V)
+RDOUBLE ProgVolumeToPseudoatoms::computeAverage(int k, int i, int j,
+	MultidimArray<RDOUBLE> &V)
 {
 #ifdef DEBUG
 	std::cout << "computeAverage" << std::endl;
@@ -300,7 +300,7 @@ DOUBLE ProgVolumeToPseudoatoms::computeAverage(int k, int i, int j,
 	int kF = std::min(FINISHINGZ(V), (long int)ceil(k + sigma3));
 	int iF = std::min(FINISHINGY(V), (long int)ceil(i + sigma3));
 	int jF = std::min(FINISHINGX(V), (long int)ceil(j + sigma3));
-	DOUBLE sum = 0;
+	RDOUBLE sum = 0;
 	for (int kk = k0; kk <= kF; kk++)
 		for (int ii = i0; ii <= iF; ii++)
 			for (int jj = j0; jj <= jF; jj++)
@@ -312,7 +312,7 @@ DOUBLE ProgVolumeToPseudoatoms::computeAverage(int k, int i, int j,
 void ProgVolumeToPseudoatoms::writeResults()
 {
 	// Compute the histogram of intensities
-	MultidimArray<DOUBLE> intensities;
+	MultidimArray<RDOUBLE> intensities;
 	intensities.initZeros(Atoms.AtomWeights.size());
 	FOR_ALL_ELEMENTS_IN_ARRAY1D(intensities)
 		intensities(i) = Atoms.AtomWeights[i];
@@ -325,7 +325,7 @@ void ProgVolumeToPseudoatoms::writeResults()
 		hist.write(fnOut + "_approximation.hist");
 		
 	// Save the difference
-		MRCImage<DOUBLE> Vdiff(Vin.getHeader());
+		MRCImage<RDOUBLE> Vdiff(Vin.getHeader());
 		Vdiff.setZeroOrigin();
 		Vdiff.setData( Vin() - Vcurrent());
 		const MultidimArray<int> &iMask3D = mask_prm.get_binary_mask();
@@ -340,14 +340,14 @@ void ProgVolumeToPseudoatoms::writeResults()
 	}
 
 	// Write the PDB
-	DOUBLE minIntensity = intensities.computeMin();
-	DOUBLE maxIntensity = intensities.computeMax();
+	RDOUBLE minIntensity = intensities.computeMin();
+	RDOUBLE maxIntensity = intensities.computeMax();
 	if (maxIntensity - minIntensity < 1e-4)
 	{
 		dontScale = true;
 
 	}
-	DOUBLE a = 0.99 / (maxIntensity - minIntensity);
+	RDOUBLE a = 0.99 / (maxIntensity - minIntensity);
 	if (dontScale)
 		a = 1;
 
@@ -364,7 +364,7 @@ void ProgVolumeToPseudoatoms::writeResults()
 	fprintf(fhOut, "REMARK intensityColumn %s\n", intensityColumn.c_str());
 	for (idxtype n = 0; n < nmax; n++)
 	{
-		DOUBLE intensity = 1.0;
+		RDOUBLE intensity = 1.0;
 		if (interpolateValues)
 			intensity = Atoms.AtomWeights[n];
 		if (col == 1)
@@ -402,10 +402,10 @@ void ProgVolumeToPseudoatoms::defineParams(cxxopts::Options &options)
 	options.add_options()
 		("i,input",			  "Input",		cxxopts::value<std::string>(),								"Input Volume")
 		("o,output",          "rootname",	cxxopts::value<std::string>(),								"Rootname for output")
-		("sigma",			  "s",			cxxopts::value<DOUBLE>()->default_value("1.5"),				"Sigma of Gaussians used")
-		("oversampling",	  "s",			cxxopts::value<DOUBLE>()->default_value("1.0"),				"Oversampling used when mapping atoms back to cartesian grid")
+		("sigma",			  "s",			cxxopts::value<RDOUBLE>()->default_value("1.5"),				"Sigma of Gaussians used")
+		("oversampling",	  "s",			cxxopts::value<RDOUBLE>()->default_value("1.0"),				"Oversampling used when mapping atoms back to cartesian grid")
 		("initialSeeds",	  "N",			cxxopts::value<size_t>()->default_value("300"),				"Initial number of Atoms")
-		("filterInput",		  "f",			cxxopts::value<DOUBLE>(),									"Low-pass filter input using this threshold")
+		("filterInput",		  "f",			cxxopts::value<RDOUBLE>(),									"Low-pass filter input using this threshold")
 		("dontAllowMovement", "true",		cxxopts::value<bool>()->default_value("false"),				"Don't allow pseudoatoms to move")
 		("dontAllowNumberChange", "false",		cxxopts::value<bool>()->default_value("false"),				"Don't allow pseudoatom numbers to change")
 		("InterpolateValues", "false",		cxxopts::value<bool>()->default_value("false"),				"Interpolate Initial Atom intensities")
@@ -413,11 +413,11 @@ void ProgVolumeToPseudoatoms::defineParams(cxxopts::Options &options)
 		("intensityColumn",	  "s",			cxxopts::value<std::string>()->default_value("Bfactor"),	"Where to write the intensity in the PDB file")
 		("Nclosest",		  "N",			cxxopts::value<size_t>()->default_value("3"),				"N closest atoms, it is used only for the distance histogram")
 		("dontScale",		  "true",		cxxopts::value<bool>()->default_value("false"),				"Don't scale atom weights in the PDB")
-		("binarize",		  "threshold",	cxxopts::value<DOUBLE>()->default_value("0.5"),				"Binarize the volume")
+		("binarize",		  "threshold",	cxxopts::value<RDOUBLE>()->default_value("0.5"),				"Binarize the volume")
 		("thr",				  "t",			cxxopts::value<size_t>()->default_value("1"),				"Number of Threads")
 		("mask",			  "mask_type",	cxxopts::value<std::string>(),								"Which mask type to use. Options are real_file and binary_file")
 		("maskfile",		  "f",			cxxopts::value<std::string>(),								"Path of mask file")
-		("center",			  "c",			cxxopts::value<std::vector<DOUBLE>>()->default_value("0,0,0"), "Center of Mask")
+		("center",			  "c",			cxxopts::value<std::vector<RDOUBLE>>()->default_value("0,0,0"), "Center of Mask")
 		("v,verbose",		  "v",			cxxopts::value<int>()->default_value("0"), "Verbosity Level");
 }
 
@@ -439,13 +439,13 @@ void ProgVolumeToPseudoatoms::readParams(cxxopts::ParseResult &result)
 	else {
 		fnOut = fnVol.withoutExtension();
 	}
-	sigma = result["sigma"].as<DOUBLE>();
-	oversampling = result["oversampling"].as<DOUBLE>();
+	sigma = result["sigma"].as<RDOUBLE>();
+	oversampling = result["oversampling"].as<RDOUBLE>();
 	super = oversampling;
 	initialSeeds = result["initialSeeds"].as<size_t>();
 	if (result.count("filterInput")) {
 		doInputFilter = true;
-		inputFilterThresh = result["filterInput"].as<DOUBLE>();
+		inputFilterThresh = result["filterInput"].as<RDOUBLE>();
 	}
 	else {
 		doInputFilter = false;
@@ -461,7 +461,7 @@ void ProgVolumeToPseudoatoms::readParams(cxxopts::ParseResult &result)
 	dontScale = result.count("dontScale");
 	binarize = result.count("binarize");
 	if (binarize)
-		threshold = result["binarize"].as<DOUBLE>();
+		threshold = result["binarize"].as<RDOUBLE>();
 	else
 		threshold = 0;
 

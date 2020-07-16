@@ -55,10 +55,10 @@ class PseudoAtom
 {
 public:
 	/// Location
-	Matrix1D<DOUBLE> location;
+	Matrix1D<RDOUBLE> location;
 
 	/// Intensity
-	DOUBLE           intensity;
+	RDOUBLE           intensity;
 
 	/// Empty constructor
 	PseudoAtom();
@@ -102,16 +102,16 @@ public:
 	bool useMask;
 
 	/// Sigma
-	DOUBLE sigma;
+	RDOUBLE sigma;
 
-	DOUBLE oversampling;
+	RDOUBLE oversampling;
 
 	idxtype gaussFactor = 1000;
 
 	/// Stop criterion
-	DOUBLE stop;
+	RDOUBLE stop;
 
-	DOUBLE super;
+	RDOUBLE super;
 
 	/// Initial seeds
 	idxtype initialSeeds;
@@ -134,7 +134,7 @@ public:
 		In case intensity is not allowed to change, this fraction
 		is multiplied by the intensity range and all atoms will have
 		this intensity value. */
-	DOUBLE intensityFraction;
+	RDOUBLE intensityFraction;
 
 	/// Column for the intensity (if any)
 	std::string intensityColumn;
@@ -145,7 +145,7 @@ public:
 	idxtype numThreads;
 
 	/// Sampling rate
-	DOUBLE sampling;
+	RDOUBLE sampling;
 
 	/// N closest atoms for the distance histogram
 	size_t Nclosest;
@@ -157,7 +157,7 @@ public:
 	bool binarize;
 
 	/// Threshold for the binarization
-	DOUBLE threshold;
+	RDOUBLE threshold;
 
 	placemenType initialAlgo;
 
@@ -186,15 +186,15 @@ public:
 	void drawApproximation();
 
 	/// Compute average of a volume
-	DOUBLE computeAverage(int k, int i, int j, MultidimArray<DOUBLE> &V);
+	RDOUBLE computeAverage(int k, int i, int j, MultidimArray<RDOUBLE> &V);
 
 
 	/// Extract region around a Gaussian
-	void extractRegion(int idxGaussian, MultidimArray<DOUBLE> &region,
+	void extractRegion(int idxGaussian, MultidimArray<RDOUBLE> &region,
 		bool extended = false) const;
 
 	/// Insert region
-	void insertRegion(const MultidimArray<DOUBLE> &region);
+	void insertRegion(const MultidimArray<RDOUBLE> &region);
 
 	/// Optimize current atoms
 	void optimizeCurrentAtoms();
@@ -207,41 +207,41 @@ public:
 
 public:
 	// Input volume
-	MRCImage<DOUBLE> Vin;
+	MRCImage<RDOUBLE> Vin;
 
 	// Current approximation volume
-	MRCImage<DOUBLE> Vcurrent;
+	MRCImage<RDOUBLE> Vcurrent;
 
 	// Energy of the difference
-	DOUBLE energyDiff;
+	RDOUBLE energyDiff;
 
 	// Maximum percentage diffence
-	DOUBLE percentageDiff;
+	RDOUBLE percentageDiff;
 
 	// Original energy
-	DOUBLE energyOriginal;
+	RDOUBLE energyOriginal;
 
 	// List of atoms
 
 	Pseudoatoms Atoms;
 
 	// Maximum radius
-	DOUBLE sigma3;
+	RDOUBLE sigma3;
 
 	// Percentil 1
-	DOUBLE percentil1;
+	RDOUBLE percentil1;
 
 	// Range
-	DOUBLE range;
+	RDOUBLE range;
 
 	// Gaussian table
-	MultidimArray<DOUBLE> gaussianTable;
+	MultidimArray<RDOUBLE> gaussianTable;
 
 	//FilterInput
 	bool doInputFilter;
 
 	//InputFilter Treshold
-	DOUBLE inputFilterThresh;
+	RDOUBLE inputFilterThresh;
 
 
 	// Filter for the difference volume

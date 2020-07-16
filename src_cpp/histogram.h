@@ -74,7 +74,7 @@ using namespace relion;
  * @code
  * // Variable definition
  * Histogram1D hist;
- * MultidimArray<DOUBLE> A(50, 50);
+ * MultidimArray<RDOUBLE> A(50, 50);
  *
  * // Matrix initialisation
  * A.init_random(0, 100);
@@ -83,8 +83,8 @@ using namespace relion;
  * compute_hist(A, hist, 200);
  *
  * // Effective range computation
- * DOUBLE eff0 = hist.percentil(2.5);
- * DOUBLE effF = hist.percentil(97.5);
+ * RDOUBLE eff0 = hist.percentil(2.5);
+ * RDOUBLE effF = hist.percentil(97.5);
  *
  * @endcode
  *
@@ -97,9 +97,9 @@ using namespace relion;
  * @code
  * // Variable definition
  * Histogram1D hist;
- * MultidimArray<DOUBLE> A(50, 50);
- * DOUBLE min_val, max_val;
- * DOUBLE eff0, effF;
+ * MultidimArray<RDOUBLE> A(50, 50);
+ * RDOUBLE min_val, max_val;
+ * RDOUBLE eff0, effF;
  *
  * // Matrix initialisation
  * A.init_random(0, 100);
@@ -122,14 +122,14 @@ using namespace relion;
  *     << " to " << effF << std::endl;
  * @endcode
  */
-class Histogram1D: public MultidimArray< DOUBLE >
+class Histogram1D: public MultidimArray< RDOUBLE >
 {
 public:
     // Structure
-    DOUBLE hmin; // minimum value of the histogram
-    DOUBLE hmax; // maximum value of the histogram
-    DOUBLE step_size; // size of step
-    DOUBLE istep_size;
+    RDOUBLE hmin; // minimum value of the histogram
+    RDOUBLE hmax; // maximum value of the histogram
+    RDOUBLE step_size; // size of step
+    RDOUBLE istep_size;
     int no_samples; // No. of points inside the histogram
 
     /** Empty constructor
@@ -190,7 +190,7 @@ public:
      * // 100 steps in the range -3...3
      * @endcode
      */
-    void init(DOUBLE min_val, DOUBLE max_val, int n_steps);
+    void init(RDOUBLE min_val, RDOUBLE max_val, int n_steps);
 
     /** Insert a value within histogram
      *
@@ -203,7 +203,7 @@ public:
      * hist.insert_value(3);
      * @endcode
      */
-    void insert_value(DOUBLE val);
+    void insert_value(RDOUBLE val);
 
 /** Insert value as a macro */
 #define INSERT_VALUE(histogram,value) \
@@ -234,19 +234,19 @@ public:
      * percentil60=hist.percentil(60);
      * @endcode
      */
-    DOUBLE percentil(DOUBLE percent_mass);
+    RDOUBLE percentil(RDOUBLE percent_mass);
 
     /** Mass below
      *
      * Returns the number of points which are below a certain value
      */
-    DOUBLE mass_below(DOUBLE value);
+    RDOUBLE mass_below(RDOUBLE value);
 
     /** Mass above
      *
      * Returns the number of points which are above a certain value
      */
-    DOUBLE mass_above(DOUBLE value)
+    RDOUBLE mass_above(RDOUBLE value)
     {
         return no_samples - mass_below(value);
     }
@@ -272,13 +272,13 @@ public:
      * hist.val2index(12.3, interval_for_it);
      * @endcode
      */
-    void val2index(DOUBLE v, int& i) const
+    void val2index(RDOUBLE v, int& i) const
     {
         if (v == hmax)
             i = XSIZE(*this) - 1;
         else
         {
-        	DOUBLE aux=(v - hmin) * istep_size;
+        	RDOUBLE aux=(v - hmin) * istep_size;
             i = (int) FLOOR(aux);
         }
 
@@ -296,7 +296,7 @@ public:
      * hist.index2val(0, beginning_of_interval_0);
      * @endcode
      */
-    inline void index2val(DOUBLE i, DOUBLE& v) const
+    inline void index2val(RDOUBLE i, RDOUBLE& v) const
     {
         v = hmin + i * step_size;
     }
@@ -307,7 +307,7 @@ public:
      * std::cout << "Minimum value for histogram " << hist.min() << std::endl;
      * @endcode
      */
-    DOUBLE hist_min() const
+    RDOUBLE hist_min() const
     {
         return hmin;
     }
@@ -318,7 +318,7 @@ public:
      * std::cout << "Maximum value for histogram " << hist.max() << std::endl;
      * @endcode
      */
-    DOUBLE hist_max() const
+    RDOUBLE hist_max() const
     {
         return hmax;
     }
@@ -329,7 +329,7 @@ public:
      * std::cout << "Step size of the histogram " << hist.step() << std::endl;
      * @endcode
      */
-    DOUBLE step() const
+    RDOUBLE step() const
     {
         return step_size;
     }
@@ -351,7 +351,7 @@ public:
      * std::cout << "No. Samples in the histogram " << hist.sampleNo() << std::endl;
      * @endcode
      */
-    DOUBLE sampleNo() const
+    RDOUBLE sampleNo() const
     {
         return no_samples;
     }
@@ -361,7 +361,7 @@ public:
      * Before computing the entropy, the histogram is corrected with a Laplace
      * correction. The entropy is computed as sum(-p*log(p))
      */
-    DOUBLE entropy() const;
+    RDOUBLE entropy() const;
 };
 
 /** Cumulative density function.
@@ -369,15 +369,15 @@ public:
  class CDF
  {
  public:
- 	MultidimArray<DOUBLE> x;
- 	MultidimArray<DOUBLE> probXLessThanx;
- 	DOUBLE minVal, maxVal;
+ 	MultidimArray<RDOUBLE> x;
+ 	MultidimArray<RDOUBLE> probXLessThanx;
+ 	RDOUBLE minVal, maxVal;
  public:
  	/// Calculate the CDF of V with a probability step of 0.005 (p is between 0 and 1)
- 	void calculateCDF(MultidimArray<DOUBLE> &V, DOUBLE probStep=0.005);
+ 	void calculateCDF(MultidimArray<RDOUBLE> &V, RDOUBLE probStep=0.005);
 
  	/// Get the probability Pr{V<=x}
- 	DOUBLE getProbability(DOUBLE x);
+ 	RDOUBLE getProbability(RDOUBLE x);
  };
 
 
@@ -391,13 +391,13 @@ class IrregularHistogram1D
 {
 public:
     Histogram1D              __hist;
-    MultidimArray<DOUBLE>    __binsRightLimits;
+    MultidimArray<RDOUBLE>    __binsRightLimits;
 public:
     /// Initialize class
     void init(const Histogram1D &oldHistogram, const MultidimArray<int> &bins);
 
     /// Return the index corresponding to a certain value
-    int val2Index(DOUBLE value) const;
+    int val2Index(RDOUBLE value) const;
 
     /// Normalize to be a probability density function
     void selfNormalize();
@@ -407,7 +407,7 @@ public:
                                        const IrregularHistogram1D &_h);
 
     /// Get value
-    inline DOUBLE operator()(int i) const
+    inline RDOUBLE operator()(int i) const
     {
         return DIRECT_A1D_ELEM(__hist,i);
     }
@@ -422,7 +422,7 @@ public:
  *
  * Given an array as input, this function returns its histogram within the
  * minimum and maximum of the array, in this way all the values in the array are
- * counted. The array can be of any numerical type (short int, int, DOUBLE, ...)
+ * counted. The array can be of any numerical type (short int, int, RDOUBLE, ...)
  * and dimension. The number of steps must always be given.
  *
  * @code
@@ -434,8 +434,8 @@ template<typename T>
 void compute_hist(const MultidimArray<T>& array, Histogram1D& hist,
                   int no_steps)
 {
-    DOUBLE min=0, max=0;
-    array.computeDOUBLEMinMax(min, max);
+    RDOUBLE min=0, max=0;
+    array.computeRDOUBLEMinMax(min, max);
     compute_hist(array, hist, min, max, no_steps);
 }
 
@@ -456,11 +456,11 @@ void compute_hist(const std::vector< T > &v,
         return;
 
     // Compute minimum and maximum
-    DOUBLE min, max;
+    RDOUBLE min, max;
     min=max=v[0];
     for (int i=1; i<imax; i++)
     {
-        DOUBLE val=v[i];
+        RDOUBLE val=v[i];
         min=XMIPP_MIN(min,val);
         max=XMIPP_MAX(max,val);
     }
@@ -468,7 +468,7 @@ void compute_hist(const std::vector< T > &v,
 
     for (int i=1; i<imax; i++)
     {
-    	DOUBLE value=v[i];
+    	RDOUBLE value=v[i];
         INSERT_VALUE(hist,value);
     }
 }
@@ -478,7 +478,7 @@ void compute_hist(const std::vector< T > &v,
  * Given a array as input, this function returns its histogram within two
  * values, the array values outside this range are not counted. This can be used
  * to avoid the effect of outliers which causes a "compression" in the
- * histogram. The array can be of any numerical type (short int, int, DOUBLE,
+ * histogram. The array can be of any numerical type (short int, int, RDOUBLE,
  * ...). The number of steps must always be given.
  *
  * @code
@@ -488,13 +488,13 @@ void compute_hist(const std::vector< T > &v,
  */
 template<typename T>
 void compute_hist(const MultidimArray<T>& v, Histogram1D& hist,
-                  DOUBLE min, DOUBLE max, int no_steps)
+                  RDOUBLE min, RDOUBLE max, int no_steps)
 {
     hist.init(min, max, no_steps);
     T* ptr=&DIRECT_MULTIDIM_ELEM(v,0);
     size_t nmax=(MULTIDIM_SIZE(v)/4)*4;
 
-    DOUBLE value;
+    RDOUBLE value;
     for (size_t n=0; n<nmax; n+=4, ptr+=4)
     {
     	value=*ptr;
@@ -516,7 +516,7 @@ void compute_hist(const MultidimArray<T>& v, Histogram1D& hist,
 /** Compute histogram of the MultidimArrayGeneric within two values
  */
 /*void compute_hist(const MultidimArrayGeneric& v, Histogram1D& hist,
-                  DOUBLE min, DOUBLE max, int no_steps);*/
+                  RDOUBLE min, RDOUBLE max, int no_steps);*/
 
 /** Compute histogram within a region (2D or 3D)
  *
@@ -529,14 +529,14 @@ void compute_hist(const MultidimArray< T >
                   const Matrix1D< int >& corner2,
                   int no_steps = 100)
 {
-    DOUBLE min, max;
-    v.computeDOUBLEMinMax(min, max, corner1, corner2);
+    RDOUBLE min, max;
+    v.computeRDOUBLEMinMax(min, max, corner1, corner2);
     hist.init(min, max, no_steps);
 
     Matrix1D< int > r(2);
     FOR_ALL_ELEMENTS_IN_ARRAY2D_BETWEEN(corner1, corner2)
     {
-    	DOUBLE value=v(r);
+    	RDOUBLE value=v(r);
     	INSERT_VALUE(hist,value);
     }
 }
@@ -560,7 +560,7 @@ void compute_hist(const MultidimArray< T >
  * detect_error = detectability_error(hist1, hist2);
  * @endcode
  */
-DOUBLE detectability_error(const Histogram1D& h1, const Histogram1D& h2);
+RDOUBLE detectability_error(const Histogram1D& h1, const Histogram1D& h2);
 
 /** Compute the Kullback-Leibler distance between two pdf's
  *
@@ -570,7 +570,7 @@ DOUBLE detectability_error(const Histogram1D& h1, const Histogram1D& h2);
  * distance = KLDistance(hist1, hist2);
  * @endcode
  */
-DOUBLE KLDistance(const Histogram1D& h1, const Histogram1D& h2);
+RDOUBLE KLDistance(const Histogram1D& h1, const Histogram1D& h2);
 
 /** Returns the effective range of a multidimensional array
  *
@@ -580,24 +580,24 @@ DOUBLE KLDistance(const Histogram1D& h1, const Histogram1D& h2);
  * percentage is 99.75%, although this value should be increased as the number
  * of values in the array decreases. For the default, for instance, the 0.125%
  * of the smaller values are left out as well as the 0.125% of the higher
- * values. The range is given always as a DOUBLE number.
+ * values. The range is given always as a RDOUBLE number.
  *
  * @code
- * DOUBLE range = v.effective_range();
+ * RDOUBLE range = v.effective_range();
  * // range for the 99.75% of the mass
  *
- * DOUBLE range = v.effective_range(1);
+ * RDOUBLE range = v.effective_range(1);
  * // range for the 99% of the mass
  * @endcode
  */
 template<typename T>
-DOUBLE effective_range(const T& v, DOUBLE percentil_out = 0.25)
+RDOUBLE effective_range(const T& v, RDOUBLE percentil_out = 0.25)
 {
     Histogram1D hist;
     compute_hist(v, hist, 200)
     ;
-    DOUBLE min_val = hist.percentil(percentil_out / 2);
-    DOUBLE max_val = hist.percentil(100 - percentil_out / 2);
+    RDOUBLE min_val = hist.percentil(percentil_out / 2);
+    RDOUBLE max_val = hist.percentil(100 - percentil_out / 2);
     return max_val - min_val;
 }
 
@@ -606,12 +606,12 @@ DOUBLE effective_range(const T& v, DOUBLE percentil_out = 0.25)
  * Look at the documentation of effective_rage
  */
 template<typename T>
-void reject_outliers(T& v, DOUBLE percentil_out = 0.25)
+void reject_outliers(T& v, RDOUBLE percentil_out = 0.25)
 {
     Histogram1D hist;
     compute_hist(v, hist, 400);
-    DOUBLE eff0 = hist.percentil(percentil_out / 2);
-    DOUBLE effF = hist.percentil(100 - percentil_out / 2);
+    RDOUBLE eff0 = hist.percentil(percentil_out / 2);
+    RDOUBLE effF = hist.percentil(100 - percentil_out / 2);
 	int i0, iF;
 	hist.val2index(eff0, i0);
 	hist.val2index(effF, iF);
@@ -642,7 +642,7 @@ void histogram_equalization(MultidimArray<T>
     compute_hist(v, hist, hist_steps);
 
     // Compute the distribution function of the pdf
-    MultidimArray<DOUBLE> norm_sum(hist_steps);
+    MultidimArray<RDOUBLE> norm_sum(hist_steps);
     DIRECT_A1D_ELEM(norm_sum,0) = DIRECT_A1D_ELEM(hist,0);
 
     for (int i = 1; i < hist_steps; i++)
@@ -650,15 +650,15 @@ void histogram_equalization(MultidimArray<T>
     norm_sum /= MULTIDIM_SIZE(v);
 
     // array to store the boundary pixels of bins
-    MultidimArray< DOUBLE > div(bins - 1);
+    MultidimArray< RDOUBLE > div(bins - 1);
     int index = 0;
 
     for (int current_bin = 1; current_bin < bins; current_bin++)
     {
-        DOUBLE current_value = (DOUBLE) current_bin / bins;
+        RDOUBLE current_value = (RDOUBLE) current_bin / bins;
         while (DIRECT_A1D_ELEM(norm_sum,index) < current_value && index < FINISHINGX(norm_sum))
             index++;
-        hist.index2val((DOUBLE) index, DIRECT_A1D_ELEM(div,current_bin - 1));
+        hist.index2val((RDOUBLE) index, DIRECT_A1D_ELEM(div,current_bin - 1));
     }
 
     // requantize and equalize histogram
@@ -700,16 +700,16 @@ void histogram_equalization(MultidimArray<T>
  * histograms 1D.
  *
  */
-class Histogram2D : public MultidimArray< DOUBLE >
+class Histogram2D : public MultidimArray< RDOUBLE >
 {
 public:
     // Structure
-    DOUBLE imin; // minimum value of the i axis
-    DOUBLE imax; // maximum value of the i axis
-    DOUBLE istep_size; // size of step
-    DOUBLE jmin; // minimum value of the j axis
-    DOUBLE jmax; // maximum value of the j axis
-    DOUBLE jstep_size; // size of step
+    RDOUBLE imin; // minimum value of the i axis
+    RDOUBLE imax; // maximum value of the i axis
+    RDOUBLE istep_size; // size of step
+    RDOUBLE jmin; // minimum value of the j axis
+    RDOUBLE jmax; // maximum value of the j axis
+    RDOUBLE jstep_size; // size of step
     int no_samples; // No. of points inside the histogram
 
     /** Empty constructor
@@ -771,8 +771,8 @@ public:
      * // 100 steps in the range V=0...90 and 200 steps for U=0...360
      * @endcode
      */
-    void init(DOUBLE imin_val, DOUBLE imax_val, int in_steps,
-              DOUBLE jmin_val, DOUBLE jmax_val, int jn_steps);
+    void init(RDOUBLE imin_val, RDOUBLE imax_val, int in_steps,
+              RDOUBLE jmin_val, RDOUBLE jmax_val, int jn_steps);
 
     /** Insert a value within histogram
      *
@@ -788,7 +788,7 @@ public:
      * hist.insert_value(45, 0);
      * @endcode
      */
-    void insert_value(DOUBLE v, DOUBLE u);
+    void insert_value(RDOUBLE v, RDOUBLE u);
 
     /** Show an histogram
      *
@@ -814,7 +814,7 @@ public:
      * hist.val2index(45, 0, i, j);
      * @endcode
      */
-    void val2index(DOUBLE v, DOUBLE u, int& i, int& j) const
+    void val2index(RDOUBLE v, RDOUBLE u, int& i, int& j) const
     {
         if (v == imax)
             i = IstepNo() - 1;
@@ -844,7 +844,7 @@ public:
      * hist.index2val(5, 1, v, u);
      * @endcode
      */
-    void index2val(DOUBLE i, DOUBLE j, DOUBLE& v, DOUBLE& u) const
+    void index2val(RDOUBLE i, RDOUBLE j, RDOUBLE& v, RDOUBLE& u) const
     {
         v = imin + i * istep_size;
         u = jmin + j * jstep_size;
@@ -856,7 +856,7 @@ public:
      * std::cout << "Minimum value for histogram " << hist.Imin() << std::endl;
      * @endcode
      */
-    DOUBLE Ihist_min() const
+    RDOUBLE Ihist_min() const
     {
         return imin;
     }
@@ -867,7 +867,7 @@ public:
      * std::cout << "Maximum value for histogram " << hist.Imax() << std::endl;
      * @endcode
      */
-    DOUBLE Ihist_max() const
+    RDOUBLE Ihist_max() const
     {
         return imax;
     }
@@ -878,7 +878,7 @@ public:
      * std::cout << "Step size of the histogram " << hist.Istep() << std::endl;
      * @endcode
      */
-    DOUBLE Istep() const
+    RDOUBLE Istep() const
     {
         return istep_size;
     }
@@ -900,7 +900,7 @@ public:
      * std::cout << "Minimum value for histogram " << hist.Jmin() << std::endl;
      * @endcode
      */
-    DOUBLE Jhist_min() const
+    RDOUBLE Jhist_min() const
     {
         return jmin;
     }
@@ -911,7 +911,7 @@ public:
      * std::cout << "Maximum value for histogram " << hist.Jmax() << std::endl;
      * @endcode
      */
-    DOUBLE Jhist_max() const
+    RDOUBLE Jhist_max() const
     {
         return jmax;
     }
@@ -922,7 +922,7 @@ public:
      * std::cout << "Step size of the histogram " << hist.Jstep() << std::endl;
      * @endcode
      */
-    DOUBLE Jstep() const
+    RDOUBLE Jstep() const
     {
         return jstep_size;
     }
@@ -952,7 +952,7 @@ public:
 
 /** @name Functions related to histograms 2D
  *
- * The vectors can be of any numerical type (short int, int, DOUBLE, ...), but
+ * The vectors can be of any numerical type (short int, int, RDOUBLE, ...), but
  * both of the same type. Vectors must be of the same shape, the first element
  * of v1 and the first of v2 define the position were the first point will be
  * inserted in the histogram, then the second of v1 and of v2, ... That is, the
@@ -970,12 +970,12 @@ template<typename T>
 void compute_hist(const T& v1, const T& v2,
                   Histogram2D& hist, int no_steps1, int no_steps2)
 {
-    DOUBLE min1, max1;
-    v1.computeDOUBLEMinMax(min1, max1)
+    RDOUBLE min1, max1;
+    v1.computeRDOUBLEMinMax(min1, max1)
     ;
 
-    DOUBLE min2, max2;
-    v2.computeDOUBLEMinMax(min2, max2);
+    RDOUBLE min2, max2;
+    v2.computeRDOUBLEMinMax(min2, max2);
 
     compute_hist(v1, v2, hist, min1, max1, min2, max2, no_steps1, no_steps2);
 }
@@ -989,7 +989,7 @@ template<typename T>
 void compute_hist(const MultidimArray<T>
                   & v1, const MultidimArray<T>& v2,
                   Histogram2D& hist,
-                  DOUBLE m1, DOUBLE M1, DOUBLE m2, DOUBLE M2, int no_steps1,
+                  RDOUBLE m1, RDOUBLE M1, RDOUBLE m2, RDOUBLE M2, int no_steps1,
                   int no_steps2)
 {
     if (!v1.sameShape(v2))

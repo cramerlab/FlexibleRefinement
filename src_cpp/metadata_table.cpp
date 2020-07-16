@@ -45,7 +45,7 @@
 #include <random>
 #include "metadata_table.h"
 #include "metadata_label.h"
-
+#include <filesystem>
 MetaDataTable::MetaDataTable()
 :	objects(0),
 	label2offset(EMDL_LAST_LABEL, -1),
@@ -1278,7 +1278,8 @@ void MetaDataTable::write(const FileName &fn_out)
 	write(fh);
 	fh.close();
 	// Rename to prevent errors with programs in pipeliner reading in incomplete STAR files
-	std::rename(fn_tmp.c_str(), fn_out.c_str());
+	std::filesystem::rename(fn_tmp.c_str(), fn_out.c_str());
+
 
 }
 /*

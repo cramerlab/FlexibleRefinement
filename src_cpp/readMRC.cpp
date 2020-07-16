@@ -203,11 +203,11 @@ namespace relion
 	}
 
 	template<typename T>
-	DOUBLE MRCImage<T>::GetInterpolatedValue(float3 pos)
+	RDOUBLE MRCImage<T>::GetInterpolatedValue(float3 pos)
 	{
-		float3 Weights = { pos.x - (DOUBLE)std::floor(pos.x),
-			pos.y - (DOUBLE)std::floor(pos.y),
-			pos.z - (DOUBLE)std::floor(pos.z) };
+		float3 Weights = { pos.x - (RDOUBLE)std::floor(pos.x),
+			pos.y - (RDOUBLE)std::floor(pos.y),
+			pos.z - (RDOUBLE)std::floor(pos.z) };
 
 
 
@@ -220,37 +220,37 @@ namespace relion
 
 		if (data.zdim == 1)
 		{
-			DOUBLE v00 = DIRECT_A3D_ELEM(data, 0, Pos0.y, Pos0.x);
-			DOUBLE v01 = DIRECT_A3D_ELEM(data, 0, Pos0.y, Pos1.x);
-			DOUBLE v10 = DIRECT_A3D_ELEM(data, 0, Pos1.y, Pos0.x);
-			DOUBLE v11 = DIRECT_A3D_ELEM(data, 0, Pos1.y, Pos1.x);
+			RDOUBLE v00 = DIRECT_A3D_ELEM(data, 0, Pos0.y, Pos0.x);
+			RDOUBLE v01 = DIRECT_A3D_ELEM(data, 0, Pos0.y, Pos1.x);
+			RDOUBLE v10 = DIRECT_A3D_ELEM(data, 0, Pos1.y, Pos0.x);
+			RDOUBLE v11 = DIRECT_A3D_ELEM(data, 0, Pos1.y, Pos1.x);
 
-			DOUBLE v0 = Lerp(v00, v01, Weights.x);
-			DOUBLE v1 = Lerp(v10, v11, Weights.x);
+			RDOUBLE v0 = Lerp(v00, v01, Weights.x);
+			RDOUBLE v1 = Lerp(v10, v11, Weights.x);
 
 			return Lerp(v0, v1, Weights.y);
 		}
 		else
 		{
-			DOUBLE v000 = DIRECT_A3D_ELEM(data, Pos0.z, Pos0.y, Pos0.x);
-			DOUBLE v001 = DIRECT_A3D_ELEM(data, Pos0.z, Pos0.y, Pos1.x);
-			DOUBLE v010 = DIRECT_A3D_ELEM(data, Pos0.z, Pos1.y, Pos0.x);
-			DOUBLE v011 = DIRECT_A3D_ELEM(data, Pos1.z, Pos0.y, Pos0.x);
+			RDOUBLE v000 = DIRECT_A3D_ELEM(data, Pos0.z, Pos0.y, Pos0.x);
+			RDOUBLE v001 = DIRECT_A3D_ELEM(data, Pos0.z, Pos0.y, Pos1.x);
+			RDOUBLE v010 = DIRECT_A3D_ELEM(data, Pos0.z, Pos1.y, Pos0.x);
+			RDOUBLE v011 = DIRECT_A3D_ELEM(data, Pos1.z, Pos0.y, Pos0.x);
 
-			DOUBLE v100 = DIRECT_A3D_ELEM(data, Pos1.z, Pos0.y, Pos0.x);
-			DOUBLE v101 = DIRECT_A3D_ELEM(data, Pos1.z, Pos0.y, Pos1.x);
-			DOUBLE v110 = DIRECT_A3D_ELEM(data, Pos1.z, Pos1.y, Pos0.x);
-			DOUBLE v111 = DIRECT_A3D_ELEM(data, Pos1.z, Pos1.y, Pos1.x);
+			RDOUBLE v100 = DIRECT_A3D_ELEM(data, Pos1.z, Pos0.y, Pos0.x);
+			RDOUBLE v101 = DIRECT_A3D_ELEM(data, Pos1.z, Pos0.y, Pos1.x);
+			RDOUBLE v110 = DIRECT_A3D_ELEM(data, Pos1.z, Pos1.y, Pos0.x);
+			RDOUBLE v111 = DIRECT_A3D_ELEM(data, Pos1.z, Pos1.y, Pos1.x);
 
-			DOUBLE v00 = Lerp(v000, v001, Weights.x);
-			DOUBLE v01 = Lerp(v010, v011, Weights.x);
-			DOUBLE v10 = Lerp(v100, v101, Weights.x);
-			DOUBLE v11 = Lerp(v110, v111, Weights.x);
+			RDOUBLE v00 = Lerp(v000, v001, Weights.x);
+			RDOUBLE v01 = Lerp(v010, v011, Weights.x);
+			RDOUBLE v10 = Lerp(v100, v101, Weights.x);
+			RDOUBLE v11 = Lerp(v110, v111, Weights.x);
 
-			DOUBLE v0 = Lerp(v00, v01, Weights.y);
-			DOUBLE v1 = Lerp(v10, v11, Weights.y);
+			RDOUBLE v0 = Lerp(v00, v01, Weights.y);
+			RDOUBLE v1 = Lerp(v10, v11, Weights.y);
 
-			DOUBLE tmp = Lerp(v0, v1, Weights.z);
+			RDOUBLE tmp = Lerp(v0, v1, Weights.z);
 			return tmp;
 		}
 	}
@@ -327,10 +327,10 @@ namespace relion
 	template <typename T>
 	float3 MRCImage<T>::getCenterOfMass() {
 		float3 center = { 0.0f, 0.0f, 0.0f };
-		DOUBLE M = 0;
+		RDOUBLE M = 0;
 		FOR_ALL_ELEMENTS_IN_ARRAY3D(data)
 		{
-			DOUBLE weight = A3D_ELEM(data, k, i, j);
+			RDOUBLE weight = A3D_ELEM(data, k, i, j);
 			center.x += weight * j;
 			center.y += weight * i;
 			center.z += weight * k;

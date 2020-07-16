@@ -42,7 +42,7 @@ void Histogram1D::clear()
     step_size = 0;
     istep_size = 0;
     no_samples = 0;
-    MultidimArray<DOUBLE>::clear();
+    MultidimArray<RDOUBLE>::clear();
 }
 
 /* Assignment -------------------------------------------------------------- */
@@ -50,7 +50,7 @@ Histogram1D & Histogram1D::operator =(const Histogram1D &H)
 {
     if (this != &H)
     {
-        this->MultidimArray<DOUBLE>::operator =(H);
+        this->MultidimArray<RDOUBLE>::operator =(H);
         hmin = H.hmin;
         hmax = H.hmax;
         step_size = H.step_size;
@@ -66,19 +66,19 @@ void Histogram1D::assign(const Histogram1D &H)
     *this = H;
 }
 /* Initialize -------------------------------------------------------------- */
-void Histogram1D::init(DOUBLE min_val, DOUBLE max_val, int n_steps)
+void Histogram1D::init(RDOUBLE min_val, RDOUBLE max_val, int n_steps)
 {
     hmin = min_val;
     hmax = max_val;
-    step_size = (DOUBLE) (max_val - min_val) / (DOUBLE) n_steps; // CO: n_steps-1->n_steps
+    step_size = (RDOUBLE) (max_val - min_val) / (RDOUBLE) n_steps; // CO: n_steps-1->n_steps
     istep_size = 1.0 / step_size;
-    MultidimArray<DOUBLE>::initZeros(n_steps);
+    MultidimArray<RDOUBLE>::initZeros(n_steps);
     no_samples = 0;
 }
 
 /* Insert value ------------------------------------------------------------ */
 //#define DEBUG
-void Histogram1D::insert_value(DOUBLE val)
+void Histogram1D::insert_value(RDOUBLE val)
 {
     int i;
     int Xdim=(int)XSIZE(*this);
@@ -92,7 +92,7 @@ void Histogram1D::insert_value(DOUBLE val)
     }
     else
     {
-        DOUBLE aux = (val - hmin) * istep_size;
+        RDOUBLE aux = (val - hmin) * istep_size;
         i = (int) aux;
 
         if (i < 0 || i >= Xdim)
@@ -112,7 +112,7 @@ void Histogram1D::insert_value(DOUBLE val)
 /* std::cout << hist ------------------------------------------------------------ */
 std::ostream& operator <<(std::ostream &o, const Histogram1D &hist)
 {
-    MultidimArray<DOUBLE> aux;
+    MultidimArray<RDOUBLE> aux;
     aux.resize(hist.stepNo(), 2);
     FOR_ALL_ELEMENTS_IN_ARRAY1D(hist)
     {
@@ -130,7 +130,7 @@ std::ostream& operator <<(std::ostream &o, const Histogram1D &hist)
 //{
 //    MetaData auxMD;
 //    MDRow row;
-//    DOUBLE auxD;
+//    RDOUBLE auxD;
 //    size_t auxT;
 //    FOR_ALL_ELEMENTS_IN_ARRAY1D(*this)
 //    {
@@ -155,13 +155,13 @@ std::ostream& operator <<(std::ostream &o, const Histogram1D &hist)
 /* Percentil --------------------------------------------------------------- */
 /* This function returns the value of the variable under which the mass% of
  the histogram is comprised */
-DOUBLE Histogram1D::percentil(DOUBLE percent_mass)
+RDOUBLE Histogram1D::percentil(RDOUBLE percent_mass)
 {
     int i = 0;
-    DOUBLE acc = 0;
-    DOUBLE required_mass;
-    DOUBLE percentil_i;
-    DOUBLE ret_val;
+    RDOUBLE acc = 0;
+    RDOUBLE required_mass;
+    RDOUBLE percentil_i;
+    RDOUBLE ret_val;
 
     // Check it is a correct mass
     if (percent_mass > 100)
@@ -174,7 +174,7 @@ DOUBLE Histogram1D::percentil(DOUBLE percent_mass)
         return (hmax);
 
     // Any other case, find index of corresponding piece
-    required_mass = (DOUBLE) no_samples * percent_mass / 100.0;
+    required_mass = (RDOUBLE) no_samples * percent_mass / 100.0;
     int N_diff_from_0 = 0;
     while (acc < required_mass)
     {
@@ -200,7 +200,7 @@ DOUBLE Histogram1D::percentil(DOUBLE percent_mass)
          above this threshold. Let's move to the safe side
          i--;
          acc -= A1D_ELEM(*this,i);
-         percentil_i=i+(required_mass-acc)/(DOUBLE) A1D_ELEM(*this,i); */
+         percentil_i=i+(required_mass-acc)/(RDOUBLE) A1D_ELEM(*this,i); */
         percentil_i = i - 1;
     }
 
@@ -210,7 +210,7 @@ DOUBLE Histogram1D::percentil(DOUBLE percent_mass)
 }
 
 /* Mass below -------------------------------------------------------------- */
-DOUBLE Histogram1D::mass_below(DOUBLE value)
+RDOUBLE Histogram1D::mass_below(RDOUBLE value)
 {
     // Trivial cases
     if (value <= hmin)
@@ -220,8 +220,8 @@ DOUBLE Histogram1D::mass_below(DOUBLE value)
 
     // Any other case, find index of corresponding piece
     int i = 0;
-    DOUBLE acc = 0;
-    DOUBLE current_value;
+    RDOUBLE acc = 0;
+    RDOUBLE current_value;
     index2val(i, current_value);
     while (current_value <= value)
     {
@@ -233,29 +233,29 @@ DOUBLE Histogram1D::mass_below(DOUBLE value)
 }
 
 /* Entropy ----------------------------------------------------------------- */
-DOUBLE Histogram1D::entropy() const
+RDOUBLE Histogram1D::entropy() const
 {
-    MultidimArray<DOUBLE> p;
+    MultidimArray<RDOUBLE> p;
     p.initZeros(XSIZE(*this));
-    DOUBLE pSum = 0;
+    RDOUBLE pSum = 0;
     FOR_ALL_ELEMENTS_IN_ARRAY1D(p)
     {
         A1D_ELEM(p,i) = A1D_ELEM(*this,i) + 1;
         pSum += A1D_ELEM(p,i);
     }
-    DOUBLE entropy = 0;
-    DOUBLE ipSum = 1.0 / pSum;
+    RDOUBLE entropy = 0;
+    RDOUBLE ipSum = 1.0 / pSum;
     FOR_ALL_ELEMENTS_IN_ARRAY1D(p)
     {
-        DOUBLE pi = A1D_ELEM(p,i) * ipSum;
+        RDOUBLE pi = A1D_ELEM(p,i) * ipSum;
         entropy -= pi * log(pi);
     }
     return entropy;
 }
 
-void CDF::calculateCDF(MultidimArray<DOUBLE> &V, DOUBLE probStep)
+void CDF::calculateCDF(MultidimArray<RDOUBLE> &V, RDOUBLE probStep)
 {
-	DOUBLE *ptr=&DIRECT_MULTIDIM_ELEM(V,0);
+	RDOUBLE *ptr=&DIRECT_MULTIDIM_ELEM(V,0);
 	size_t N=MULTIDIM_SIZE(V);
 	std::sort(ptr,ptr+N);
 	minVal = ptr[0];
@@ -265,7 +265,7 @@ void CDF::calculateCDF(MultidimArray<DOUBLE> &V, DOUBLE probStep)
 	x.resizeNoCopy(Nsteps);
 	probXLessThanx.resizeNoCopy(Nsteps);
 	int i=0;
-	for (DOUBLE p=probStep/2; p<1; p+=probStep, i++)
+	for (RDOUBLE p=probStep/2; p<1; p+=probStep, i++)
 	{
 		size_t idx=(size_t)round(p*N);
 		A1D_ELEM(probXLessThanx,i)=p;
@@ -275,7 +275,7 @@ void CDF::calculateCDF(MultidimArray<DOUBLE> &V, DOUBLE probStep)
 
 #define INTERP(x,x0,y0,xF,yF) (y0+(x-x0)*(yF-y0)/(xF-x0))
 
-DOUBLE CDF::getProbability(DOUBLE xi)
+RDOUBLE CDF::getProbability(RDOUBLE xi)
 {
 	if (xi>maxVal)
 		return 1;
@@ -319,14 +319,14 @@ DOUBLE CDF::getProbability(DOUBLE xi)
 // the detection error for using both, ie, the probability that given a sample
 // I would assign it to class 1 when it belongs to class 2 and viceversa.
 // This is computed by the calculation of the overlapping areas.
-DOUBLE detectability_error(const Histogram1D &h1, const Histogram1D &h2)
+RDOUBLE detectability_error(const Histogram1D &h1, const Histogram1D &h2)
 {
-    DOUBLE hmin, hmax;
-    DOUBLE step;
-    DOUBLE v;
-    DOUBLE error = 0;
+    RDOUBLE hmin, hmax;
+    RDOUBLE step;
+    RDOUBLE v;
+    RDOUBLE error = 0;
     int ih1, ih2; // Indexes within the histograms
-    DOUBLE p1, p2; // Probability associated
+    RDOUBLE p1, p2; // Probability associated
 
     // Find global range
     hmin = XMIPP_MAX(h1.hmin, h2.hmin);
@@ -372,12 +372,12 @@ DOUBLE detectability_error(const Histogram1D &h1, const Histogram1D &h2)
 }
 
 /* Kullback Leibler distance ----------------------------------------------- */
-DOUBLE KLDistance(const Histogram1D& h1, const Histogram1D& h2)
+RDOUBLE KLDistance(const Histogram1D& h1, const Histogram1D& h2)
 {
     if (XSIZE(h1) != XSIZE(h2))
         REPORT_ERROR("KLDistance: Histograms of different sizes");
 
-    DOUBLE retval = 0;
+    RDOUBLE retval = 0;
     FOR_ALL_ELEMENTS_IN_ARRAY1D(h1)
     if (A1D_ELEM(h2,i) >1e-180 && A1D_ELEM(h1,i) >1e-180)
         retval += A1D_ELEM(h1,i) * log10(A1D_ELEM(h1,i) / A1D_ELEM(h2,i));
@@ -406,7 +406,7 @@ void IrregularHistogram1D::init(const Histogram1D &hist,
 }
 
 /* val2index --------------------------------------------------------------- */
-int IrregularHistogram1D::val2Index(DOUBLE value) const
+int IrregularHistogram1D::val2Index(RDOUBLE value) const
 {
     int binsNo = XSIZE(__binsRightLimits);
     /* Binary search is not interesting for small vectors
@@ -480,7 +480,7 @@ void Histogram2D::clear()
     jmax = 0;
     jstep_size = 0;
     no_samples = 0;
-    MultidimArray<DOUBLE>::clear();
+    MultidimArray<RDOUBLE>::clear();
 }
 
 /* Assignment -------------------------------------------------------------- */
@@ -488,7 +488,7 @@ Histogram2D & Histogram2D::operator =(const Histogram2D &H)
 {
     if (this != &H)
     {
-        this->MultidimArray<DOUBLE>::operator =(H);
+        this->MultidimArray<RDOUBLE>::operator =(H);
         imin = H.imin;
         imax = H.imax;
         istep_size = H.istep_size;
@@ -507,25 +507,25 @@ void Histogram2D::assign(const Histogram2D &H)
 }
 
 /* Initialize -------------------------------------------------------------- */
-void Histogram2D::init(DOUBLE imin_val, DOUBLE imax_val, int in_steps,
-                       DOUBLE jmin_val, DOUBLE jmax_val, int jn_steps)
+void Histogram2D::init(RDOUBLE imin_val, RDOUBLE imax_val, int in_steps,
+                       RDOUBLE jmin_val, RDOUBLE jmax_val, int jn_steps)
 {
     // V axis
     imin = imin_val;
     imax = imax_val;
-    istep_size = (DOUBLE) (imax_val - imin_val) / (DOUBLE) in_steps;
+    istep_size = (RDOUBLE) (imax_val - imin_val) / (RDOUBLE) in_steps;
 
     // U axis
     jmin = jmin_val;
     jmax = jmax_val;
-    jstep_size = (DOUBLE) (jmax_val - jmin_val) / (DOUBLE) jn_steps;
+    jstep_size = (RDOUBLE) (jmax_val - jmin_val) / (RDOUBLE) jn_steps;
 
     initZeros(in_steps, jn_steps);
     no_samples = 0;
 }
 
 /* Insert value ------------------------------------------------------------ */
-void Histogram2D::insert_value(DOUBLE v, DOUBLE u)
+void Histogram2D::insert_value(RDOUBLE v, RDOUBLE u)
 {
     int i, j;
     val2index(v, u, i, j);
@@ -542,7 +542,7 @@ void Histogram2D::insert_value(DOUBLE v, DOUBLE u)
 /* std::cout << hist ------------------------------------------------------------ */
 std::ostream& operator <<(std::ostream &o, const Histogram2D &hist)
 {
-    MultidimArray<DOUBLE> aux;
+    MultidimArray<RDOUBLE> aux;
     aux.resize(hist.IstepNo() * hist.JstepNo(), 3);
     int n = 0;
     FOR_ALL_ELEMENTS_IN_ARRAY2D(hist)
@@ -570,13 +570,13 @@ void Histogram2D::write(const FileName &fn)
 //void compute_hist(const MultidimArrayGeneric& array, Histogram1D& hist,
 //                  int no_steps)
 //{
-//    DOUBLE min=0., max=0.;
-//    array.computeDOUBLEMinMax(min, max);
+//    RDOUBLE min=0., max=0.;
+//    array.computeRDOUBLEMinMax(min, max);
 //    compute_hist(array, hist, min, max, no_steps);
 //}
 //
-//void compute_hist(const MultidimArrayGeneric& v, Histogram1D& hist, DOUBLE min,
-//                  DOUBLE max, int no_steps)
+//void compute_hist(const MultidimArrayGeneric& v, Histogram1D& hist, RDOUBLE min,
+//                  RDOUBLE max, int no_steps)
 //{
 //    hist.init(min, max, no_steps);
 //#define COMPUTEHIST(type) compute_hist(MULTIDIM_ARRAY_TYPE(v,type),hist,min,max,no_steps);

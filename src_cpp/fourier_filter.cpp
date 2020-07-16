@@ -97,7 +97,7 @@ FourierFilter::FourierFilter()
 //    if (program->checkParam("--save"))
 //        maskFn = program->getParam("--save");
 //    if (program->checkParam("--sampling"))
-//        sampling_rate = program->getDOUBLEParam("--sampling");
+//        sampling_rate = program->getRDOUBLEParam("--sampling");
 //
 //    // Filter shape .........................................................
 //    String filter_type;
@@ -106,77 +106,77 @@ FourierFilter::FourierFilter()
 //    // Read frequencies cuttoff options
 //    if (filter_type == "low_pass")
 //    {
-//        w1 = program->getDOUBLEParam("--fourier", "low_pass");
-//        raised_w = program->getDOUBLEParam("--fourier", "low_pass",1);
+//        w1 = program->getRDOUBLEParam("--fourier", "low_pass");
+//        raised_w = program->getRDOUBLEParam("--fourier", "low_pass",1);
 //        FilterBand = LOWPASS;
 //        FilterShape = RAISED_COSINE;
 //    }
 //    else if (filter_type == "high_pass")
 //    {
-//        w1 = program->getDOUBLEParam("--fourier", "high_pass");
-//        raised_w = program->getDOUBLEParam("--fourier", "high_pass",1);
+//        w1 = program->getRDOUBLEParam("--fourier", "high_pass");
+//        raised_w = program->getRDOUBLEParam("--fourier", "high_pass",1);
 //        FilterBand = HIGHPASS;
 //        FilterShape = RAISED_COSINE;
 //    }
 //    else if (filter_type == "band_pass")
 //    {
-//        w1 = program->getDOUBLEParam("--fourier", "band_pass");
-//        w2 = program->getDOUBLEParam("--fourier", "band_pass", 1);
-//        raised_w = program->getDOUBLEParam("--fourier", "band_pass",2);
+//        w1 = program->getRDOUBLEParam("--fourier", "band_pass");
+//        w2 = program->getRDOUBLEParam("--fourier", "band_pass", 1);
+//        raised_w = program->getRDOUBLEParam("--fourier", "band_pass",2);
 //        FilterBand = BANDPASS;
 //        FilterShape = RAISED_COSINE;
 //    }
 //    else if (filter_type == "stop_band")
 //    {
-//        w1 = program->getDOUBLEParam("--fourier", "stop_band");
-//        w2 = program->getDOUBLEParam("--fourier", "stop_band", 1);
-//        raised_w = program->getDOUBLEParam("--fourier", "stop_band",2);
+//        w1 = program->getRDOUBLEParam("--fourier", "stop_band");
+//        w2 = program->getRDOUBLEParam("--fourier", "stop_band", 1);
+//        raised_w = program->getRDOUBLEParam("--fourier", "stop_band",2);
 //        FilterBand = STOPBAND;
 //        FilterShape = RAISED_COSINE;
 //    }
 //    else if (filter_type == "stop_lowbandx")
 //    {
-//        w1 = program->getDOUBLEParam("--fourier", "stop_lowbandx");
-//        raised_w = program->getDOUBLEParam("--fourier", "stop_lowbandx",1);
+//        w1 = program->getRDOUBLEParam("--fourier", "stop_lowbandx");
+//        raised_w = program->getRDOUBLEParam("--fourier", "stop_lowbandx",1);
 //        FilterBand = STOPLOWBANDX;
 //        FilterShape = RAISED_COSINE;
 //    }
 //    else if (filter_type == "stop_lowbandy")
 //    {
-//        w1 = program->getDOUBLEParam("--fourier", "stop_lowbandy");
-//        raised_w = program->getDOUBLEParam("--fourier", "stop_lowbandy",1);
+//        w1 = program->getRDOUBLEParam("--fourier", "stop_lowbandy");
+//        raised_w = program->getRDOUBLEParam("--fourier", "stop_lowbandy",1);
 //        FilterBand = STOPLOWBANDY;
 //        FilterShape = RAISED_COSINE;
 //    }
 //    else if (filter_type == "wedge")
 //    {
-//        t1 = program->getDOUBLEParam("--fourier", "wedge", 0);
-//        t2 = program->getDOUBLEParam("--fourier", "wedge", 1);
-//        rot  = program->getDOUBLEParam("--fourier", "wedge", 2);
-//        tilt = program->getDOUBLEParam("--fourier", "wedge", 3);
-//        psi  = program->getDOUBLEParam("--fourier", "wedge", 4);
+//        t1 = program->getRDOUBLEParam("--fourier", "wedge", 0);
+//        t2 = program->getRDOUBLEParam("--fourier", "wedge", 1);
+//        rot  = program->getRDOUBLEParam("--fourier", "wedge", 2);
+//        tilt = program->getRDOUBLEParam("--fourier", "wedge", 3);
+//        psi  = program->getRDOUBLEParam("--fourier", "wedge", 4);
 //        FilterShape = FilterBand = WEDGE;
 //    }
 //    else if (filter_type == "cone")
 //    {
-//        t1 = program->getDOUBLEParam("--fourier", "cone", 0);
+//        t1 = program->getRDOUBLEParam("--fourier", "cone", 0);
 //        FilterShape = FilterBand = CONE;
 //    }
 //    else if (filter_type == "gaussian")
 //    {
-//        w1 = program->getDOUBLEParam("--fourier", "gaussian");
+//        w1 = program->getRDOUBLEParam("--fourier", "gaussian");
 //        FilterShape = GAUSSIAN;
 //        FilterBand = LOWPASS;
 //    }
 //    else if (filter_type == "sparsify")
 //    {
-//        percentage = program->getDOUBLEParam("--fourier", "sparsify");
+//        percentage = program->getRDOUBLEParam("--fourier", "sparsify");
 //        FilterShape = SPARSIFY;
 //        FilterBand = SPARSIFY;
 //    }
 //    else if (filter_type == "real_gaussian")
 //    {
-//        w1 = program->getDOUBLEParam("--fourier", "real_gaussian");
+//        w1 = program->getRDOUBLEParam("--fourier", "real_gaussian");
 //        FilterShape = REALGAUSSIAN;
 //        FilterBand = LOWPASS;
 //    }
@@ -197,13 +197,13 @@ FourierFilter::FourierFilter()
 //    	{
 //            FilterShape = FilterBand = CTFINV;
 //    		fnCTF=program->getParam("--fourier", "ctfinv");
-//        	minCTF = program->getDOUBLEParam("--fourier", "ctfinv", 1);
+//        	minCTF = program->getRDOUBLEParam("--fourier", "ctfinv", 1);
 //    	}
 //    	else if (filter_type == "ctfposinv")
 //    	{
 //            FilterShape = FilterBand = CTFPOSINV;
 //    		fnCTF=program->getParam("--fourier", "ctfposinv");
-//        	minCTF = program->getDOUBLEParam("--fourier", "ctfposinv", 1);
+//        	minCTF = program->getRDOUBLEParam("--fourier", "ctfposinv", 1);
 //    	}
 //        ctf.enable_CTFnoise = false;
 //        ctf.read(fnCTF);
@@ -218,7 +218,7 @@ FourierFilter::FourierFilter()
 //    else if (filter_type == "bfactor")
 //    {
 //        FilterShape = FilterBand = BFACTOR;
-//        w1 = program->getDOUBLEParam("--fourier", "bfactor");
+//        w1 = program->getRDOUBLEParam("--fourier", "bfactor");
 //    }
 //    else if (filter_type == "fsc")
 //    {
@@ -233,7 +233,7 @@ FourierFilter::FourierFilter()
 //    else if (filter_type == "astigmatism")
 //    {
 //        FilterShape = FilterBand = ASTIGMATISMPROFILE;
-//        w1 = program->getDOUBLEParam("--fourier", 1);
+//        w1 = program->getRDOUBLEParam("--fourier", 1);
 //        w1 = DEG2RAD(w1);
 //    }
 //    else
@@ -342,7 +342,7 @@ FourierFilter::FourierFilter()
 //    }
 //}
 
-void FourierFilter::apply(MultidimArray<DOUBLE> &img)
+void FourierFilter::apply(MultidimArray<RDOUBLE> &img)
 {
     static bool firstTime = true;
     do_generate_3dmask = (img.zdim > 1);
@@ -357,7 +357,7 @@ void FourierFilter::apply(MultidimArray<DOUBLE> &img)
         else
         {
             MRCImage<int> I;
-			MRCImage<DOUBLE> D;
+			MRCImage<RDOUBLE> D;
             if ( XSIZE(maskFourier) !=0 )
             {
                 I.setData(maskFourier);
@@ -377,11 +377,11 @@ void FourierFilter::apply(MultidimArray<DOUBLE> &img)
 }
 
 /* Get mask value ---------------------------------------------------------- */
-DOUBLE FourierFilter::maskValue(const Matrix1D<DOUBLE> &w)
+RDOUBLE FourierFilter::maskValue(const Matrix1D<RDOUBLE> &w)
 {
-    DOUBLE absw = w.module();
-    DOUBLE wx=fabs(XX(w));
-    DOUBLE wy=fabs(YY(w));
+    RDOUBLE absw = w.module();
+    RDOUBLE wx=fabs(XX(w));
+    RDOUBLE wy=fabs(YY(w));
 
     // Generate mask
     switch (FilterBand)
@@ -485,7 +485,7 @@ DOUBLE FourierFilter::maskValue(const Matrix1D<DOUBLE> &w)
    // case CTFINV:
    // 	{
 			//ctf.precomputeValues(XX(w)/ctf.Tm,YY(w)/ctf.Tm);
-			//DOUBLE ctfval=ctf.getValueAt();
+			//RDOUBLE ctfval=ctf.getValueAt();
 			//if (fabs(ctfval)<=minCTF)
 			//	return 0.0;
 			//else
@@ -495,7 +495,7 @@ DOUBLE FourierFilter::maskValue(const Matrix1D<DOUBLE> &w)
    // case CTFPOSINV:
    // 	{
 			//ctf.precomputeValues(XX(w)/ctf.Tm,YY(w)/ctf.Tm);
-			//DOUBLE ctfval=fabs(ctf.getValueAt());
+			//RDOUBLE ctfval=fabs(ctf.getValueAt());
 			//if (ctfval<=minCTF)
 			//	return 0.0;
 			//else
@@ -504,16 +504,16 @@ DOUBLE FourierFilter::maskValue(const Matrix1D<DOUBLE> &w)
    //     break;
     case BFACTOR:
         {
-            DOUBLE R = absw / sampling_rate;
+            RDOUBLE R = absw / sampling_rate;
             return exp( - (w1 / 4.)  * R * R);
         }
         break;
     case FSCPROFILE:
 		{
-			DOUBLE R = absw / sampling_rate;
+			RDOUBLE R = absw / sampling_rate;
 			int idx=-1;
 			size_t imax=freqContFSC.size();
-			DOUBLE *ptrFreq=&freqContFSC[0];
+			RDOUBLE *ptrFreq=&freqContFSC[0];
 			for (size_t i=0; i<imax; ++i)
 				if (ptrFreq[i]>R)
 				{
@@ -522,22 +522,22 @@ DOUBLE FourierFilter::maskValue(const Matrix1D<DOUBLE> &w)
 				}
 			if (idx>=1)
 			{
-				DOUBLE x0=freqContFSC[idx-1];
-				DOUBLE x1=freqContFSC[idx];
-				DOUBLE y0=FSC[idx-1];
-				DOUBLE y1=FSC[idx];
+				RDOUBLE x0=freqContFSC[idx-1];
+				RDOUBLE x1=freqContFSC[idx];
+				RDOUBLE y0=FSC[idx-1];
+				RDOUBLE y1=FSC[idx];
 				return y0+(y1-y0)*(R-x0)/(x1-x0);
 			}
 			return 0;
 		}
     //case ASTIGMATISMPROFILE:
     //	{
-			//DOUBLE R = absw / sampling_rate;
+			//RDOUBLE R = absw / sampling_rate;
 	  //      //ctf.precomputeValues(R,0.0);
-	  //      DOUBLE phaseU=ctf.getPhaseAt();
+	  //      RDOUBLE phaseU=ctf.getPhaseAt();
 	  //      ctf.precomputeValues(0.0,R);
-	  //      DOUBLE phaseV=ctf.getPhaseAt();
-	  //      DOUBLE diff=(phaseV-phaseU)*0.5;
+	  //      RDOUBLE phaseV=ctf.getPhaseAt();
+	  //      RDOUBLE diff=(phaseV-phaseU)*0.5;
 	  //      return exp(-0.5*diff*diff/(w1*w1));
     //	}
     //    break;
@@ -548,7 +548,7 @@ DOUBLE FourierFilter::maskValue(const Matrix1D<DOUBLE> &w)
 }
 
 /* Generate mask ----------------------------------------------------------- */
-void FourierFilter::generateMask(MultidimArray<DOUBLE> &v)
+void FourierFilter::generateMask(MultidimArray<RDOUBLE> &v)
 {
     if (FilterShape==SPARSIFY)
         return;
@@ -575,7 +575,7 @@ void FourierFilter::generateMask(MultidimArray<DOUBLE> &v)
     //        {
 				//case WEDGE:
 				//	{
-				//		Matrix2D<DOUBLE> A;
+				//		Matrix2D<RDOUBLE> A;
 				//		Euler_angles2matrix(rot,tilt,psi,A,false);
 				//		BinaryWedgeMask(maskFourier, t1, t2, A,true);
 				//		break;
@@ -587,7 +587,7 @@ void FourierFilter::generateMask(MultidimArray<DOUBLE> &v)
         }
         else if (FilterShape==BINARYFILE)
         {
-        	//Image<DOUBLE> filter;
+        	//Image<RDOUBLE> filter;
         	//filter.read(fnFilter);
          //   scaleToSize(BSPLINE3, maskFourierd, filter(), XSIZE(v), YSIZE(v), ZSIZE(v));
          //   maskFourierd.resize(Fourier);
@@ -622,7 +622,7 @@ void FourierFilter::generateMask(MultidimArray<DOUBLE> &v)
         transformer.getFourierAlias(Fourier);
         if (FilterShape==BINARYFILE)
         {
-        	//Image<DOUBLE> filter;
+        	//Image<RDOUBLE> filter;
         	//filter.read(fnFilter);
          //   scaleToSize(BSPLINE3, maskFourierd, filter(), XSIZE(v), YSIZE(v), ZSIZE(v));
          //   maskFourierd.resize(Fourier);
@@ -646,7 +646,7 @@ void FourierFilter::generateMask(MultidimArray<DOUBLE> &v)
     }
 }
 
-void FourierFilter::applyMaskSpace(MultidimArray<DOUBLE> &v)
+void FourierFilter::applyMaskSpace(MultidimArray<RDOUBLE> &v)
 {
     MultidimArray< Complex > aux3D;
     transformer.FourierTransform(v, aux3D, false);
@@ -654,7 +654,7 @@ void FourierFilter::applyMaskSpace(MultidimArray<DOUBLE> &v)
     transformer.inverseFourierTransform();
 }
 
-void FourierFilter::applyMaskFourierSpace(const MultidimArray<DOUBLE> &v, MultidimArray<Complex> &V)
+void FourierFilter::applyMaskFourierSpace(const MultidimArray<RDOUBLE> &v, MultidimArray<Complex> &V)
 {
     if (XSIZE(maskFourier)!=0)
     {
@@ -663,8 +663,8 @@ void FourierFilter::applyMaskFourierSpace(const MultidimArray<DOUBLE> &v, Multid
     }
     else if (XSIZE(maskFourierd)!=0)
     {
-        DOUBLE *ptrV=(DOUBLE*)&DIRECT_MULTIDIM_ELEM(V,0);
-        DOUBLE *ptrMask=(DOUBLE*)&DIRECT_MULTIDIM_ELEM(maskFourierd,0);
+        RDOUBLE *ptrV=(RDOUBLE*)&DIRECT_MULTIDIM_ELEM(V,0);
+        RDOUBLE *ptrMask=(RDOUBLE*)&DIRECT_MULTIDIM_ELEM(maskFourierd,0);
         FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(V)
         {
             *ptrV++ *= *ptrMask;
@@ -676,11 +676,11 @@ void FourierFilter::applyMaskFourierSpace(const MultidimArray<DOUBLE> &v, Multid
         //FFT_magnitude(V,vMag);
         //vMag.resize(1,1,1,MULTIDIM_SIZE(vMag));
         //vMag.sort(vMagSorted);
-        //DOUBLE minMagnitude=A1D_ELEM(vMagSorted,(int)(percentage*XSIZE(vMag)));
+        //RDOUBLE minMagnitude=A1D_ELEM(vMagSorted,(int)(percentage*XSIZE(vMag)));
         //FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(V)
         //if (DIRECT_MULTIDIM_ELEM(vMag,n)<minMagnitude)
         //{
-        //    DOUBLE *ptr=(DOUBLE*)&DIRECT_MULTIDIM_ELEM(V,n);
+        //    RDOUBLE *ptr=(RDOUBLE*)&DIRECT_MULTIDIM_ELEM(V,n);
         //    *ptr=0;
         //    *(ptr+1)=0;
         //}
@@ -705,7 +705,7 @@ void FourierFilter::applyMaskFourierSpace(const MultidimArray<DOUBLE> &v, Multid
 }
 
 /* Mask power -------------------------------------------------------------- */
-DOUBLE FourierFilter::maskPower()
+RDOUBLE FourierFilter::maskPower()
 {
     if (XSIZE(maskFourier) != 0)
         return maskFourier.sum2()/MULTIDIM_SIZE(maskFourier);
@@ -724,7 +724,7 @@ void FourierFilter::correctPhase()
 }
 
 // Bandpass -----------------------------------------------------------------
-void bandpassFilter(MultidimArray<DOUBLE> &img, DOUBLE w1, DOUBLE w2, DOUBLE raised_w)
+void bandpassFilter(MultidimArray<RDOUBLE> &img, RDOUBLE w1, RDOUBLE w2, RDOUBLE raised_w)
 {
     FourierFilter Filter;
     if (w1==0)
@@ -750,7 +750,7 @@ void bandpassFilter(MultidimArray<DOUBLE> &img, DOUBLE w1, DOUBLE w2, DOUBLE rai
     Filter.applyMaskSpace(img);
 }
 
-void gaussianFilter(MultidimArray<DOUBLE> &img, DOUBLE w1)
+void gaussianFilter(MultidimArray<RDOUBLE> &img, RDOUBLE w1)
 {
     FourierFilter Filter;
     Filter.FilterShape = GAUSSIAN;
@@ -761,7 +761,7 @@ void gaussianFilter(MultidimArray<DOUBLE> &img, DOUBLE w1)
     Filter.applyMaskSpace(img);
 }
 
-void realGaussianFilter(MultidimArray<DOUBLE> &img, DOUBLE sigma)
+void realGaussianFilter(MultidimArray<RDOUBLE> &img, RDOUBLE sigma)
 {
     FourierFilter Filter;
     Filter.FilterShape = REALGAUSSIAN;
@@ -786,46 +786,46 @@ void realGaussianFilter(MultidimArray<DOUBLE> &img, DOUBLE sigma)
 //{
 //	mask.read(program->getParam("--softnegative",0));
 //	fnFSC=program->getParam("--softnegative",1);
-//    Ts = program->getDOUBLEParam("--softnegative",2);
-//    K = program->getDOUBLEParam("--softnegative",3);
+//    Ts = program->getRDOUBLEParam("--softnegative",2);
+//    K = program->getRDOUBLEParam("--softnegative",3);
 //}
 
 ///** Apply the filter to an image or volume*/
-//void SoftNegativeFilter::apply(MultidimArray<DOUBLE> &img)
+//void SoftNegativeFilter::apply(MultidimArray<RDOUBLE> &img)
 //{
 //	// Invert the mask and measure stddev outside the mask
 //	MultidimArray<int> &mMask=mask();
 //	mMask.setXmippOrigin();
 //	img.setXmippOrigin();
-//	DOUBLE sum=0, sum2=0, N=0, R2max=(XSIZE(img)/2)*(XSIZE(img)/2);
+//	RDOUBLE sum=0, sum2=0, N=0, R2max=(XSIZE(img)/2)*(XSIZE(img)/2);
 //	FOR_ALL_ELEMENTS_IN_ARRAY3D(mMask)
 //	{
 //		A3D_ELEM(mMask,k,i,j)=1-A3D_ELEM(mMask,k,i,j);
 //		if (A3D_ELEM(mMask,k,i,j))
 //		{
-//			DOUBLE R2=i*i+j*j+k*k;
+//			RDOUBLE R2=i*i+j*j+k*k;
 //			if (R2<R2max)
 //			{
-//				DOUBLE val=A3D_ELEM(img,k,i,j);
+//				RDOUBLE val=A3D_ELEM(img,k,i,j);
 //				sum+=val;
 //				sum2+=val*val;
 //				N+=1;
 //			}
 //		}
 //	}
-//	DOUBLE avg=sum/N;
-//	DOUBLE stddev=sqrt(sum2/N-avg*avg);
+//	RDOUBLE avg=sum/N;
+//	RDOUBLE stddev=sqrt(sum2/N-avg*avg);
 //
 //	// Measure the stddev outside the structure
-//	// DOUBLE avg, stddev;
+//	// RDOUBLE avg, stddev;
 //	// img.computeAvgStdev_within_binary_mask(mMask,avg,stddev);
 //
 //	// Find the too negative values
-//	DOUBLE threshold=-K*stddev;
+//	RDOUBLE threshold=-K*stddev;
 //	if (avg<0)
 //		threshold+=avg;
 //	// std::cout << "avg=" << avg << " sigma=" << stddev << " threshold=" << threshold << std::endl;
-//	MultidimArray<DOUBLE> softMask, imgThresholded;
+//	MultidimArray<RDOUBLE> softMask, imgThresholded;
 //	softMask.initZeros(mMask);
 //	imgThresholded.initZeros(mMask);
 //	FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(mMask)
@@ -835,7 +835,7 @@ void realGaussianFilter(MultidimArray<DOUBLE> &img, DOUBLE sigma)
 //			DIRECT_MULTIDIM_ELEM(imgThresholded,n)=DIRECT_MULTIDIM_ELEM(img,n);
 //		}
 //	mask.clear(); // Free memory
-////	Image<DOUBLE> save;
+////	Image<RDOUBLE> save;
 ////	save()=softMask; save.write("PPPsoftmask.vol");
 //
 //    FourierFilter filter;

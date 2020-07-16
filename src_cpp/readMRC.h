@@ -109,8 +109,8 @@ namespace relion
 		EM_LONG = 4,
 		EM_SINGLE = 5,
 		EM_SINGLECOMPLEX = 8,
-		EM_DOUBLE = 9,
-		EM_DOUBLECOMPLEX = 10
+		EM_RDOUBLE = 9,
+		EM_RDOUBLECOMPLEX = 10
 	};
 	
 	const size_t EM_DATATYPE_SIZE[11] = { 1, 1, 2, 4, 4, 4, 8, 8, 16 };
@@ -286,7 +286,7 @@ namespace relion
 			}
 
 
-			DOUBLE GetInterpolatedValue(float3 pos);
+			RDOUBLE GetInterpolatedValue(float3 pos);
 			
 
 			
