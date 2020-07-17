@@ -217,12 +217,12 @@ void doNonMoved() {
 	omp_set_num_threads(numThreads);
 	idxtype numIt = 15;
 
-	FileName starFileName = "D:\\Dev\\pseudoatoms\\20s\\dimitry_refProjections.star";
+	FileName starFileName = "D:\\EMD\\9233\\emd_9233_Scaled_2.0.projections_tomo_combined.star";
 
 	FileName refFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + ".mrc";
 	FileName refMaskFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + "_mask.mrc";
 	FileName pdbFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + "_" + std::to_string(N / 1000) + "k.pdb";		//PDB File containing pseudo atom coordinates
-	FileName fnOut = "D:\\Dev\\pseudoatoms\\20s\\myCode\\ownWeighting";
+	FileName fnOut = "D:\\EMD\\9233\\TomoReconstructions\\2.0_bak";
 
 
 	//Read Images
@@ -246,13 +246,13 @@ void doNonMoved() {
 	if (writeProjections)
 	{
 		MRCImage<RDOUBLE> projectionsIM(projections);
-		projectionsIM.writeAs<float>(fnOut + "readProjections.mrc", true);
+		projectionsIM.writeAs<float>(fnOut + "_readProjections.mrc", true);
 	}
 	weightProjections(projections, angles, refDims);
 	if (writeProjections)
 	{
 		MRCImage<RDOUBLE> projectionsIM(projections);
-		projectionsIM.writeAs<float>(fnOut + "readProjectionsWeighted.mrc", true);
+		projectionsIM.writeAs<float>(fnOut + "_readProjectionsWeighted.mrc", true);
 	}
 
 	PseudoProjector proj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (float *)StartAtoms.data(), (RDOUBLE *)StartIntensities.data(), super, NAtoms);
