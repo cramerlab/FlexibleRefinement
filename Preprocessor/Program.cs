@@ -310,39 +310,30 @@ namespace Preprocessor
         static void projectUniform(string inputVolPath = @"D:\EMPIAR\10168\emd_4180_res7.mrc", string starPath = @"D:\EMPIAR\10168\shiny.star", string outdir = @"D:\EMPIAR\10168\", string projDir = @"D:\EMPIAR\10168\Projections_7_uniform", int numParticles = 500)
         {
             int batchSize = 1024;
-            numParticles = 10*batchSize;
-
+            int numBatches = (int)(Math.Ceiling((double)numParticles/batchSize));
 
             Image inVol = Image.FromFile(inputVolPath);
             int2 projDim = new int2(inVol.Dims.X);
             Projector proj = new Projector(inVol, 3);
-            
-            
 
             if (!Directory.Exists(projDir))
             {
                 Directory.CreateDirectory(projDir);
             }
 
-            
             Star starInFile = new Star(starPath, "particles");
             Star starCleanOutFile = new Star(starInFile.GetColumnNames());
             Star starConvolvedOutFile = new Star(starInFile.GetColumnNames());
-            Star starConvolved2OutFile = new Star(starInFile.GetColumnNames());
-
 
             CTF[] CTFParams = starInFile.GetRelionCTF();
             Image CTFCoords = CTF.GetCTFCoords(projDim, projDim, 3.0f);
 
-            
-
             int numAngles = numParticles;
-            int numAnglesX = (int)Math.Ceiling(Math.Pow(numAngles, 1.0d / 3.0d));
-            int numAnglesY = (int)Math.Max(1, Math.Floor(Math.Pow(numAngles, 1.0d / 3.0d)));
-            int numAnglesZ = (int)Math.Max(1, Math.Floor(Math.Pow(numAngles, 1.0d / 3.0d)));
-            numAngles = numAnglesX * numAnglesY * numAnglesZ;
+            int numAnglesX = (int)Math.Ceiling(Math.Pow(numAngles, 1.0d / 2.0d));
+            int numAnglesY = (int)Math.Max(1, Math.Floor(Math.Pow(numAngles, 1.0d / 2.0d)));
+            numAngles = numAnglesX * numAnglesY;
             numParticles = numAngles;
-
+            float zz = 0;
             float3[] anglesRad = new float3[numAngles];
             {
                 int i = 0;
@@ -352,27 +343,27 @@ namespace Preprocessor
                     for (int y = 0; y < numAnglesY; y++)
                     {
                         float yy = (float)(2 * Math.PI) / (numAnglesY - 1) * (y);
-                        for (int z = 0; z < numAnglesZ; z++)
-                        {
-                            float zz = (float)(2 * Math.PI) / (numAnglesZ - 1) * (z);
-                            anglesRad[i] = new float3(xx, yy, zz);
-                            i++;
-                        }
+                        anglesRad[i] = new float3(xx, yy, zz);
+                        i++;
+
                     }
                 }
             }
-
 
             float3[] anglesDeg = Helper.ArrayOfFunction(i => anglesRad[i] * Helper.ToDeg, anglesRad.Count());
 
             List<List<string>> rows = starInFile.GetAllRows();
             int n = 0;
             Image CTFSum = new Image(new int3(projDim), true);
-            for (int i = 0; i < Math.Min(10, numAngles / batchSize); i++)
+            Image[] outProjections = new Image[numBatches];
+            Image[] outConvolved = new Image[numBatches];
+            Image[] outCTFs = new Image[numBatches];
+            for (int i = 0; i < numBatches; i++)
             {
-                float3[] partAnglesRad = anglesRad.Skip(((i) * batchSize)).Take(batchSize).ToArray();
+                int batchElements = Math.Min(batchSize, numAngles - batchSize);
+                float3[] partAnglesRad = anglesRad.Skip(((i) * batchSize)).Take(batchElements).ToArray();
 
-                float3[] partAnglesDeg = Helper.ArrayOfFunction(k => partAnglesRad[k] * Helper.ToDeg, partAnglesRad.Count());
+                float3[] partAnglesDeg = Helper.ArrayOfFunction(k => partAnglesRad[k] * Helper.ToDeg, batchElements);
                 Image im = proj.ProjectToRealspace(projDim, partAnglesRad);
                 Image CTFs = new Image(im.Dims, true);
                 GPU.CreateCTF(CTFs.GetDevice(Intent.Write),
@@ -381,47 +372,125 @@ namespace Preprocessor
                     CTFParams.Skip(((i) * batchSize)).Select(p => p.ToStruct()).ToArray(),
                     false,
                     (uint)im.Dims.Z);
-                im.WriteMRC($@"{projDir}\{i}.mrc", true);
-                CTFs.WriteMRC($@"{projDir}\{i}_ctf.mrc", true);
-
+                outProjections[i] = im;
+                outCTFs[i] = CTFs;
                 /* convolve once */
                 Image imFFT = im.AsFFT();
-                im.Dispose();
                 imFFT.Multiply(CTFs);
                 im = imFFT.AsIFFT();
                 imFFT.Dispose();
-                im.WriteMRC($@"{projDir}\{i}_convolved.mrc", true);
+                outConvolved[i] = im;
 
-                /* convolve with ctf^2 */
-                imFFT = im.AsFFT();
-                im.Dispose();
-                imFFT.Multiply(CTFs);
-                im = imFFT.AsIFFT();
-                imFFT.Dispose();
-                im.WriteMRC($@"{projDir}\{i}_convolved2.mrc", true);
-                CTFs.Dispose();
-                for (int j = 0; j < batchSize; j++)
+                for (int j = 0; j < batchElements; j++)
                 {
                     List<string> row = rows[n];
-                    row[3] = $@"{j + 1}@{projDir}\{i}.mrc";
+                    row[3] = $@"{n + 1}@{projDir}\projections_uniform.mrc";
                     row[12] = partAnglesDeg[j].X.ToString();
                     row[13] = partAnglesDeg[j].Y.ToString();
                     row[14] = partAnglesDeg[j].Z.ToString();
 
                     starCleanOutFile.AddRow(new List<string>(row));
 
-                    row[3] = $@"{j + 1}@{projDir}\{i}_convolved.mrc";
+                    row[3] = $@"{n + 1}@{projDir}\projections_uniform_convolved.mrc";
                     starConvolvedOutFile.AddRow(new List<string>(row));
 
-                    row[3] = $@"{j + 1}@{projDir}\{i}_convolved2.mrc";
-                    starConvolved2OutFile.AddRow(new List<string>(row));
                     n++;
                 }
                 
             }
+            Image.Stack(outProjections).WriteMRC($@"{projDir}\projections_uniform.mrc");
+            Image.Stack(outConvolved).WriteMRC($@"{projDir}\projections_uniform_convolved.mrc");
+            Image.Stack(outCTFs).WriteMRC($@"{projDir}\projections_uniform_ctf.mrc");
+
             starCleanOutFile.Save($@"{inputVolPath.Replace(".mrc", "")}.projections_uniform.star");
-            starConvolvedOutFile.Save($@"{inputVolPath.Replace(".mrc", "")}.projectionsConv_uniform.star");
-            starConvolved2OutFile.Save($@"{inputVolPath.Replace(".mrc", "")}.projectionsConv2_uniform.star");
+            starConvolvedOutFile.Save($@"{inputVolPath.Replace(".mrc", "")}.projections_uniform_convolved.star");
+        }
+
+
+        static void projectTomo(string inputVolPath = @"D:\EMPIAR\10168\emd_4180_res7.mrc", string starPath = @"D:\EMPIAR\10168\shiny.star", string outdir = @"D:\EMPIAR\10168\", string projDir = @"D:\EMPIAR\10168\Projections_7_uniform", int order=4)
+        {
+            int batchSize = 1024;
+
+
+            Image inVol = Image.FromFile(inputVolPath);
+            int2 projDim = new int2(inVol.Dims.X);
+            Projector proj = new Projector(inVol, 3);
+
+            if (!Directory.Exists(projDir))
+            {
+                Directory.CreateDirectory(projDir);
+            }
+
+            Star starInFile = new Star(starPath, "particles");
+            Star starCleanOutFile = new Star(starInFile.GetColumnNames());
+            Star starConvolvedOutFile = new Star(starInFile.GetColumnNames());
+
+            CTF[] CTFParams = starInFile.GetRelionCTF();
+            Image CTFCoords = CTF.GetCTFCoords(projDim, projDim, 3.0f);
+
+
+
+
+
+            float3[] anglesRad = Helper.GetHealpixRotTilt(order).Select(v => new float3(v.X, v.Y, 0) * Helper.ToRad).ToArray();
+            int numAngles = anglesRad.Length;
+            int numParticles = numAngles;
+            int numBatches = (int)(Math.Ceiling((double)numParticles / batchSize));
+
+            float3[] anglesDeg = Helper.ArrayOfFunction(i => anglesRad[i] * Helper.ToDeg, anglesRad.Count());
+
+            List<List<string>> rows = starInFile.GetAllRows();
+            int n = 0;
+            Image CTFSum = new Image(new int3(projDim), true);
+            Image[] outProjections = new Image[numBatches];
+            Image[] outConvolved = new Image[numBatches];
+            Image[] outCTFs = new Image[numBatches];
+            for (int i = 0; i < numBatches; i++)
+            {
+                int batchElements = Math.Min(batchSize, numAngles - batchSize);
+                float3[] partAnglesRad = anglesRad.Skip(((i) * batchSize)).Take(batchElements).ToArray();
+
+                float3[] partAnglesDeg = Helper.ArrayOfFunction(k => partAnglesRad[k] * Helper.ToDeg, batchElements);
+                Image im = proj.ProjectToRealspace(projDim, partAnglesRad);
+                Image CTFs = new Image(im.Dims, true);
+                GPU.CreateCTF(CTFs.GetDevice(Intent.Write),
+                    CTFCoords.GetDevice(Intent.Read),
+                    (uint)CTFCoords.ElementsSliceComplex,
+                    CTFParams.Skip(((i) * batchSize)).Select(p => p.ToStruct()).ToArray(),
+                    false,
+                    (uint)im.Dims.Z);
+                outProjections[i] = im;
+                outCTFs[i] = CTFs;
+                /* convolve once */
+                Image imFFT = im.AsFFT();
+                imFFT.Multiply(CTFs);
+                im = imFFT.AsIFFT();
+                imFFT.Dispose();
+                outConvolved[i] = im;
+
+                for (int j = 0; j < batchElements; j++)
+                {
+                    List<string> row = rows[n];
+                    row[3] = $@"{n + 1}@{projDir}\projections_tomo.mrc";
+                    row[12] = partAnglesDeg[j].X.ToString();
+                    row[13] = partAnglesDeg[j].Y.ToString();
+                    row[14] = partAnglesDeg[j].Z.ToString();
+
+                    starCleanOutFile.AddRow(new List<string>(row));
+
+                    row[3] = $@"{n + 1}@{projDir}\projections_tomo_convolved.mrc";
+                    starConvolvedOutFile.AddRow(new List<string>(row));
+
+                    n++;
+                }
+
+            }
+            Image.Stack(outProjections).WriteMRC($@"{projDir}\projections_tomo.mrc");
+            Image.Stack(outConvolved).WriteMRC($@"{projDir}\projections_tomo_convolved.mrc");
+            Image.Stack(outCTFs).WriteMRC($@"{projDir}\projections_uniform_ctf.mrc");
+
+            starCleanOutFile.Save($@"{inputVolPath.Replace(".mrc", "")}.projections_tomo.star");
+            starConvolvedOutFile.Save($@"{inputVolPath.Replace(".mrc", "")}.projections_tomo_convolved.star");
         }
 
 
@@ -583,8 +652,9 @@ namespace Preprocessor
             //projectUniform(@"D:\EMPIAR\10168\emd_4180_res7.mrc",  @"D:\EMPIAR\10168\shiny.star", @"D:\EMPIAR\10168\", @"D:\EMPIAR\10168\Projections_7_uniform")
             //preprocess_emd_9233();
             //preprocess_emd_9233();
-            //projectUniform(@"D:\EMD\9233\emd_9233_Scaled_2.0.mrc", @"D:\EMPIAR\10168\shiny.star", @"D:\EMD\9233", @"D:\EMD\9233\Projections_2.0_uniform");
-            distort($@"D:\EMD\9233\Projections_2.0_uniform\combined.mrc");
+            projectUniform(@"D:\EMD\9233\emd_9233_Scaled_2.0.mrc", @"D:\EMPIAR\10168\shiny.star", @"D:\EMD\9233", @"D:\EMD\9233\Projections_2.0_uniform", 3*1024);
+            projectTomo(@"D:\EMD\9233\emd_9233_Scaled_2.0.mrc", @"D:\EMPIAR\10168\shiny.star", @"D:\EMD\9233", @"D:\EMD\9233\Projections_2.0_tomo", 4);
+            //distort($@"D:\EMD\9233\Projections_2.0_uniform\combined.mrc");
             //projectUniform(@"D:\EMD\9233\emd_9233_Scaled_1.2.mrc", @"D:\EMPIAR\10168\shiny.star", @"D:\EMD\9233", @"D:\EMD\9233\Projections_1.2_uniform");
             //projectUniformMoved();
 
