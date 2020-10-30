@@ -1,0 +1,6 @@
+[submodule "external/eigen"]
+	path = external/eigen
+	url = https://gitlab.com/libeigen/eigen.git
+[submodule "external/LBFGSpp"]
+	path = external/LBFGSpp
+	url = https://github.com/yixuan/LBFGSpp/

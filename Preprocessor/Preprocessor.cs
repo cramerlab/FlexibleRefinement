@@ -12,10 +12,24 @@ using System.Globalization;
 
 namespace Preprocessor
 {
-    class Program
+    class Preprocessor
     {
-
         static Random _rand = new Random();
+        public static float NextGaussian()
+        {
+            float v1, v2, s;
+            do
+            {
+                v1 = (2.0f * (float)_rand.NextDouble()) - 1.0f;
+                v2 = 2.0f * (float)_rand.NextDouble() - 1.0f;
+                s = v1 * v1 + v2 * v2;
+            } while (s >= 1.0f || s == 0f);
+
+            s = (float)Math.Sqrt((-2.0f * Math.Log(s)) / s);
+
+            return v1 * s;
+        }
+        
 
         public static double Draw(double μ = 0.5, double σ = 0.5)
         {
@@ -428,10 +442,6 @@ namespace Preprocessor
             CTF[] CTFParams = starInFile.GetRelionCTF();
             Image CTFCoords = CTF.GetCTFCoords(projDim, projDim, 3.0f);
 
-
-
-
-
             float3[] anglesRad = Helper.GetHealpixRotTilt(order).Select(v => new float3(v.X, v.Y, 0) * Helper.ToRad).ToArray();
             int numAngles = anglesRad.Length;
             int numParticles = numAngles;
@@ -463,7 +473,9 @@ namespace Preprocessor
                 outCTFs[i] = CTFs;
                 /* convolve once */
                 Image imFFT = im.AsFFT();
+                imFFT.ShiftSlices(Helper.ArrayOfFunction(idx => new float3(im.Dims.X / 2, im.Dims.Y / 2, 0), batchElements));
                 imFFT.Multiply(CTFs);
+                imFFT.ShiftSlices(Helper.ArrayOfFunction(idx => new float3(-im.Dims.X / 2, -im.Dims.Y / 2, 0), batchElements));
                 im = imFFT.AsIFFT();
                 imFFT.Dispose();
                 outConvolved[i] = im;
@@ -478,7 +490,7 @@ namespace Preprocessor
 
                     starCleanOutFile.AddRow(new List<string>(row));
 
-                    row[3] = $@"{n + 1}@{projDir}\projections_tomo_convolved.mrc";
+                    row[3] = $@"{n + 1}@{projDir}\projections_tomo_convolvedShift.mrc";
                     starConvolvedOutFile.AddRow(new List<string>(row));
 
                     n++;
@@ -486,28 +498,26 @@ namespace Preprocessor
 
             }
             Image.Stack(outProjections).WriteMRC($@"{projDir}\projections_tomo.mrc");
-            Image.Stack(outConvolved).WriteMRC($@"{projDir}\projections_tomo_convolved.mrc");
+            Image.Stack(outConvolved).WriteMRC($@"{projDir}\projections_tomo_convolvedShift.mrc");
             Image.Stack(outCTFs).WriteMRC($@"{projDir}\projections_uniform_ctf.mrc");
 
             starCleanOutFile.Save($@"{inputVolPath.Replace(".mrc", "")}.projections_tomo.star");
-            starConvolvedOutFile.Save($@"{inputVolPath.Replace(".mrc", "")}.projections_tomo_convolved.star");
+            starConvolvedOutFile.Save($@"{inputVolPath.Replace(".mrc", "")}.projections_tomo_convolvedShift.star");
         }
 
 
-        static void projectorByStar()
+        static void projectorByStar(string inputVolPath = @"D:\EMPIAR\10168\emd_4180_res7.mrc", string outdir = @"D:\EMPIAR\10168\",  string projDir = @"D:\EMPIAR\10168\Projections_7", string starPath = @"D:\EMPIAR\10299\data\Particles\shiny.star")
         {
-            string inputVolPath = $@"D:\EMPIAR\10168\emd_4180_res7.mrc";
+            
             Image inVol = Image.FromFile(inputVolPath);
             Projector proj = new Projector(inVol, 3);
-            string outdir = $@"D:\EMPIAR\10168\";
-            string projDir = $@"{outdir}\Projections_7"; 
+ 
             if (!Directory.Exists(projDir))
             {
                 Directory.CreateDirectory(projDir);
             }
             int2 projDim = new int2(inVol.Dims.X);
             int batchSize = 1024;
-            string starPath = $@"D:\EMPIAR\10299\data\Particles\shiny.star";
             Star starInFile = new Star(starPath, "particles");
             Star starOutFile = new Star(starInFile.GetColumnNames());
             List<List<string>> rows = starInFile.GetAllRows();
@@ -600,7 +610,7 @@ namespace Preprocessor
                 }
             }
             avgSqrd /= projections.ElementsReal;
-            for (int i = 1; i <= 10; i++)
+            for (int i = 100; i <= 1000; i+=100)
             {
                 float SNR = 1.0f / i;
                 Image projDistorted = projections.GetCopy();
@@ -613,10 +623,10 @@ namespace Preprocessor
                         {
                             if (min < 0)
                             {
-                                noiseData[z][y * projections.Dims.X + x] = (float)Draw(SNR * avgSqrd, (max - min) / 8);
+                                noiseData[z][y * projections.Dims.X + x] = (float)Draw(i * avgSqrd, (max - min) / 8);
                             }
                             else
-                                noiseData[z][y * projections.Dims.X + x] = (float)Draw(SNR * avgSqrd, (max - min) / 8);
+                                noiseData[z][y * projections.Dims.X + x] = (float)Draw(i * avgSqrd, (max - min) / 8);
                         }
                     }
                 }
@@ -652,12 +662,20 @@ namespace Preprocessor
             //projectUniform(@"D:\EMPIAR\10168\emd_4180_res7.mrc",  @"D:\EMPIAR\10168\shiny.star", @"D:\EMPIAR\10168\", @"D:\EMPIAR\10168\Projections_7_uniform")
             //preprocess_emd_9233();
             //preprocess_emd_9233();
-            projectUniform(@"D:\EMD\9233\emd_9233_Scaled_2.0.mrc", @"D:\EMPIAR\10168\shiny.star", @"D:\EMD\9233", @"D:\EMD\9233\Projections_2.0_uniform", 3*1024);
-            projectTomo(@"D:\EMD\9233\emd_9233_Scaled_2.0.mrc", @"D:\EMPIAR\10168\shiny.star", @"D:\EMD\9233", @"D:\EMD\9233\Projections_2.0_tomo", 4);
-            //distort($@"D:\EMD\9233\Projections_2.0_uniform\combined.mrc");
+            //projectUniform(@"D:\EMD\9233\emd_9233_Scaled_2.0.mrc", @"D:\EMPIAR\10168\shiny.star", @"D:\EMD\9233", @"D:\EMD\9233\Projections_2.0_uniform", 3*1024);
+            //projectTomo(@"D:\EMD\9233\emd_9233_Scaled_2.0.mrc", @"D:\EMPIAR\10168\shiny.star", @"D:\EMD\9233", @"D:\EMD\9233\Projections_2.0_tomo", 4);
+            //distort($@"D:\EMD\9233\Projections_2.0_tomo\projections_tomo.mrc");
             //projectUniform(@"D:\EMD\9233\emd_9233_Scaled_1.2.mrc", @"D:\EMPIAR\10168\shiny.star", @"D:\EMD\9233", @"D:\EMD\9233\Projections_1.2_uniform");
             //projectUniformMoved();
-
+            //Image Ref = Image.FromFile(@"D:\EMD\9233\emd_9233_Scaled_2.0.mrc");
+            //Image mask = new Image(Ref.Dims);
+            //mask.TransformValues((x, y, z, v) => {
+            //   if (Math.Abs(z-62) < 53 && Math.Sqrt(Math.Pow(x-67,2) + Math.Pow(y-67, 2)) < 45)
+            //       return 1.0f;
+            //    return 0.0f;
+            //});
+            //mask.WriteMRC(@"D:\EMD\9233\emd_9233_Scaled_2.0_largeMask.mrc", true);
+            projectorByStar(@"D:\EMD\9233\TomoReconstructions\2.0_convolvedFromAtoms.1024_it1_oversampled4.mrc", @"D:\EMD\9233\TomoReconstructions", @"D:\EMD\9233\TomoReconstructions\2.0_convolvedFromAtoms.1024_it1_oversampled4_projections", @"D:\EMD\9233\emd_9233_Scaled_2.0.projections_tomo_convolved-fromAtoms.1024.star");
         }
     }
 }
