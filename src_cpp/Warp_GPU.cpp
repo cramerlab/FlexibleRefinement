@@ -1,15 +1,20 @@
 #include "Warp_GPU.h"
 #include <cassert>
+#include "cudaHelpers.cuh"
+#include "GTOM.cuh"
+
 void ResizeMapGPU(MultidimArray<float> &img, int3 newDim)
 {
-	float* dout = MallocDevice(newDim.x*newDim.y*newDim.z * sizeof(float));
-	float * din = MallocDeviceFromHost(img.data, img.nzyxdim);
-
-	Scale(din, dout, make_int3(img.xdim, img.ydim, img.zdim), newDim, 1, 0, 0, NULL, NULL);
+	float * dout;
+	cudaErrchk(cudaMalloc(&dout, Elements(newDim) * sizeof(float)));
+	float * din;
+	cudaErrchk(cudaMalloc(&din, img.nzyxdim*sizeof(float)));
+	cudaErrchk(cudaMemcpy(din, img.data, img.nzyxdim * sizeof(float), cudaMemcpyHostToDevice));
+	gtom::d_Scale(din, dout, gtom::toInt3(img.xdim, img.ydim, img.zdim), newDim, gtom::T_INTERP_FOURIER, NULL, NULL, 1);
 	img.resizeNoCopy(newDim.z, newDim.y, newDim.x);
-	CopyDeviceToHost(dout, img.data, img.nzyxdim);
-	FreeDevice(din);
-	FreeDevice(dout);
+	cudaErrchk(cudaMemcpy(img.data, dout, img.nzyxdim * sizeof(float), cudaMemcpyDeviceToHost));
+	cudaErrchk(cudaFree(din));
+	cudaErrchk(cudaFree(dout));
 }
 
 void SphereMaskGPU(float * input, float * output, int3 dims, float radius, float sigma, bool decentered, uint batch)
@@ -35,9 +40,6 @@ void ResizeMapGPU(MultidimArray<float> &img, int2 newDim)
 	FreeDevice(dout);
 }
 
-
-
-
 void Substract_GPU(MultidimArray<float> &img, MultidimArray<float> &substrahend) {
 	assert(substrahend.nzyxdim == img.nzyxdim && "Shapes should match");
 	float* din = MallocDeviceFromHost(img.data, img.nzyxdim);
@@ -49,4 +51,37 @@ void Substract_GPU(MultidimArray<float> &img, MultidimArray<float> &substrahend)
 	cudaFree(din);
 	cudaFree(dSubtrahends);
 
+}
+
+void realspaceCTF(MultidimArray<RDOUBLE> &ctf, MultidimArray<RDOUBLE> &realCtf, int3 dims)
+{
+	realCtf.resizeNoCopy(ctf.zdim, dims.y, dims.x);
+	idxtype batch = 1024;
+	int3 sliceDim = { dims.x, dims.y, 1 };
+	int ndims = DimensionCount(sliceDim);
+	tfloat3 *shifts = (tfloat3 *)malloc(batch * sizeof(*shifts));
+	for (size_t i = 0; i < batch; i++)
+	{
+		shifts[i] = { -dims.x / 2, -dims.y / 2, 0 };
+	}
+	tcomplex * h_ctf = (tcomplex *)malloc(ElementsFFT2(dims)*ctf.zdim * sizeof(tcomplex*));
+	FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY3D(ctf) {
+		h_ctf[k*YXSIZE(ctf) + (i * XSIZE(ctf)) + j] = { DIRECT_A3D_ELEM(ctf, k, i, j)*DIRECT_A3D_ELEM(ctf, k, i, j), 0.0f };
+	}
+
+	for (int idx = 0; idx < ctf.zdim;) {
+		int batchElements = std::min(ctf.zdim - idx, batch);
+		tcomplex * d_fft;
+		cudaErrchk(cudaMalloc(&d_fft, ElementsFFT(sliceDim)*batchElements * sizeof(*d_fft)));
+		cudaMemcpy(d_fft, h_ctf + idx * ElementsFFT(sliceDim), ElementsFFT(sliceDim)*batchElements * sizeof(*d_fft), cudaMemcpyHostToDevice);
+		d_Shift(d_fft, d_fft, sliceDim, shifts, false, batchElements);
+		float * d_result;
+		cudaErrchk(cudaMalloc(&d_result, Elements(sliceDim)*batchElements * sizeof(*d_result)));
+		d_IFFTC2R(d_fft, d_result, DimensionCount(sliceDim), sliceDim, batchElements);
+		cudaErrchk(cudaMemcpy(realCtf.data + Elements(sliceDim) * idx, d_result, Elements(sliceDim)*batchElements * sizeof(float), cudaMemcpyDeviceToHost));
+
+		cudaErrchk(cudaFree(d_fft));
+		cudaErrchk(cudaFree(d_result));
+		idx += batchElements;
+	}
 }

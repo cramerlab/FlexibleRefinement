@@ -16,7 +16,7 @@ for f in glob(os.path.join(infileDir, r"*.fsc"), recursive=True):
 
     pixels = []
     values = []
-    error = False;
+    error = False
     found1 = False
     found5 = False
     voxelSize = 1.5#float(re.search("Scaled_(\d\.\d)", f).group(1))

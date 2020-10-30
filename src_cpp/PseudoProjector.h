@@ -45,6 +45,7 @@ public:
 	PseudoAtomMode mode;
 
 	Pseudoatoms atoms;
+	Pseudoatoms ctfAtoms;
 
 	//std::vector< Matrix1D<RDOUBLE> > atomPositions;
 	
@@ -72,7 +73,7 @@ public:
 		gaussianProjectionTable2 *= gaussianProjectionTable;
 	};
 
-	PseudoProjector(int3 dims, RDOUBLE *atomPositionCArr, RDOUBLE *atomWeights, RDOUBLE super, unsigned int nAtoms) :Dims(dims), sigma(0), super(super),mode(ATOM_INTERPOLATE), atoms(atomPositionCArr, atomWeights, nAtoms, ATOM_INTERPOLATE), lambdaART(0.1) {
+	PseudoProjector(int3 dims, RDOUBLE *atomPositionCArr, RDOUBLE *atomWeights, RDOUBLE super, unsigned int nAtoms) :Dims(dims), sigma(0), super(super),mode(ATOM_INTERPOLATE), atoms(atomPositionCArr, atomWeights, nAtoms, ATOM_INTERPOLATE),ctfAtoms(atomPositionCArr, 0.0f, nAtoms, ATOM_INTERPOLATE), lambdaART(0.1) {
 	};
 
 
@@ -80,8 +81,12 @@ public:
 	std::vector<projecction> getPrecalcs(MultidimArray<RDOUBLE> Iexp, std::vector<float3> angles, RDOUBLE shiftX, RDOUBLE shiftY);
 	void addToPrecalcs(std::vector< projecction> &precalc, MultidimArray<RDOUBLE> &Iexp, std::vector<float3> angles, std::vector<Matrix1D<RDOUBLE>> *atomPositions, RDOUBLE shiftX, RDOUBLE shiftY);
 
+	RDOUBLE VolumeUpdate(MultidimArray<RDOUBLE> &Volume, RDOUBLE shiftX, RDOUBLE shiftY);
+
 	RDOUBLE SIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, idxtype batch, RDOUBLE shiftX, RDOUBLE shiftY);
 	RDOUBLE SIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, idxtype batch, MultidimArray<RDOUBLE>* Itheo, MultidimArray<RDOUBLE>* Icorr, MultidimArray<RDOUBLE>* Idiff, MultidimArray<RDOUBLE>* Inorm, RDOUBLE shiftX, RDOUBLE shiftY);
+	RDOUBLE CTFSIRT(MultidimArray<RDOUBLE> &CTFs, float3 *angles, idxtype numAngles, MultidimArray<RDOUBLE>* Itheo, MultidimArray<RDOUBLE>* Icorr, MultidimArray<RDOUBLE>* Idiff, MultidimArray<RDOUBLE>* superICorr, RDOUBLE shiftX, RDOUBLE shiftY);
+	RDOUBLE SIRT(MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBLE> &CTFs, float3 *angles, idxtype numAngles, MultidimArray<RDOUBLE>* Itheo, MultidimArray<RDOUBLE>* Icorr, MultidimArray<RDOUBLE>* Idiff, MultidimArray<RDOUBLE>* superICorr, RDOUBLE shiftX, RDOUBLE shiftY);
 	RDOUBLE ART_single_image(const MultidimArray<RDOUBLE> &Iexp, RDOUBLE rot, RDOUBLE tilt, RDOUBLE psi, RDOUBLE shiftX, RDOUBLE shiftY);
 	RDOUBLE ART_single_image(const MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBLE> &Itheo, MultidimArray<RDOUBLE> &Icorr, MultidimArray<RDOUBLE> &Idiff, RDOUBLE rot, RDOUBLE tilt, RDOUBLE psi, RDOUBLE shiftX, RDOUBLE shiftY);
 

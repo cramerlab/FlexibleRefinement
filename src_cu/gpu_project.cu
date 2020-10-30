@@ -4,7 +4,7 @@ using namespace gtom;
 
 __global__ void RealspacePseudoProjectForwardKernel(float3* d_atomPositions, float* d_atomIntensities, unsigned int nAtoms, int3 dimsvolume, float supersample, float* d_projections, int2 dimsproj, glm::mat3* d_rotations);
 __global__ void RealspacePseudoProjectBackwardKernel(float3* d_atomPositions, float* d_atomIntensities, unsigned int nAtoms, int3 dimsvolume, float supersample, float* d_projections, unsigned int nProjections, int2 dimsproj, glm::mat3* d_rotations);
-
+__global__ void RealspaceVolumeUpdateKernel(float3* d_atomPositions, float* d_atomIntensities, unsigned int nAtoms, float* d_superVolumeUpdates, int3 dimsvolume, float supersample);
 
 
 
@@ -60,6 +60,8 @@ __global__ void RealspacePseudoProjectForwardKernel(float3* d_atomPositions, flo
 		uint idxAtom = id ;
 
 		float weight = d_atomIntensities[idxAtom];
+		if (weight == 0.0f)
+			continue;
 		float3 atomPos = d_atomPositions[idxAtom];
 		glm::vec3 pos = glm::vec3(atomPos.x, atomPos.y, atomPos.z)*supersample;
 		pos -= volumecenter;
@@ -159,6 +161,70 @@ __global__ void RealspacePseudoProjectBackwardKernel(float3* d_atomPositions, fl
 			update += v;		
 
 		}
+		d_atomIntensities[idxAtom] += update;
+	}
+}
+
+void RealspaceVolumeUpdate(float3* d_atomPositions,
+	float *d_atomIntensities,
+	unsigned int nAtoms,
+	float* d_superVolumeUpdates,
+	int3 dimsvolume,
+	float supersample)
+{
+
+	//To be most efficient (no atomic add operations), we can parallelize over atoms and have each thread process all projections for one atom.
+	dim3 grid = dim3(tmin(1024, (nAtoms + 127) / 128), 1, 1);
+	uint elements = 128;
+
+	RealspaceVolumeUpdateKernel << <grid, elements >> > (d_atomPositions, d_atomIntensities, nAtoms, d_superVolumeUpdates, dimsvolume, supersample);
+}
+
+__global__ void RealspaceVolumeUpdateKernel(float3* d_atomPositions, float* d_atomIntensities, unsigned int nAtoms, float* d_superVolumeUpdates, int3 dimsvolume, float supersample) {
+
+	for (unsigned int idxAtom = blockIdx.x*blockDim.x + threadIdx.x; idxAtom < nAtoms; idxAtom += blockDim.x*gridDim.x) {
+		double update = 0.0;
+		float3 atomPos = d_atomPositions[idxAtom];
+		glm::vec3 pos = glm::vec3(atomPos.x, atomPos.y, atomPos.z)*supersample;
+
+		int3 dimsSuper = dimsvolume * supersample;
+
+		size_t xydims = dimsSuper.x*dimsSuper.y;
+
+		int X0 = (int)pos.x;
+		float ix = pos.x - X0;
+		int X1 = X0 + 1;
+
+		int Y0 = (int)pos.y;
+		float iy = pos.y - Y0;
+		int Y1 = Y0 + 1;
+
+		int Z0 = (int)pos.z;
+		float iz = pos.z - Z0;
+		int Z1 = Z0 + 1;
+
+		double v000 = d_superVolumeUpdates[Z0*xydims + Y0 * dimsSuper.x + X0];
+		double v100 = d_superVolumeUpdates[Z1*xydims + Y0 * dimsSuper.x + X0];
+		double v001 = d_superVolumeUpdates[Z0*xydims + Y0 * dimsSuper.x + X1];
+		double v101 = d_superVolumeUpdates[Z1*xydims + Y0 * dimsSuper.x + X1];
+		double v010 = d_superVolumeUpdates[Z0*xydims + Y1 * dimsSuper.x + X0];
+		double v110 = d_superVolumeUpdates[Z1*xydims + Y1 * dimsSuper.x + X0];
+		double v011 = d_superVolumeUpdates[Z0*xydims + Y1 * dimsSuper.x + X1];
+		double v111 = d_superVolumeUpdates[Z1*xydims + Y1 * dimsSuper.x + X1];
+
+		double v00 = d_Lerp(v000, v100, iz);
+		double v01 = d_Lerp(v001, v101, iz);
+		double v10 = d_Lerp(v010, v110, iz);
+		double v11 = d_Lerp(v011, v111, iz);
+
+
+		double v0 = d_Lerp(v00, v01, ix);
+		double v1 = d_Lerp(v10, v11, ix);
+
+		double v = d_Lerp(v0, v1, iy);
+		update += v;
+
+
 		d_atomIntensities[idxAtom] += update;
 	}
 }

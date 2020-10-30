@@ -202,12 +202,12 @@ void ProgVolumeToPseudoatoms::run()
 
 	placeSeedsEquidistantPoints();
 	Atoms.RasterizeToVolume(Vcurrent(), make_int3(Vcurrent().xdim, Vcurrent().ydim, Vcurrent().zdim), super);
-	sigma /= sampling;
+	/*sigma /= sampling;
 	sigma3 = 3 * sigma;
 	super = 4.0;
 	gaussianTable.resize(CEIL(sigma*4*sqrt(3.0) * gaussFactor));
 	FOR_ALL_ELEMENTS_IN_ARRAY1D(gaussianTable)
-		gaussianTable(i) = gaussian1D(i / (RDOUBLE)gaussFactor, sigma);
+		gaussianTable(i) = gaussian1D(i / (RDOUBLE)gaussFactor, sigma);*/
 
 	energyOriginal = 0;
 	RDOUBLE N = 0;
@@ -294,12 +294,12 @@ RDOUBLE ProgVolumeToPseudoatoms::computeAverage(int k, int i, int j,
 #ifdef DEBUG
 	std::cout << "computeAverage" << std::endl;
 #endif
-	int k0 = std::max(STARTINGZ(V), (long int)floor(k - sigma3));
-	int i0 = std::max(STARTINGY(V), (long int)floor(i - sigma3));
-	int j0 = std::max(STARTINGX(V), (long int)floor(j - sigma3));
-	int kF = std::min(FINISHINGZ(V), (long int)ceil(k + sigma3));
-	int iF = std::min(FINISHINGY(V), (long int)ceil(i + sigma3));
-	int jF = std::min(FINISHINGX(V), (long int)ceil(j + sigma3));
+	int k0 = std::max(STARTINGZ(V), (size_t)floor(k - sigma3));
+	int i0 = std::max(STARTINGY(V), (size_t)floor(i - sigma3));
+	int j0 = std::max(STARTINGX(V), (size_t)floor(j - sigma3));
+	int kF = std::min(FINISHINGZ(V), (size_t)ceil(k + sigma3));
+	int iF = std::min(FINISHINGY(V), (size_t)ceil(i + sigma3));
+	int jF = std::min(FINISHINGX(V), (size_t)ceil(j + sigma3));
 	RDOUBLE sum = 0;
 	for (int kk = k0; kk <= kF; kk++)
 		for (int ii = i0; ii <= iF; ii++)

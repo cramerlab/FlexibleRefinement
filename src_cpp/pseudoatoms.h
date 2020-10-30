@@ -1,7 +1,7 @@
 #pragma once
 #ifndef PSEUDOATOMS
 #define PSEUDOATOMS
-
+#include "AtomFitting.h"
 #include "liblionImports.h"
 #include "Types.h"
 #include "funcs.h"
@@ -32,6 +32,30 @@ public:
 
 	Pseudoatoms(PseudoAtomMode mode = ATOM_INTERPOLATE, RDOUBLE sigma = 1.0, RDOUBLE gaussFactor = 1.0):Mode(mode), Sigma(sigma), GaussFactor(gaussFactor), NAtoms(0) {};
 
+	Pseudoatoms(RDOUBLE *atomPositionCArr, RDOUBLE atomWeight, idxtype nAtoms, PseudoAtomMode mode = ATOM_INTERPOLATE, RDOUBLE sigma = 1.0, RDOUBLE gaussFactor = 1.0) :Mode(mode), Sigma(sigma), GaussFactor(gaussFactor), NAtoms(nAtoms) {
+		AtomPositions = std::vector<float3>();
+		AtomPositions.reserve(nAtoms);
+
+		AtomWeights.reserve(nAtoms);
+		for (size_t i = 0; i < nAtoms; i++)
+		{
+			float3 tmp = { atomPositionCArr[i * 3], atomPositionCArr[i * 3 + 1], atomPositionCArr[i * 3 + 2] };
+			AtomPositions.push_back(tmp);
+			AtomWeights.push_back(atomWeight);
+		}
+
+
+		if (mode == ATOM_GAUSSIAN) {
+			RDOUBLE sigma4 = 4 * sigma;
+			TableLength = sigma4;
+			GaussianTable = Matrix1D<RDOUBLE>(CEIL(sigma4*sqrt(3) * GaussFactor + 1));
+
+			FOR_ALL_ELEMENTS_IN_MATRIX1D(GaussianTable)
+				GaussianTable(i) = gaussian1D(i / ((RDOUBLE)GaussFactor), sigma);
+			GaussianTable *= gaussian1D(0, sigma);
+		}
+	}
+
 	Pseudoatoms(RDOUBLE *atomPositionCArr, RDOUBLE *atomWeights, idxtype nAtoms, PseudoAtomMode mode = ATOM_INTERPOLATE, RDOUBLE sigma = 1.0, RDOUBLE gaussFactor=1.0):Mode(mode), Sigma(sigma), GaussFactor(gaussFactor), NAtoms(nAtoms) {
 		AtomPositions = std::vector<float3>();
 		AtomPositions.reserve(nAtoms);
@@ -45,17 +69,19 @@ public:
 		}
 
 
+		if (mode == ATOM_GAUSSIAN) {
+			RDOUBLE sigma4 = 4 * sigma;
+			TableLength = sigma4;
+			GaussianTable = Matrix1D<RDOUBLE>(CEIL(sigma4*sqrt(3) * GaussFactor + 1));
 
-		RDOUBLE sigma4 = 4 * sigma;
-		TableLength = sigma4;
-		GaussianTable = Matrix1D<RDOUBLE>(CEIL(sigma4*sqrt(3) * GaussFactor + 1));
-
-		FOR_ALL_ELEMENTS_IN_MATRIX1D(GaussianTable)
-			GaussianTable(i) = gaussian1D(i / ((RDOUBLE)GaussFactor), sigma);
-		GaussianTable *= gaussian1D(0, sigma);
+			FOR_ALL_ELEMENTS_IN_MATRIX1D(GaussianTable)
+				GaussianTable(i) = gaussian1D(i / ((RDOUBLE)GaussFactor), sigma);
+			GaussianTable *= gaussian1D(0, sigma);
+		}
 	}
 
-	void MoveAtoms(MultidimArray<RDOUBLE>& refVol, int3 Dims, RDOUBLE super, bool resize);
+	void MoveAtoms(MultidimArray<RDOUBLE>& superRefVol, int3 Dims, RDOUBLE super, bool resize, float limit);
+	void MoveAtoms(MultidimArray<RDOUBLE>& superRefVol, int3 Dims, RDOUBLE super, bool resize, double limit, ADAMParams * adamparams);
 
 	static idxtype readAtomsFromFile(FileName pdbFile, std::vector<float3> &AtomPositions, std::vector<RDOUBLE> &AtomIntensities, idxtype N=100000) {
 		std::ifstream ifs(pdbFile);
@@ -64,7 +90,7 @@ public:
 			exit(EXIT_FAILURE);
 		}
 		std::string line;
-		RDOUBLE sigma = 0.0;
+		double sigma = 0.0;
 
 		AtomPositions.clear();
 		AtomPositions.reserve(N);

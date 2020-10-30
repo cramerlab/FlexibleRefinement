@@ -48,6 +48,18 @@
     <ClInclude Include="src_cpp\Warp_GPU.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src_cpp\metadata_container.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src_cpp\metadata_label.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src_cpp\metadata_table.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src_cu\cudaHelpers.cuh">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src_cpp\fourier_filter.cpp">
@@ -80,5 +92,19 @@
     <ClCompile Include="src_cpp\Warp_GPU.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src_cpp\metadata_container.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src_cpp\metadata_label.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src_cpp\metadata_table.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="src_cu\cudaHelpers.cu">
+      <Filter>Source Files</Filter>
+    </CudaCompile>
   </ItemGroup>
 </Project>

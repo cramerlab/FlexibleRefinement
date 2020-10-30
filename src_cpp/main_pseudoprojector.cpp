@@ -12,6 +12,7 @@
 #include <omp.h>
 #include <cuda_runtime_api.h>
 #include "gpu_project.cuh"
+#include "Projector.h"
 #define WRITE_PROJECTIONS
 
 
@@ -93,6 +94,10 @@ void weightProjections(MultidimArray<RDOUBLE> &projections, float3 * angles, int
 		}
 	}
 
+	if(false){
+		MRCImage<float> weightIm(Weights2D);
+		weightIm.writeAs<float>("D:\\EMD\\9233\\TomoReconstructions\\projectionsWeighting_weights2D.mrc");
+	}
 	idxtype batch = 1024;
 
 	int3 sliceDim = { projections.xdim, projections.ydim, 1 };
@@ -102,52 +107,57 @@ void weightProjections(MultidimArray<RDOUBLE> &projections, float3 * angles, int
 	int sliceElements = projections.xdim * projections.ydim;
 	for (int idx = 0; idx < projections.zdim;) {
 		int batchElements = std::min(projections.zdim - idx, batch);
-		float * d_projections = MallocDeviceFromHost(projections.data + sliceElements*idx, projections.yxdim*batchElements);
+		float * d_projections;
+		cudaErrchk(cudaMalloc(&d_projections, Elements(sliceDim)*batchElements * sizeof(float)));
+
+		cudaErrchk(cudaMemcpy(d_projections, projections.data + sliceElements * idx, projections.yxdim*batchElements*sizeof(float), cudaMemcpyHostToDevice));
 		float * d_weights = MallocDeviceFromHost(Weights2D.data, Weights2D.yxdim);
 		tcomplex * d_fft;
-		cudaMalloc(&d_fft, sliceFTElements*batchElements * sizeof(*d_fft));
+		cudaErrchk(cudaMalloc(&d_fft, sliceFTElements*batchElements * sizeof(*d_fft)));
 		d_FFTR2C(d_projections, d_fft, ndims, sliceDim, batchElements);
-		{
+		if(false){
 			MultidimArray<float> fft(batchElements, dims.y, dims.x / 2 + 1);
 			tcomplex * fft_complex = (tcomplex*)malloc(sliceFTElements*sizeof(tcomplex)*batchElements);
-			cudaMemcpy(fft_complex, d_fft, sizeof(tcomplex)*sliceFTElements*batchElements, cudaMemcpyDeviceToHost);
+			cudaErrchk(cudaMemcpy(fft_complex, d_fft, sizeof(tcomplex)*sliceFTElements*batchElements, cudaMemcpyDeviceToHost));
 			for (size_t i = 0; i < sliceFTElements*batchElements; i++)
 			{
 				fft.data[i] = fft_complex[i].x;
 			}
 			MRCImage<float> fftIm(fft);
-			fftIm.writeAs<float>("D:\\Dev\\pseudoatoms\\20s\\refProjections_fft.mrc", true);
+			fftIm.writeAs<float>("D:\\EMD\\9233\\TomoReconstructions\\projectionsWeighting_projectionsFFT.mrc", true);
 		}
 		d_ComplexMultiplyByVector(d_fft, d_weights, d_fft, sliceFTElements, batchElements);
-		{
+		if (false) {
 			MultidimArray<float> fft(batchElements, dims.y, dims.x / 2 + 1);
 			tcomplex * fft_complex = (tcomplex*)malloc(sliceFTElements * sizeof(tcomplex)*batchElements);
-			cudaMemcpy(fft_complex, d_fft, sizeof(tcomplex)*sliceFTElements*batchElements, cudaMemcpyDeviceToHost);
+			cudaErrchk(cudaMemcpy(fft_complex, d_fft, sizeof(tcomplex)*sliceFTElements*batchElements, cudaMemcpyDeviceToHost));
 			for (size_t i = 0; i < sliceFTElements*batchElements; i++)
 			{
 				fft.data[i] = fft_complex[i].x;
 			}
 			MRCImage<float> fftIm(fft);
-			fftIm.writeAs<float>("D:\\Dev\\pseudoatoms\\20s\\refProjections_fft_weighted.mrc", true);
+			fftIm.writeAs<float>("D:\\EMD\\9233\\TomoReconstructions\\projectionsWeighting_projectionsFFT_weighted.mrc", true);
 		}
-		d_IFFTC2R(d_fft, d_projections, ndims, sliceDim, batchElements, true);
-		{
+		d_OwnIFFTC2R(d_fft, d_projections, ndims, sliceDim, batchElements, true);
+		if (false) {
 			MultidimArray<float> projTemp(batchElements, dims.y, dims.x);
 
-			cudaMemcpy(projTemp.data, d_projections, sizeof(float)*sliceElements*batchElements, cudaMemcpyDeviceToHost);
+			cudaErrchk(cudaMemcpy(projTemp.data, d_projections, sizeof(float)*sliceElements*batchElements, cudaMemcpyDeviceToHost));
 
 			MRCImage<float> projIm(projTemp);
-			projIm.writeAs<float>("D:\\Dev\\pseudoatoms\\20s\\refProjections_weighted.mrc", true);
+			projIm.writeAs<float>("D:\\EMD\\9233\\TomoReconstructions\\projectionsWeighting_projectionsWeighted.mrc", true);
 		}
 
-		cudaMemcpy(projections.data+ sliceElements*idx, d_projections, sliceElements*batchElements * sizeof(float), cudaMemcpyDeviceToHost);
-		cudaFree(d_fft);
-		cudaFree(d_projections);
-		cudaFree(d_weights);
+		cudaErrchk(cudaMemcpy(projections.data+ sliceElements*idx, d_projections, sliceElements*batchElements * sizeof(float), cudaMemcpyDeviceToHost));
+		cudaErrchk(cudaFree(d_fft));
+		cudaErrchk(cudaFree(d_projections));
+		cudaErrchk(cudaFree(d_weights));
 		idx += batchElements;
 	}
 
 }
+
+
 
 idxtype readProjections(FileName starFileName, MultidimArray<RDOUBLE> &projections, float3 **angles, bool shuffle=false)
 {
@@ -205,73 +215,256 @@ idxtype readProjections(FileName starFileName, MultidimArray<RDOUBLE> &projectio
 	return numProj;
 }
 
-void doNonMoved() {
+void multiplyByCtf(MultidimArray<float>& projections, MultidimArray<float> ctf) {
+	idxtype batch = 1024;
+	int3 sliceDim = { projections.xdim, projections.ydim, 1 };
+	int2 projDim = { projections.xdim, projections.ydim };
+	int3 sliceFTDim = { projections.xdim / 2 + 1, projections.ydim, 1 };
+	int sliceFTElements = sliceFTDim.x*sliceFTDim.y;
+	int ndims = DimensionCount(sliceDim);
+	int sliceElements = projections.xdim * projections.ydim;
 
+	tfloat3 * forward_shifts = (tfloat3 *)malloc(batch * sizeof(*forward_shifts));
+	tfloat3 * back_shifts = (tfloat3 *)malloc(batch * sizeof(*forward_shifts));
+	for (size_t i = 0; i < batch; i++)
+	{
+		forward_shifts[i] = { projDim.x / 2, projDim.y / 2, 1 };
+		back_shifts[i] = { -projDim.x / 2, -projDim.y / 2, 1 };
+	}
+	for (int idx = 0; idx < projections.zdim;) {
+		int batchElements = std::min(projections.zdim - idx, batch);
+		float * d_projections = MallocDeviceFromHost(projections.data + sliceElements * idx, projections.yxdim*batchElements);
+		float * d_ctf = MallocDeviceFromHost(ctf.data + sliceFTElements * idx, Elements(sliceFTDim) * batchElements);
+		tcomplex * d_fft;
+		cudaMalloc(&d_fft, sliceFTElements*batchElements * sizeof(*d_fft));
+		d_FFTR2C(d_projections, d_fft, ndims, sliceDim, batchElements);
+		d_Shift(d_fft, d_fft, sliceDim, forward_shifts, false, batchElements);
+		d_ComplexMultiplyByVector(d_fft, d_ctf, d_fft, Elements(sliceFTDim) * batchElements, 1);
+		d_Shift(d_fft, d_fft, sliceDim, back_shifts, false, batchElements);
+		d_IFFTC2R(d_fft, d_projections, ndims, sliceDim, batchElements);
+		cudaMemcpy(projections.data + idx*sliceElements, d_projections, sizeof(*d_projections)*Elements(sliceDim)*batchElements, cudaMemcpyDeviceToHost);
+		cudaFree(d_projections);
+		cudaFree(d_ctf);
+		cudaFree(d_fft);
+		idx += batchElements;
+	}
+}
+
+float * do_CTFReconstruction(MultidimArray<float> &projections, int numANgles, float3 * angles, int3 dims) {
+	idxtype batch = 1024;
+	int3 sliceDim = { dims.x, dims.y, 1 };
+	int2 projDim = { dims.x, dims.y };
+	int ndims = DimensionCount(sliceDim);
+	int sliceElements = Elements2(projDim);
+	tfloat3 *h_shifts = (tfloat3 *)malloc(batch * sizeof(*h_shifts));
+	Projector proj(dims, 2);
+	for (size_t i = 0; i < batch; i++)
+	{
+		h_shifts[i] = { -sliceDim.x / 2, -sliceDim.y / 2, 0 };
+	}
+	tcomplex * ctf  = (tcomplex *) malloc(sizeof(*ctf)*projections.zyxdim);
+	FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY3D(projections) {
+		ctf[k*YXSIZE(projections) + (i * XSIZE(projections)) + j] = { DIRECT_A3D_ELEM(projections, k, i, j)*DIRECT_A3D_ELEM(projections, k, i, j), 0.0f };
+	}
+	for (int idx = 0; idx < numANgles;) {
+		int batchElements = std::min((int)(numANgles - idx), (int)batch);
+		float * d_weights;
+		cudaErrchk(cudaMalloc(&d_weights, ElementsFFT(sliceDim)*batchElements*sizeof(*d_weights)));
+		gtom::d_ValueFill(d_weights, ElementsFFT(sliceDim)*batchElements, 1.0f);
+		tcomplex * d_ctf;
+		cudaErrchk(cudaMalloc(&d_ctf, ElementsFFT(sliceDim)*batchElements * sizeof(*d_ctf)));
+		cudaErrchk(cudaMemcpy(d_ctf, (void *)(ctf+idx*ElementsFFT(sliceDim)), sizeof(*d_ctf)*batchElements*ElementsFFT(sliceDim), cudaMemcpyHostToDevice));
+		if(false){
+			float * d_abs_ctf;
+			cudaErrchk(cudaMalloc(&d_abs_ctf, ElementsFFT(sliceDim)*batchElements * sizeof(*d_abs_ctf)));
+			d_Abs(d_ctf, d_abs_ctf, ElementsFFT(sliceDim)*batchElements);
+			
+			MultidimArray<float> abs_ctf(batchElements, dims.y, ElementsFFT1(dims.x));
+			cudaMemcpy(abs_ctf.data, d_abs_ctf, ElementsFFT(sliceDim)*batchElements * sizeof(*d_abs_ctf), cudaMemcpyDeviceToHost);
+			MRCImage<float> abs_ctfIm(abs_ctf);
+			abs_ctfIm.writeAs<float>(std::string("D:\\EMD\\9233\\TomoReconstructions\\") + "2.0_readCTF_" + std::to_string(idx) + ".mrc");
+		}
+		//d_Shift(d_ctf, d_ctf, sliceDim, (tfloat3*)h_shifts, false, batchElements);
+		proj.BackProject(d_ctf, d_weights, sliceDim, angles + idx, batchElements, { 1,1,0 });
+		cudaErrchk(cudaFree(d_ctf));
+		cudaErrchk(cudaFree(d_weights));
+		idx += batchElements;
+	}
+	float * d_ctfReconstruction = proj.d_Reconstruct(true, "C1");
+	return d_ctfReconstruction;
+}
+
+void do_reconstruction(MultidimArray<float> projections, float3 * angles, int3 dims, bool isCtf = false) {
+	idxtype batch = 1024;
+	int3 sliceDim = { projections.xdim, projections.ydim, 1 };
+	int ndims = DimensionCount(sliceDim);
+	tfloat3 *h_shifts = (tfloat3 *)malloc(batch * sizeof(*h_shifts));
+	Projector proj(dims, 2);
+	for (size_t i = 0; i < batch; i++)
+	{
+		h_shifts[i] = { sliceDim.x / 2, sliceDim.y / 2, 0 };
+	}
+	for (int idx = 0; idx < projections.zdim;) {
+		int batchElements = std::min(projections.zdim - idx, batch);
+		float * d_projections = MallocDeviceFromHost(projections.data + Elements(sliceDim)* idx, projections.yxdim*batchElements);
+		float * d_weights = MallocDevice(ElementsFFT(sliceDim)*batchElements);
+		gtom::d_ValueFill(d_weights, ElementsFFT(sliceDim)*batchElements, 1.0f);
+		tcomplex * d_fft;
+		cudaMalloc(&d_fft, ElementsFFT(sliceDim)*batchElements * sizeof(*d_fft));
+		d_FFTR2C(d_projections, d_fft, ndims, sliceDim, batchElements);
+		d_Shift(d_fft, d_fft, sliceDim, (tfloat3*)h_shifts, false, batchElements);
+		proj.BackProject(d_fft, d_weights, sliceDim, angles + idx, batchElements, { 1,1,0 });
+		cudaFree(d_projections);
+		cudaFree(d_weights);
+		cudaFree(d_fft);
+		idx += batchElements;
+
+	}
+	float * d_reconstruction = proj.d_Reconstruct(false, "C1");
+	gtom::d_NormMonolithic(d_reconstruction, d_reconstruction, Elements(dims), T_NORM_MEAN01STD, 1);
+	{
+		MultidimArray<float> reconstruction(dims.z, dims.y, dims.x);
+		cudaMemcpy(reconstruction.data, d_reconstruction, sizeof(float)*Elements(dims), cudaMemcpyDeviceToHost);
+
+		MRCImage<float> reconIm(reconstruction);
+		reconIm.writeAs<float>("D:\\EMD\\9233\\TomoReconstructions\\2.0_convolved_fourierSpaceRecon.mrc", true);
+	}
+	cudaFree(d_reconstruction);
+}
+
+float * do_reconstruction(MultidimArray<float> projections, MultidimArray<float> &ctf, float3 * angles, int3 dims, bool isCtf=false) {
+	idxtype batch = 1024;
+	int3 sliceDim = { projections.xdim, projections.ydim, 1 };
+	int ndims = DimensionCount(sliceDim);
+	tfloat3 *h_shifts = (tfloat3 *)malloc(batch * sizeof(*h_shifts));
+	Projector proj(dims, 2);
+	for (size_t i = 0; i < batch; i++)
+	{
+		h_shifts[i] = {sliceDim.x/2, sliceDim.y/2, 0};
+	}
+	for (int idx = 0; idx < projections.zdim;) {
+		int batchElements = std::min(projections.zdim - idx, batch);
+		float * d_projections = MallocDeviceFromHost(projections.data + Elements(sliceDim)* idx, projections.yxdim*batchElements);
+		float * d_weights = MallocDeviceFromHost(ctf.data + ElementsFFT(sliceDim)*idx, ElementsFFT(sliceDim)*batchElements);
+		tcomplex * d_fft;
+		cudaMalloc(&d_fft, ElementsFFT(sliceDim)*batchElements * sizeof(*d_fft));
+		d_FFTR2C(d_projections, d_fft, ndims, sliceDim, batchElements);
+		d_Shift(d_fft, d_fft, sliceDim, (tfloat3*)h_shifts, false, batchElements);
+		proj.BackProject(d_fft, d_weights, sliceDim, angles + idx, batchElements, { 1,1,0 });
+		cudaFree(d_projections);
+		cudaFree(d_weights);
+		cudaFree(d_fft);
+		idx += batchElements;
+
+	}
+	float * d_reconstruction = proj.d_Reconstruct(false, "C1");
+	return d_reconstruction;
+}
+
+
+int main(int argc, char** argv) {
+
+	cudaErrchk(cudaSetDevice(1));
+	cudaErrchk(cudaDeviceSynchronize());
 	// Define Parameters
 	idxtype N = 800000;
 	Algo algo = SIRT;
 	FileName pixsize = "2.0";
 	RDOUBLE super = 4.0;
-	bool writeProjections = true;	//Wether or not to write out projections before and after each iteration
+	bool writeProjections = false;	//Wether or not to write out projections before and after each iteration
 	idxtype numThreads = 24;
 	omp_set_num_threads(numThreads);
-	idxtype numIt = 15;
+	idxtype numIt = 3;
 
-	FileName starFileName = "D:\\EMD\\9233\\emd_9233_Scaled_2.0.projections_tomo_combined.star";
+	FileName starFileName = "D:\\EMD\\9233\\emd_9233_Scaled_2.0.projections_tomo_convolved-fromAtoms.star";
 
 	FileName refFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + ".mrc";
 	FileName refMaskFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + "_mask.mrc";
 	FileName pdbFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + "_" + std::to_string(N / 1000) + "k.pdb";		//PDB File containing pseudo atom coordinates
-	FileName fnOut = "D:\\EMD\\9233\\TomoReconstructions\\2.0_bak";
-
+	//FileName pdbFileName = "D:\\EMD\\9233\\emd_9233_Scaled_2.0_largeMask.pdb.pdb";		//PDB File containing pseudo atom coordinates
+	FileName fnOut = "D:\\EMD\\9233\\TomoReconstructions\\2.0_convolvedFromAtoms";
+	bool CTFWeighting = true;
+	FileName ctfFile = "D:\\EMD\\9233\\Projections_2.0_tomo\\projections_tomo_ctf.mrc";
 
 	//Read Images
 	MRCImage<RDOUBLE> origVol = MRCImage<RDOUBLE>::readAs(refFileName);
 	MRCImage<RDOUBLE> origMasked = MRCImage<RDOUBLE>::readAs(refFileName);
 	MRCImage<RDOUBLE> Mask = MRCImage<RDOUBLE>::readAs(refMaskFileName);
+	MRCImage<RDOUBLE> ctf = MRCImage<RDOUBLE>::readAs(ctfFile);
 	origMasked.setData(origMasked()*Mask());
 	origMasked.writeAs<float>(refFileName.withoutExtension() + "_masked.mrc", true);
 	int3 refDims = { origVol().xdim, origVol().ydim, origVol().zdim };
 
-	std::vector<float3> StartAtoms;
-	std::vector<RDOUBLE> RefIntensities;
-	idxtype NAtoms = Pseudoatoms::readAtomsFromFile(pdbFileName, StartAtoms, RefIntensities, N);
-	std::vector<RDOUBLE> StartIntensities;
-	StartIntensities.resize(RefIntensities.size(), (RDOUBLE)0);
-	
 	float3 *angles;
 	MultidimArray<RDOUBLE> projections;
 	idxtype numProj = readProjections(starFileName, projections, &angles, false);
+	//numProj = 2048;
 
+
+	if (CTFWeighting)
+		multiplyByCtf(projections, ctf());
+
+
+
+	MultidimArray<float> CTF = ctf();
+	CTF *= CTF;		//CTF^2
+
+	MultidimArray<RDOUBLE> realCTF;
+
+	realspaceCTF(CTF, realCTF, refDims);
+
+	MRCImage<RDOUBLE> realspaceCTFIm(realCTF);
+	realspaceCTFIm.writeAs<float>(fnOut + "_realspaceCTFs.mrc");
+
+	cudaErrchk(cudaDeviceSynchronize());
 	if (writeProjections)
 	{
 		MRCImage<RDOUBLE> projectionsIM(projections);
 		projectionsIM.writeAs<float>(fnOut + "_readProjections.mrc", true);
 	}
-	weightProjections(projections, angles, refDims);
+	//weightProjections(projections, angles, refDims);
+	cudaErrchk(cudaDeviceSynchronize());
 	if (writeProjections)
 	{
 		MRCImage<RDOUBLE> projectionsIM(projections);
 		projectionsIM.writeAs<float>(fnOut + "_readProjectionsWeighted.mrc", true);
 	}
 
+
+
+	std::vector<float3> StartAtoms;
+	std::vector<RDOUBLE> RefIntensities;
+	idxtype NAtoms = Pseudoatoms::readAtomsFromFile(pdbFileName, StartAtoms, RefIntensities, N);
+	std::vector<RDOUBLE> StartIntensities;
+	StartIntensities.resize(RefIntensities.size(), (RDOUBLE)0);
+
+
+	
 	PseudoProjector proj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (float *)StartAtoms.data(), (RDOUBLE *)StartIntensities.data(), super, NAtoms);
-	proj.lambdaART = 0.1 / projections.zdim;
+	proj.lambdaART = 0.001 / projections.zdim;
+	//PseudoProjector ctfProj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (float *)StartAtoms.data(), (RDOUBLE *)StartIntensities.data(), super, NAtoms);
+	//ctfProj.lambdaART = 0.1 / projections.zdim;
 	PseudoProjector RefProj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (float *)StartAtoms.data(), (RDOUBLE *)RefIntensities.data(), super, NAtoms);
 
 	MRCImage<RDOUBLE> *RefImage = RefProj.create3DImage(super);
 	RefImage->writeAs<float>(fnOut + "_ref3DIm.mrc", true);
 
+	MultidimArray<float> refArray = RefImage->operator()();
+	delete RefImage;
+	cudaErrchk(cudaDeviceSynchronize());
+
+
 	// Do Iterative reconstruction
 	for (size_t itIdx = 0; itIdx < numIt; itIdx++)
 	{
 		if (algo == SIRT) {
-			proj.SIRT(projections, angles, numProj,0,0);
-			if (false)
+			//proj.SIRT(projections, CTF, angles, numProj, NULL, NULL, NULL, NULL, 0, 0);
+			//ctfProj.SIRT(realCTF, angles, numProj, 0, 0);
+			if (true)
 			{
 				// Debug variant that writes out correction images
 				MultidimArray<RDOUBLE> Itheo, Icorr, Idiff, Inorm;
-				proj.SIRT(projections, angles, numProj, &Itheo, &Icorr, &Idiff, &Inorm, 0.0, 0.0);
+				proj.SIRT(projections, CTF, angles, numProj, &Itheo, &Icorr, &Idiff, &Inorm, 0.0, 0.0);
 				MRCImage<RDOUBLE> imItheo(Itheo);
 				imItheo.writeAs<float>(fnOut + "_" + std::to_string(itIdx + 1) + "stit_Itheo.mrc", true);
 				MRCImage<RDOUBLE> imIcorr(Icorr);
@@ -288,546 +481,305 @@ void doNonMoved() {
 		writeFSC(origVol(), (*after1Itoversample)(), fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + ".fsc");
 		writeFSC(origMasked(), (*after1Itoversample)() * Mask(), fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + "_masked.fsc");
 		delete after1Itoversample;
-
-	}
-}
-
-
-int main(int argc, char** argv) {
-
-	cxxopts::Options options(argv[0], " - example command line options");
-	options
-		.positional_help("[optional args]")
-		.show_positional_help();
-	defineParams(options);
-	try
-	{
-		cxxopts::ParseResult result = options.parse(argc, argv);
-		readParams(result);
-	}
-	catch (const cxxopts::OptionException& e)
-	{
-		std::cout << "error parsing options: " << e.what() << std::endl;
-		exit(1);
-	}
-	
-	doNonMoved();
-	exit(1);
-	
-	Algo algorithm = SIRT;
-	idxtype batchSize = 64;
-	idxtype numIt = 10;
-	idxtype numMovements = 9;
-	idxtype projPerMovement = 1024;
-	FileName starFileName = "D:\\EMD\\9233\\emd_9233_Scaled_1.5_75k_bs64_it15_moving\\projections_uniform.star";
-	FileName refFileName = "D:\\EMD\\9233\\emd_9233_Scaled_1.5.mrc";
-	FileName refPDB = "D:\\EMD\\9233\\emd_9233_Scaled_1.5_75k.pdb";
-	FileName refReconFileName = starFileName.withoutExtension() + ".WARP_recon.mrc";
-	FileName startPDB = "D:\\EMD\\9233\\emd_9233_Scaled_1.5_75k_bs64_it15.pdb";
-	//FileName refPDB = "D:\\EMD\\9233\\emd_9233_Scaled_1.5_40k_bs64_it3.pdb";
-	FileName pdbFileDirName = "D:\\EMD\\9233\\emd_9233_Scaled_1.5_75k_bs64_it15_moving\\";		//PDB File containing pseudo atom coordinates
-	FileName fnOut = pdbFileDirName + "out_" + (algorithm == ART ? "ART" : "SIRT") + "_lbd0.0001_bs" + std::to_string(batchSize);
-	MRCImage<RDOUBLE> origVol = MRCImage<RDOUBLE>::readAs(refFileName);
-	MRCImage<RDOUBLE> Mask = MRCImage<RDOUBLE>::readAs(refFileName.withoutExtension() + "_mask.mrc");
-	MRCImage<RDOUBLE> origVolMasked = MRCImage<RDOUBLE>::readAs(refFileName);
-	origVolMasked.setData(Mask()*origVol());
-	MRCImage<RDOUBLE> refReconVol = MRCImage<RDOUBLE>::readAs(refReconFileName);
-
-	writeFSC(origVol(), refReconVol(), refReconFileName.withoutExtension() + ".fsc");
-	writeFSC(origVolMasked(), refReconVol()*Mask(), refReconFileName.withoutExtension() + "_masked.fsc");
-
-
-	idxtype numThreads = 24;
-
-	omp_set_num_threads(numThreads);
-
-	bool writeProjections = false;	//Wether or not to write out projections before and after each iteration
-
-	RDOUBLE sigma = 0.0;
-	std::vector<float3> StartAtoms;
-	std::vector<RDOUBLE> StartAtompositionsFlat;
-	std::vector<RDOUBLE> StartIntensities;
-
-	std::vector< Matrix1D<RDOUBLE> > StartAtomPositionsMatrix;
-	/*Reading initial PDB*/
-	{
-		std::ifstream ifs(startPDB);
-
-		std::string line;
-		StartAtoms.reserve(75000);
-		StartAtompositionsFlat.reserve(75000);
-		StartIntensities.reserve(75000);
-		StartAtomPositionsMatrix.reserve(75000);
-		while (std::getline(ifs, line)) {
-			if (line.rfind("REMARK fixedGaussian") != std::string::npos) {
-#ifdef FLOAT_PRECISION
-				sscanf(line.c_str(), "REMARK fixedGaussian %f\n", &sigma);
-#else
-				sscanf(line.c_str(), "REMARK fixedGaussian %lf\n", &sigma);
-#endif // FLOAT_PRECISSION
-
-
-			}
-			if (line.rfind("ATOM") != std::string::npos) {
-				float3 atom;
-				double intensity;
-				sscanf(line.c_str(), "ATOM\t%*d\tDENS\tDENS\t%*d\t%f\t%f\t%f\t%*d\t%lf\tDENS", &(atom.x), &(atom.y), &(atom.z), &intensity);
-				StartIntensities.emplace_back((RDOUBLE)intensity);
-				StartAtoms.emplace_back(atom);
-				StartAtompositionsFlat.emplace_back(atom.x);
-				StartAtompositionsFlat.emplace_back(atom.y);
-				StartAtompositionsFlat.emplace_back(atom.z);
-				Matrix1D<RDOUBLE> a(3);
-				a(0) = atom.x;
-				a(1) = atom.y;
-				a(2) = atom.z;
-				StartAtomPositionsMatrix.push_back(a);
-
-			}
-		}
-	}
-
-	std::vector<float3> RefAtoms;
-	std::vector<RDOUBLE> RefAtompositionsFlat;
-	std::vector<RDOUBLE> RefIntensities;
-	//Read ref pdb
-	{
-		std::ifstream ifs(refPDB);
-
-		std::string line;
-		RefAtoms.reserve(50000);
-		RefAtompositionsFlat.reserve(50000);
-		RefIntensities.reserve(50000);
-		while (std::getline(ifs, line)) {
-			if (line.rfind("REMARK fixedGaussian") != std::string::npos) {
-				sscanf(line.c_str(), "REMARK fixedGaussian %lf\n", &sigma);
-			}
-			if (line.rfind("ATOM") != std::string::npos) {
-				float3 atom;
-				double intensity;
-				sscanf(line.c_str(), "ATOM\t%*d\tDENS\tDENS\t%*d\t%f\t%f\t%f\t%*d\t%lf\tDENS", &(atom.x), &(atom.y), &(atom.z), &intensity);
-				RefIntensities.emplace_back((RDOUBLE)intensity);
-				RefAtoms.emplace_back(atom);
-				RefAtompositionsFlat.emplace_back(atom.x);
-				RefAtompositionsFlat.emplace_back(atom.y);
-				RefAtompositionsFlat.emplace_back(atom.z);
-
-
-			}
-		}
-	}
-
-	/* reading moved pdbs*/
-	std::vector<std::vector< float3 >> atomPosition;
-	for (idxtype i = 0; i < numMovements; i++) {
-		atomPosition.push_back(std::vector<float3>());
-
-		std::ifstream ifs(pdbFileDirName + std::to_string(i) + ".pdb");
-
-		std::string line;
-
-		while (std::getline(ifs, line)) {
-			if (line.rfind("REMARK fixedGaussian") != std::string::npos) {
-				sscanf(line.c_str(), "REMARK fixedGaussian %lf\n", &sigma);
-			}
-			if (line.rfind("ATOM") != std::string::npos) {
-				float3 atom;
-				double intensity;
-				sscanf(line.c_str(), "ATOM\t%*d\tDENS\tDENS\t%*d\t%f\t%f\t%f\t%*d\t%lf\tDENS", &(atom.x), &(atom.y), &(atom.z), &intensity);
-
-				float3 tmp = { atom.x, atom.y, atom.z };
-				atomPosition[i].emplace_back(tmp);
-			}
-		}
-	}
-	MetaDataTable MD;
-	try {
-		long ret = MD.read(starFileName);
-	}
-	catch (RelionError Err) {
-		std::cout << "Could not read file" << std::endl << Err.msg << std::endl;
-		return EXIT_FAILURE;
-	}
-	FileName imageName;
-	FileName prevImageName = "";
-	char imageName_cstr[1000];
-
-	int num;
-	idxtype numProj = MD.numberOfObjects();
-
-
-	float3 *angles = (float3 *)malloc(sizeof(float3)*numProj);
-
-	idxtype idx = 0;
-	MRCImage<RDOUBLE> im;
-	MultidimArray<RDOUBLE> projections;
-
-
-	bool isInit = false;
-
-	auto rng = std::default_random_engine{};
-	std::vector<idxtype> idxLookup;
-	idxLookup.reserve(numProj);
-	for (idxtype i = 0; i < numProj; i++)
-		idxLookup.emplace_back(i);
-	//std::shuffle(std::begin(idxLookup), std::end(idxLookup), rng);
-	FOR_ALL_OBJECTS_IN_METADATA_TABLE(MD) {
-		MD.getValue(EMDL_IMAGE_NAME, imageName);
-		idxtype randomI = idxLookup[idx];	// Write to random position in projections to avoid any bias
-		MD.getValue(EMDL_ORIENT_ROT, angles[randomI].x);
-		MD.getValue(EMDL_ORIENT_TILT, angles[randomI].y);
-		MD.getValue(EMDL_ORIENT_PSI, angles[randomI].z);
-
-		sscanf(imageName.c_str(), "%d@%s", &num, imageName_cstr);
-		imageName = imageName_cstr;
-		if (imageName != prevImageName) {
-			im = MRCImage<RDOUBLE>::readAs(imageName);
-			if (!isInit) {
-				projections.resize(numProj, im().ydim, im().xdim);
-				isInit = true;
-			}
-		}
-		prevImageName = imageName;
-		FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY2D(im()) {
-			DIRECT_A3D_ELEM(projections, randomI, i, j) = im(num - 1, i, j);
-		}
-		idx++;
-	}
-
-
-
-	if (writeProjections) {
-		MRCImage<RDOUBLE> projectionsIM(projections);
-		projectionsIM.writeAs<float>(starFileName.withoutExtension() + ".mrc", true);
-	}
-
-
-	PseudoProjector proj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (RDOUBLE *)StartAtompositionsFlat.data(), RefIntensities.data(), sigma, StartAtoms.size());
-	PseudoProjector RefProj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (RDOUBLE *)RefAtompositionsFlat.data(), StartIntensities.data(), sigma, RefAtoms.size());
-	proj.lambdaART = 0.0001;
-
-
-	
-	proj.setAtomPositions(RefAtoms);
-	/*
-	MRCImage<RDOUBLE> *initialRep = proj.create3DImage();
-	initialRep->writeAs<float>(fnOut + "_initialRep.mrc", true);
-	delete initialRep;
-	*/
-	MRCImage<RDOUBLE> *initialRepOversampled = proj.create3DImage(2.0);
-	initialRepOversampled->writeAs<float>(fnOut + "_initialRep_oversampled2.mrc", true);
-	writeFSC(origVol(), (*initialRepOversampled)(), fnOut + "_initialRep_oversampled2.fsc");
-	writeFSC(origVolMasked(), (*initialRepOversampled)()*Mask(), fnOut + "_initialRep_oversampled2_masked.fsc");
-	delete initialRepOversampled;
-	/*
-	MRCImage<RDOUBLE> *RefRepOversampled = RefProj.create3DImage(2.0);
-	RefRepOversampled->writeAs<float>(fnOut + "_RefRep_oversampled2.mrc", true);
-	writeFSC(origVol(), (*RefRepOversampled)(), fnOut + "_RefRep_oversampled2.fsc");
-	writeFSC(origVolMasked(), Mask()*(*RefRepOversampled)(), fnOut + "_RefRep_oversampled2_masked.fsc");
-	delete RefRepOversampled;
-	*/
-
-
-
-	MultidimArray<RDOUBLE> pseudoProjectionsData;
-	MRCImage<RDOUBLE> pseudoProjections;
-
-
-
-
-
-
-	if (algorithm == SIRT) {
-		for (idxtype n = 0; n < atomPosition.size(); n++) {
-			std::vector<float3> ang;
-			for (size_t i = 0; i < projPerMovement; i++)
-			{
-				ang.emplace_back(angles[n*projPerMovement + i]);
-			}
-			idxtype zStart = n * projPerMovement;
-			idxtype zEnd = (n + 1)*projPerMovement;
-			MultidimArray<RDOUBLE> slice;
-			slice.xdim = projections.xdim;
-			slice.ydim = projections.ydim;
-			slice.zdim = std::min(projections.zdim, (size_t)zEnd) - zStart;
-
-			slice.yxdim = projections.yxdim;
-			slice.nzyxdim = slice.xdim * slice.ydim * slice.zdim;
-			slice.nzyxdimAlloc = slice.nzyxdim;
-			slice.destroyData = false;
-			slice.xinit = projections.xinit;
-			slice.yinit = projections.yinit;
-			slice.data = &(DIRECT_A3D_ELEM(projections, zStart, 0, 0));
-			slice.destroyData = false;
-		}
-	}
-
-
-	if (writeProjections) {
-		pseudoProjectionsData.initZeros(numProj, projections.ydim, projections.xdim);
-
-		idxtype positionIdx = 0;
-		for (idxtype batchIdx = 0; batchIdx < numProj;) {
-
-			proj.setAtomPositions(atomPosition[positionIdx]);
-			positionIdx++;
-#pragma omp parallel for
-			for (int n = 0; n < projPerMovement; n++) {
-				//proj.setAtomPositions(RefAtompositionsMatrix);
-				proj.project_Pseudo(pseudoProjectionsData.data + pseudoProjectionsData.yxdim*(batchIdx + n), NULL, angles[batchIdx + n], 0.0, 0.0, PSEUDO_FORWARD);
-			}
-			batchIdx += projPerMovement;
-		}
-
-		pseudoProjections.setData(pseudoProjectionsData);
-		pseudoProjections.writeAs<float>(fnOut + "_initial_pseudoProjections.mrc", true);
-		pseudoProjectionsData.coreDeallocate();
-		pseudoProjectionsData.coreAllocate();
-		pseudoProjectionsData.initZeros(numProj, projections.ydim, projections.xdim);
-	}
-
-	//if (writeProjections) {
-
-//		idxtype positionIdx = 0;
-//		for (idxtype batchIdx = 0; batchIdx < numProj;) {
-//			/*
-//			RefProj.setAtomPositions(atomPosition[positionIdx]);
-//			MRCImage<RDOUBLE> *RefRepMoved = RefProj.create3DImage(2.0);
-//			RefRepMoved->writeAs<float>(fnOut + "_RefRepMoved_" + std::to_string(positionIdx) + "_oversampled2.mrc", true);
-//
-//			delete RefRepMoved;
-//			*/
-//			positionIdx++;
-//#pragma omp parallel for
-//			for (int n = 0; n < projPerMovement; n++) {
-//				//proj.setAtomPositions(RefAtompositionsMatrix);
-//				RefProj.project_Pseudo(pseudoProjectionsData.data + pseudoProjectionsData.yxdim*(batchIdx + n), NULL, angles[batchIdx + n], 0.0, 0.0, PSEUDO_FORWARD);
-//			}
-//			batchIdx += projPerMovement;
-//		}
-//#pragma omp parallel
-//		{
-//			MultidimArray<RDOUBLE> ITheo(projections.ydim, projections.xdim);
-//			ITheo.coreDeallocate();
-//			MultidimArray<RDOUBLE> INorm(projections.ydim, projections.xdim);
-//			ITheo.destroyData = false;
-//#pragma omp for
-//			for (int n = 0; n < precalc.size(); n++)
-//			{
-//				ITheo.data = pseudoProjectionsData.data + pseudoProjectionsData.yxdim * n;
-//
-//				RefProj.project_Pseudo(ITheo, INorm, precalc[n].atomPositons, precalc[n].Euler, 0.0, 0.0, PSEUDO_FORWARD);
-//
-//			}
-//		}
-//		pseudoProjections.setData(pseudoProjectionsData);
-//		pseudoProjections.writeAs<float>(fnOut + "_ref_pseudoProjections.mrc", true);
-//		pseudoProjectionsData.coreDeallocate();
-//		pseudoProjectionsData.coreAllocate();
-//		pseudoProjectionsData.initZeros(numProj, projections.ydim, projections.xdim);
-//	}
-
-
-
 		/*
-
-	{
-
-		MultidimArray<RDOUBLE> Itheo(projections.xdim, projections.ydim);
-		MultidimArray<RDOUBLE> Icorr(projections.xdim, projections.ydim);
-		std::shuffle(std::begin(idxLookup), std::end(idxLookup), rng);
-		for (size_t tmp = 0; tmp < 5; tmp++)
+		MRCImage<RDOUBLE> *ctfReconstructionIm = ctfProj.create3DImage(super);
+		ctfReconstructionIm->writeAs<float>(fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + "_ctfRecon.mrc", true);
 		{
-			Itheo.initZeros();
-			idxtype idx = idxLookup[tmp];
-			proj.project_Pseudo(Itheo, Icorr, precalc[idx].atomPositons, precalc[idx].Euler, 0.0, 0.0, PSEUDO_FORWARD);
-			RDOUBLE sumProj = 0.0;
-			RDOUBLE sumRef = 0.0;
-			FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY3D(Itheo) {
-				sumProj += DIRECT_A3D_ELEM(Itheo, k, i, j);
-				sumRef += DIRECT_A3D_ELEM(projections, idx, i, j);
-			}
-			std::cout << "sumProj: " << sumProj << std::endl;
-			std::cout << "sumRef: " << sumRef << std::endl;
-			RDOUBLE corrFactor = sumRef / sumProj;
-			for (size_t i = 0; i < proj.atoms.AtomWeights.size(); i++)
-			{
-				proj.atoms.AtomWeights[i] = proj.atoms.AtomWeights[i] * corrFactor;
-			}
+			MultidimArray<float> ctfReconstruction = ctfReconstructionIm->operator()();
+			float * d_ctfReconstruction;
+			cudaErrchk(cudaMalloc(&d_ctfReconstruction, Elements(refDims) * sizeof(*d_ctfReconstruction)));
+			cudaErrchk(cudaMemcpy(d_ctfReconstruction, ctfReconstruction.data, Elements(refDims) * sizeof(*d_ctfReconstruction), cudaMemcpyHostToDevice));
+
+			tcomplex * d_fftctfReconstruction;
+			cudaErrchk(cudaMalloc(&d_fftctfReconstruction, ElementsFFT(refDims) * sizeof(*d_fftctfReconstruction)));
+			float * d_absfftctfReconstruction;
+			cudaErrchk(cudaMalloc(&d_absfftctfReconstruction, ElementsFFT(refDims) * sizeof(*d_absfftctfReconstruction)));
+
+			d_FFTR2C(d_ctfReconstruction, d_fftctfReconstruction, DimensionCount(refDims), refDims, 1);
+			float R = refDims.x / 2 + 1;
+			tfloat3 center = { 0,0,0 };
+			int3 size = { ElementsFFT1(refDims.x), refDims.y, refDims.z };
+			d_SphereMaskFT(d_fftctfReconstruction, d_fftctfReconstruction, refDims, R, 1);
+			d_IFFTC2R(d_fftctfReconstruction, d_ctfReconstruction, DimensionCount(refDims), refDims, 1, true);
+			MultidimArray<float> ctfReconstructionMasked(ctfReconstruction.zdim, ctfReconstruction.ydim, ctfReconstruction.xdim);
+			cudaErrchk(cudaMemcpy(ctfReconstructionMasked.data, d_ctfReconstruction, Elements(refDims) * sizeof(*d_ctfReconstruction), cudaMemcpyDeviceToHost));
+			MRCImage<float> ctfReconstructionMaskedIm(ctfReconstructionMasked);
+			ctfReconstructionMaskedIm.writeAs<float>(fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + "_ctfReconMasked.mrc", true);
+			d_Abs(d_fftctfReconstruction, d_absfftctfReconstruction, ElementsFFT(refDims));
+
+			float * d_finalReconstruction;
+			cudaErrchk(cudaMalloc(&d_finalReconstruction, Elements(refDims) * sizeof(*d_finalReconstruction)));
+			cudaErrchk(cudaMemcpy(d_finalReconstruction, after1Itoversample->data.data, Elements(refDims) * sizeof(*d_finalReconstruction), cudaMemcpyHostToDevice));
+			tcomplex *d_fft;
+			cudaErrchk(cudaMalloc(&d_fft, ElementsFFT(refDims) * sizeof(*d_fft)));
+			d_FFTR2C(d_finalReconstruction, d_fft, DimensionCount(refDims), refDims, 1);
+			d_ComplexDivideSafeByVector(d_fft, d_absfftctfReconstruction, d_fft, ElementsFFT(refDims), 1);
+			d_SphereMaskFT(d_fft, d_fft, refDims, R, 1);
+			d_IFFTC2R(d_fft, d_finalReconstruction, DimensionCount(refDims), refDims, 1);
+
+			MultidimArray<float> finalReconstructionCTFReconstructionWeighted(ctfReconstruction.zdim, ctfReconstruction.ydim, ctfReconstruction.xdim);
+			cudaErrchk(cudaMemcpy(finalReconstructionCTFReconstructionWeighted.data, d_finalReconstruction, Elements(refDims) * sizeof(float), cudaMemcpyDeviceToHost));
+			MRCImage<float> finalReconstructionCTFReconstructionWeightedIm(finalReconstructionCTFReconstructionWeighted);
+			finalReconstructionCTFReconstructionWeightedIm.writeAs<float>(fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + "_finalReconstructionCTFReconstructionWeightedIm.mrc", true);
+			writeFSC(origMasked(), finalReconstructionCTFReconstructionWeightedIm() * Mask(), fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + "_finalReconstructionCTFReconstructionWeightedIm.fsc");
+			MultidimArray<float> fftctfReconstruction(ctfReconstruction.zdim, ctfReconstruction.ydim, ctfReconstruction.xdim / 2 + 1);
+			cudaErrchk(cudaMemcpy(fftctfReconstruction.data, d_absfftctfReconstruction, ElementsFFT(refDims) * sizeof(*d_absfftctfReconstruction), cudaMemcpyDeviceToHost));
+			MRCImage<float> fftctfReconstructionIm(fftctfReconstruction);
+			fftctfReconstructionIm.writeAs<float>(fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + "_fftctfRecon.mrc", true);
+			cudaErrchk(cudaFree(d_ctfReconstruction));
+			cudaErrchk(cudaFree(d_fftctfReconstruction));
+			cudaErrchk(cudaFree(d_absfftctfReconstruction));
 		}
-	}
 
-	for (idxtype itIdx = 0; itIdx < numIt; itIdx++) {
-		idxtype processed = 0;
-		idxtype positionIdx = 0;
-		// precalculate intensity offset
+		if (false) {
 
-		// ART
-		if (algorithm == ART) {
-			if (batchSize > 1)
+			float * h_3DCTF = (float *)malloc(ElementsFFT(refDims) * sizeof(*h_3DCTF));
+
+			float * d_3DCTF = do_CTFReconstruction(CTF, numProj, angles, refDims); //Reconstructed 3D CTF
 			{
-				for (int batchidx = 0; batchidx < (int)(numProj / ((float)batchSize) + 0.5); batchidx++) {
-					if (processed % (projPerMovement) == 0) {
-						proj.setAtomPositions(atomPosition[positionIdx]);
-						positionIdx++;
-					}
-					int numLeft = std::min((int)numProj - batchidx * batchSize, batchSize);
-
-					MultidimArray<RDOUBLE> slice = projections.getZSlices(batchidx * batchSize, batchidx * batchSize + numLeft);
-					if (numLeft != 0) {
-						proj.ART_batched(slice, numLeft, angles + batchidx * batchSize, 0.0, 0.0);
-					}
-					processed += numLeft;
-
+				cudaErrchk(cudaMemcpy(h_3DCTF, d_3DCTF, ElementsFFT(refDims) * sizeof(*d_3DCTF), cudaMemcpyDeviceToHost));
+				{
+					MultidimArray<float> CTF3D(refDims.z, refDims.y, ElementsFFT1(refDims.x));
+					cudaErrchk(cudaMemcpy(CTF3D.data, d_3DCTF, ElementsFFT(refDims) * sizeof(*d_3DCTF), cudaMemcpyDeviceToHost));
+					MRCImage<float> CTF3DIm(CTF3D);
+					CTF3DIm.writeAs<float>(fnOut + "_reconstructed3DCTF.mrc", true);
 				}
 			}
-			else
+
+
+			MultidimArray<float> h_reconstructionWeighted;
 			{
-				proj.ART_multi_Image_step(projections.data, angles, 0.0, 0.0, numProj);
+				float *d_reconstructionWeighted = NULL; //Reconstruction using fourier backProjection and CTF as weights
+				float *d_reconstructionUnweighted = NULL;
+				// Create Reconstructions with fourier back projection
+				MultidimArray<float> CTF_ones(CTF.zdim, CTF.ydim, CTF.xdim);
+				FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY3D(CTF_ones) {
+					DIRECT_A3D_ELEM(CTF_ones, k, i, j) = 1.0f;
+				}
+				d_reconstructionUnweighted = do_reconstruction(projections, CTF_ones, angles, refDims);
+				d_reconstructionWeighted = do_reconstruction(projections, CTF, angles, refDims);
+
+				//Write out Reconstructions
+				h_reconstructionWeighted = MultidimArray<float>(refDims.z, refDims.y, refDims.x);
+				cudaMemcpy(h_reconstructionWeighted.data, d_reconstructionWeighted, sizeof(float)*Elements(refDims), cudaMemcpyDeviceToHost);
+				cudaFree(d_reconstructionWeighted);
 			}
-		}
+			if (true)
+			{
+				float *d_reconstructionWeighted = NULL; //Reconstruction using fourier backProjection and CTF as weights
+				float *d_reconstructionUnweighted = NULL;
+				// Create Reconstructions with fourier back projection
+				MultidimArray<float> CTF_ones(CTF.zdim, CTF.ydim, CTF.xdim);
+				FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY3D(CTF_ones) {
+					DIRECT_A3D_ELEM(CTF_ones, k, i, j) = 1.0f;
+				}
+				d_reconstructionUnweighted = do_reconstruction(projections, CTF_ones, angles, refDims);
+				d_reconstructionWeighted = do_reconstruction(projections, CTF, angles, refDims);
+
+				//Write out Reconstructions
+				h_reconstructionWeighted = MultidimArray<float>(refDims.z, refDims.y, refDims.x);
+				cudaMemcpy(h_reconstructionWeighted.data, d_reconstructionWeighted, sizeof(float)*Elements(refDims), cudaMemcpyDeviceToHost);
+
+				MRCImage<float> reconWeightedIm(h_reconstructionWeighted);
+				reconWeightedIm.writeAs<float>(fnOut + "_fourierReconWeighted.mrc", true);
+
+
+				MultidimArray<float> h_reconstructionUnweighted(refDims.z, refDims.y, refDims.x);
+				cudaMemcpy(h_reconstructionUnweighted.data, d_reconstructionUnweighted, sizeof(float)*Elements(refDims), cudaMemcpyDeviceToHost);
+
+				MRCImage<float> reconUnweightedIm(h_reconstructionUnweighted);
+				reconUnweightedIm.writeAs<float>(fnOut + "_fourierRecon.mrc", true);
+
+				writeFSC(h_reconstructionUnweighted*Mask(), origMasked(), fnOut + "_fourierRecon_masked.fsc");
+				writeFSC(h_reconstructionWeighted*Mask(), origMasked(), fnOut + "_fourierReconWeighted_masked.fsc");
+
+				//Take FFT of reconstructed volumes
+				tcomplex *d_fft_unweighted, *d_fft_weighted;
+				float * d_absfft_unweighted, *d_absfft_weighted;
+				cudaErrchk(cudaMalloc(&d_absfft_unweighted, ElementsFFT(refDims) * sizeof(*d_fft_unweighted)));
+				cudaErrchk(cudaMalloc(&d_absfft_weighted, ElementsFFT(refDims) * sizeof(*d_fft_unweighted)));
+				cudaErrchk(cudaMalloc(&d_fft_unweighted, ElementsFFT(refDims) * sizeof(*d_fft_unweighted)));
+				cudaErrchk(cudaMalloc(&d_fft_weighted, ElementsFFT(refDims) * sizeof(*d_fft_weighted)));
+				d_FFTR2C(d_reconstructionUnweighted, d_fft_unweighted, DimensionCount(refDims), refDims, 1);
+				d_FFTR2C(d_reconstructionWeighted, d_fft_weighted, DimensionCount(refDims), refDims, 1);
+				d_Abs(d_fft_unweighted, d_absfft_unweighted, ElementsFFT(refDims));
+				d_Abs(d_fft_weighted, d_absfft_weighted, ElementsFFT(refDims));
+
+				//Different Measures
+
+					// 1. Calculate what 3D CTF should look like by dividing both reconstructions
+				float* d_own3DCTF;
+				cudaErrchk(cudaMalloc(&d_own3DCTF, ElementsFFT(refDims) * sizeof(*d_own3DCTF)));
+
+				d_DivideByVector(d_absfft_unweighted, d_absfft_weighted, d_own3DCTF, ElementsFFT(refDims), 1);
+				MultidimArray<float> CTF3D(refDims.z, refDims.y, ElementsFFT1(refDims.x));
+				cudaErrchk(cudaMemcpy(CTF3D.data, d_own3DCTF, ElementsFFT(refDims) * sizeof(*d_own3DCTF), cudaMemcpyDeviceToHost));
+				MRCImage<float> CTF3DIm(CTF3D);
+				CTF3DIm.writeAs<float>(fnOut + "_divided3DCTF.mrc", true);
+
+				// 2. Divide unweighted reconstruction by ctf^2
+				tcomplex * d_fft_ownWeighted;
+				float * d_reconstructionOwnWeighting;
+				cudaErrchk(cudaMalloc(&d_fft_ownWeighted, ElementsFFT(refDims) * sizeof(*d_fft_ownWeighted)));
+				cudaErrchk(cudaMalloc(&d_reconstructionOwnWeighting, Elements(refDims) * sizeof(*d_reconstructionOwnWeighting)));
+
+				d_ComplexDivideSafeByVector(d_fft_unweighted, d_own3DCTF, d_fft_ownWeighted, ElementsFFT(refDims), 1);
+				d_IFFTC2R(d_fft_ownWeighted, d_reconstructionOwnWeighting, DimensionCount(refDims), refDims, 1);
+
+				MultidimArray<float> h_reconstructionOwnWeighting(refDims.z, refDims.y, refDims.x);
+				cudaErrchk(cudaMemcpy(h_reconstructionOwnWeighting.data, d_reconstructionOwnWeighting, Elements(refDims) * sizeof(float), cudaMemcpyDeviceToHost));
+				MRCImage<float> im_reconstructionOwnWeighting(h_reconstructionOwnWeighting);
+				im_reconstructionOwnWeighting.writeAs<float>(fnOut + "_fourierReconOwnWeighting.mrc", true);
+
+				// 3. Weigh using reconstructed 3D CTF
+				tfloat3 *h_shifts = (tfloat3 *)malloc(1 * sizeof(*h_shifts));
+
+				h_shifts[0] = { refDims.x / 2, refDims.y / 2, refDims.z/2 };
+				
+
+				cudaErrchk(cudaFree(d_absfft_unweighted));
+				cudaErrchk(cudaFree(d_absfft_weighted));
+				cudaErrchk(cudaFree(d_fft_weighted));
+				cudaErrchk(cudaFree(d_fft_unweighted));
+				cudaErrchk(cudaFree(d_own3DCTF));
+				cudaErrchk(cudaFree(d_reconstructionWeighted));
+				cudaErrchk(cudaFree(d_reconstructionUnweighted));
+
+				cudaErrchk(cudaFree(d_fft_ownWeighted));
+				cudaErrchk(cudaFree(d_reconstructionOwnWeighting));
+			}
+
+			{
+				if (CTFWeighting)
+				{
+					//Divide by CTF^2
+					float * d_finalReconstruction;
+					cudaErrchk(cudaMalloc(&d_finalReconstruction, Elements(refDims) * sizeof(*d_finalReconstruction)));
+					cudaErrchk(cudaMemcpy(d_finalReconstruction, after1Itoversample->data.data, Elements(refDims) * sizeof(*d_finalReconstruction), cudaMemcpyHostToDevice));
+					tcomplex *d_fft;
+					cudaErrchk(cudaMalloc(&d_fft, ElementsFFT(refDims) * sizeof(*d_fft)));
+
+					float *d_absfft;
+					cudaErrchk(cudaMalloc(&d_absfft, ElementsFFT(refDims) * sizeof(*d_absfft)));
+
+					float * d_fourierReconstruction;
+					cudaErrchk(cudaMalloc(&d_fourierReconstruction, Elements(refDims) * sizeof(*d_fourierReconstruction)));
+					cudaErrchk(cudaMemcpy(d_fourierReconstruction, h_reconstructionWeighted.data, Elements(refDims) * sizeof(*d_fourierReconstruction), cudaMemcpyHostToDevice));
+					tcomplex * d_fftFourierReconstruction;
+					cudaErrchk(cudaMalloc(&d_fftFourierReconstruction, ElementsFFT(refDims) * sizeof(*d_fftFourierReconstruction)));
+					float * d_absfftFourierReconstruction;
+					cudaErrchk(cudaMalloc(&d_absfftFourierReconstruction, ElementsFFT(refDims) * sizeof(*d_absfftFourierReconstruction)));
+
+					d_FFTR2C(d_finalReconstruction, d_fft, DimensionCount(refDims), refDims, 1);
+					d_FFTR2C(d_fourierReconstruction, d_fftFourierReconstruction, DimensionCount(refDims), refDims, 1);
+
+					d_Abs(d_fft, d_absfft, ElementsFFT(refDims));
+					d_Abs(d_fftFourierReconstruction, d_absfftFourierReconstruction, ElementsFFT(refDims));
+
+					float *d_exp3DCTF;
+					cudaErrchk(cudaMalloc(&d_exp3DCTF, ElementsFFT(refDims) * sizeof(*d_exp3DCTF)));
+					d_DivideSafeByVector(d_absfft, d_absfftFourierReconstruction, d_exp3DCTF, ElementsFFT(refDims), 1);
+
+					MultidimArray<float>  h_exp3DCTF(refDims.z, refDims.x, ElementsFFT1(refDims.x));
+					cudaErrchk(cudaMemcpy(h_exp3DCTF.data, d_exp3DCTF, ElementsFFT(refDims) * sizeof(*h_exp3DCTF.data), cudaMemcpyDeviceToHost));
+					MRCImage<float> exp3DCTFIm(h_exp3DCTF);
+					exp3DCTFIm.writeAs<float>(fnOut + "_it" + std::to_string(itIdx + 1) + "_fftquotient3DCTF.mrc", true);
+
+					float *d_3DCTF;
+					cudaErrchk(cudaMalloc(&d_3DCTF, ElementsFFT(refDims) * sizeof(*d_3DCTF)));
+					cudaErrchk(cudaMemcpy(d_3DCTF, h_3DCTF, ElementsFFT(refDims) * sizeof(*d_finalReconstruction), cudaMemcpyHostToDevice));
+					//d_MaxOp(d_3DCTF, 1e-2f, d_3DCTF, ElementsFFT(refDims));
+					d_ComplexDivideSafeByVector(d_fft, d_3DCTF, d_fft, ElementsFFT(refDims), 1);
+					//d_ComplexDivideSafeByVector(d_fft, d_3DCTF, d_fft, ElementsFFT(refDims), 1);
+
+					d_IFFTC2R(d_fft, d_finalReconstruction, DimensionCount(refDims), refDims, 1);
+					cudaErrchk(cudaMemcpy(after1Itoversample->data.data, d_finalReconstruction, Elements(refDims) * sizeof(*d_finalReconstruction), cudaMemcpyDeviceToHost));
+					cudaErrchk(cudaFree(d_fft));
+					cudaErrchk(cudaFree(d_finalReconstruction));
+					cudaErrchk(cudaFree(d_3DCTF));
+				}
+				after1Itoversample->writeAs<float>(fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + "_weighted.mrc", true);
+				writeFSC(origVol(), (*after1Itoversample)(), fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + "_weighted.fsc");
+				writeFSC(origMasked(), (*after1Itoversample)() * Mask(), fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + "_weighted_masked.fsc");
+			}
+
+			delete after1Itoversample;
 		
-		//SIRT
-		if (algorithm == SIRT) {
-			if (writeProjections) {
-				MultidimArray<RDOUBLE> Itheo, Icorr, Idiff, Inorm;
-				MRCImage<RDOUBLE> im;
-				//proj.SIRT_from_precalc(projections, precalc, Itheo, Icorr, Idiff, Inorm, 0.0, 0.0);
-				im.setData(Itheo);
-				im.writeAs<float>(fnOut + "_it" + std::to_string(itIdx + 1) + "_Itheo.mrc");
-				im.setData(Icorr);
-				im.writeAs<float>(fnOut + "_it" + std::to_string(itIdx + 1) + "_Icorr.mrc");
-				im.setData(Idiff);
-				im.writeAs<float>(fnOut + "_it" + std::to_string(itIdx + 1) + "_Idiff.mrc");
-				im.setData(Inorm);
-				im.writeAs<float>(fnOut + "_it" + std::to_string(itIdx + 1) + "_Inorm.mrc");
+		
+			MRCImage<RDOUBLE> *finalReconstructionImage = proj.create3DImage(super);
+			if (CTFWeighting)
+			{
+				//Divide by CTF^2
+				float * d_finalReconstruction;
+				cudaErrchk(cudaMalloc(&d_finalReconstruction, Elements(refDims) * sizeof(*d_finalReconstruction)));
+				cudaErrchk(cudaMemcpy(d_finalReconstruction, finalReconstructionImage->data.data, Elements(refDims) * sizeof(*d_finalReconstruction), cudaMemcpyHostToDevice));
+				tcomplex *d_fftFinalReconstruction;
+				cudaErrchk(cudaMalloc(&d_fftFinalReconstruction, ElementsFFT(refDims) * sizeof(*d_fftFinalReconstruction)));
+
+				float *d_absfftFinalReconstruction;
+				cudaErrchk(cudaMalloc(&d_absfftFinalReconstruction, ElementsFFT(refDims) * sizeof(*d_absfftFinalReconstruction)));
+
+				float * d_fourierReconstruction;
+				cudaErrchk(cudaMalloc(&d_fourierReconstruction, Elements(refDims) * sizeof(*d_fourierReconstruction)));
+				cudaErrchk(cudaMemcpy(d_fourierReconstruction, h_reconstructionWeighted.data, Elements(refDims) * sizeof(*d_fourierReconstruction), cudaMemcpyHostToDevice));
+				tcomplex * d_fftFourierReconstruction;
+				cudaErrchk(cudaMalloc(&d_fftFourierReconstruction, ElementsFFT(refDims) * sizeof(*d_fftFourierReconstruction)));
+				float * d_absfftFourierReconstruction;
+				cudaErrchk(cudaMalloc(&d_absfftFourierReconstruction, ElementsFFT(refDims) * sizeof(*d_absfftFourierReconstruction)));
+
+
+
+				d_FFTR2C(d_finalReconstruction, d_fftFinalReconstruction, DimensionCount(refDims), refDims, 1);
+				d_FFTR2C(d_fourierReconstruction, d_fftFourierReconstruction, DimensionCount(refDims), refDims, 1);
+
+				d_Abs(d_fftFinalReconstruction, d_absfftFinalReconstruction, ElementsFFT(refDims));
+				d_Abs(d_fftFourierReconstruction, d_absfftFourierReconstruction, ElementsFFT(refDims));
+
+				float *d_exp3DCTF;
+				cudaErrchk(cudaMalloc(&d_exp3DCTF, ElementsFFT(refDims) * sizeof(*d_exp3DCTF)));
+				d_DivideSafeByVector(d_absfftFourierReconstruction, d_absfftFinalReconstruction, d_exp3DCTF, ElementsFFT(refDims), 1);
+
+				MultidimArray<float>  h_exp3DCTF(refDims.z, refDims.x, ElementsFFT1(refDims.x));
+				cudaErrchk(cudaMemcpy(h_exp3DCTF.data, d_exp3DCTF, ElementsFFT(refDims) * sizeof(*h_exp3DCTF.data), cudaMemcpyDeviceToHost));
+				MRCImage<float> exp3DCTFIm(h_exp3DCTF);
+				exp3DCTFIm.writeAs<float>(fnOut + "_fftquotient3DCTF.mrc", true);
+
+				float *d_3DCTF;
+				cudaErrchk(cudaMalloc(&d_3DCTF, ElementsFFT(refDims) * sizeof(*d_3DCTF)));
+				cudaErrchk(cudaMemcpy(d_3DCTF, h_3DCTF, ElementsFFT(refDims) * sizeof(*d_finalReconstruction), cudaMemcpyHostToDevice));
+				//d_MaxOp(d_3DCTF, 1e-2f, d_3DCTF, ElementsFFT(refDims));
+				d_ComplexDivideSafeByVector(d_fftFinalReconstruction, d_3DCTF, d_fftFinalReconstruction, ElementsFFT(refDims), 1);
+				//d_ComplexDivideSafeByVector(d_fft, d_3DCTF, d_fft, ElementsFFT(refDims), 1);
+				float R = refDims.x / 2 + 1;
+				tfloat3 center = { 0,0,0 };
+				int3 size = { ElementsFFT1(refDims.x), refDims.y, refDims.z };
+
+				d_SphereMaskFT(d_finalReconstruction, d_finalReconstruction, refDims, R, 1);
+				d_IFFTC2R(d_fftFinalReconstruction, d_finalReconstruction, DimensionCount(refDims), refDims, 1);
+
+				tcomplex * d_fftOwnDivided;
+				cudaErrchk(cudaMalloc(&d_fftOwnDivided, ElementsFFT(refDims) * sizeof(*d_fftOwnDivided)));
+				d_ComplexDivideSafeByVector(d_fftFinalReconstruction, d_exp3DCTF, d_fftOwnDivided, ElementsFFT(refDims), 1);
+
+				float * d_ownDivided;
+				cudaErrchk(cudaMalloc(&d_ownDivided, Elements(refDims) * sizeof(*d_ownDivided)));
+
+				d_IFFTC2R(d_fftOwnDivided, d_ownDivided, DimensionCount(refDims), refDims, 1);
+
+				MultidimArray<float> h_ownDivided(refDims.z, refDims.y, refDims.x);
+				cudaMemcpy(h_ownDivided.data, d_ownDivided, Elements(refDims) * sizeof(float), cudaMemcpyDeviceToHost);
+
+				MRCImage<float> ownDividedIm(h_ownDivided);
+				ownDividedIm.writeAs<float>(fnOut + "_ownWeighted.mrc");
+
+				cudaErrchk(cudaMemcpy(finalReconstructionImage->data.data, d_finalReconstruction, Elements(refDims) * sizeof(*d_finalReconstruction), cudaMemcpyDeviceToHost));
+				cudaErrchk(cudaFree(d_fftFinalReconstruction));
+				cudaErrchk(cudaFree(d_finalReconstruction));
+				cudaErrchk(cudaFree(d_3DCTF));
 			}
-			else
-				true;
-
-			proj.lambdaART = proj.lambdaART / sqrt(2);
-		}
-		proj.setAtomPositions(RefAtoms);
-		MRCImage<RDOUBLE> *after1Itoversample = proj.create3DImage(3.0);
-		after1Itoversample->writeAs<float>(fnOut + "_it" + std::to_string(itIdx+1)+ "_oversampled3.mrc", true);
-		writeFSC(origVol(), (*after1Itoversample)(), fnOut + "_it" + std::to_string(itIdx+1) + "_oversampled3.fsc");
-		writeFSC(origVolMasked(), Mask()*(*after1Itoversample)(), fnOut + "_it" + std::to_string(itIdx+1) + "_oversampled3_masked.fsc");
-		delete after1Itoversample;
-
-		//MRCImage<RDOUBLE> * after1It = proj.create3DImage(1.0);
-		//after1It->writeAs<float>(fnOut + "_it" + std::to_string(itIdx) + ".mrc", true);
-		//delete after1It;
-		proj.writePDB(fnOut + "_it" + std::to_string(itIdx+1));
-
-		if (false && writeProjections) {
-
-			idxtype positionIdx = 0;
-			for (idxtype batchIdx = 0; batchIdx < numProj;) {
-
-				proj.setAtomPositions(atomPosition[positionIdx]);
-				positionIdx++;
-#pragma omp parallel for
-				for (int n = 0; n < 1024; n++) {
-					//proj.setAtomPositions(RefAtompositionsMatrix);
-					proj.project_Pseudo(pseudoProjectionsData.data + pseudoProjectionsData.yxdim*(batchIdx + n), NULL, angles[batchIdx + n], 0.0, 0.0, PSEUDO_FORWARD);
-				}
-				batchIdx += 1024;
-			}
-
-			pseudoProjections.setData(pseudoProjectionsData);
-			pseudoProjections.writeAs<float>(fnOut + "_" + std::to_string(itIdx+1) + "stit_pseudoProjections.mrc", true);
-			pseudoProjectionsData.coreDeallocate();
-			pseudoProjectionsData.coreAllocate();
-			pseudoProjectionsData.initZeros(numProj, projections.ydim, projections.xdim);
-		}
-	}*/
-	/*
-	processed = 0;
-	positionIdx = 0;
-	if (batchSize > 1)
-	{
-		for (int batchidx = 0; batchidx < (int)(numProj / ((float)batchSize) + 0.5); batchidx++) {
-			if (processed % 1024 == 0) {
-				proj.setAtomPositions(atomPosition[positionIdx]);
-				positionIdx++;
-			}
-			int numLeft = std::min((int)numProj - batchidx * batchSize, batchSize);
-			MultidimArray<RDOUBLE> slice = projections.getZSlices(batchidx * batchSize, batchidx * batchSize + numLeft);
-			if (numLeft != 0) {
-				proj.ART_batched(slice, numLeft, angles + batchidx * batchSize, 0.0, 0.0);
-			}
-			processed += numLeft;
-
-		}
+			finalReconstructionImage->writeAs<float>(fnOut + "_finalReconstruction.mrc", true);
+			writeFSC(origVol(), (*finalReconstructionImage)(), fnOut + "_finalReconstruction.fsc");
+			writeFSC(origMasked(), (*finalReconstructionImage)() * Mask(), fnOut + "_finalReconstruction_masked.fsc");
+		}*/
 	}
-	else
-	{
-		proj.ART_multi_Image_step(projections.data, angles, 0.0, 0.0, numProj);
-	}
-	proj.setAtomPositions(StartAtomPositions);
-	MRCImage<RDOUBLE> *after2Itoversample = proj.create3DImage(2.0);
-	after2Itoversample->writeAs<float>(fnOut + "_it2_oversampled2.mrc");
-	writeFSC(origVol(), (*after2Itoversample)(), fnOut + "_it2_oversampled2.fsc");
-	delete after2Itoversample;
-
-	MRCImage<RDOUBLE> *after2It = proj.create3DImage(1.0);
-	after2It->writeAs<float>(fnOut + "_it2.mrc", true);
-	delete after2It;
-	proj.writePDB(fnOut + "_it2");
-	if (writeProjections) {
-#pragma omp parallel for
-		for (int n = 0; n < numProj; n++) {
-
-			proj.project_Pseudo(pseudoProjectionsData.data + pseudoProjectionsData.yxdim*n, NULL, angles[n], 0.0, 0.0, PSEUDO_FORWARD);
-		}
-		pseudoProjections.setData(pseudoProjectionsData);
-		pseudoProjections.writeAs<float>(fnOut + "_2ndit_pseudoProjections.mrc", true);
-		pseudoProjectionsData.coreDeallocate();
-		pseudoProjectionsData.coreAllocate();
-	}
-	processed = 0;
-	positionIdx = 0;
-	if (batchSize > 1)
-	{
-		for (int batchidx = 0; batchidx < (int)(numProj / ((float)batchSize) + 0.5); batchidx++) {
-			if (processed % 1024 == 0) {
-				proj.setAtomPositions(atomPosition[positionIdx]);
-				positionIdx++;
-			}
-			int numLeft = std::min((int)numProj - batchidx * batchSize, batchSize);
-			MultidimArray<RDOUBLE> slice = projections.getZSlices(batchidx * batchSize, batchidx * batchSize + numLeft);
-			if (numLeft != 0) {
-				proj.ART_batched(slice, numLeft, angles + batchidx * batchSize, 0.0, 0.0);
-			}
-			processed += numLeft;
-
-		}
-	}
-	else
-	{
-		proj.ART_multi_Image_step(projections.data, angles, 0.0, 0.0, numProj);
-	}
-	proj.setAtomPositions(StartAtomPositions);
-	MRCImage<RDOUBLE> *after3Itoversample = proj.create3DImage(2.0);
-	after3Itoversample->writeAs<float>(fnOut + "_it3_oversampled2.mrc", true);
-	writeFSC(origVol(), (*after3Itoversample)(), fnOut + "_it3_oversampled2.fsc");
-	delete after3Itoversample;
-
-	MRCImage<RDOUBLE> *after3It = proj.create3DImage(1.0);
-	after3It->writeAs<float>(fnOut + "_it3.mrc", true);
-	delete after3It;
-	proj.writePDB(fnOut + "_it3");
-	if (writeProjections) {
-#pragma omp parallel for
-		for (int n = 0; n < numProj; n++) {
-			proj.project_Pseudo(pseudoProjectionsData.data + pseudoProjectionsData.yxdim*n, NULL, angles[n], 0.0, 0.0, PSEUDO_FORWARD);
-		}
-
-		pseudoProjections.setData(pseudoProjectionsData);
-		pseudoProjections.writeAs<float>(fnOut + "_3rdit_pseudoProjections.mrc");
-	}
-	*/
-
-
-	
 }
