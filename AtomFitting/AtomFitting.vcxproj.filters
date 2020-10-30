@@ -3,22 +3,91 @@
   <ItemGroup>
     <Filter Include="HeaderFiles">
       <UniqueIdentifier>{61a8a861-87b3-46e7-8890-7e71d08538b4}</UniqueIdentifier>
+      <Extensions>*.h</Extensions>
+    </Filter>
+    <Filter Include="SourceFiles">
+      <UniqueIdentifier>{d1e9948b-acdc-435e-baff-eab963adf0fa}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\src_cpp\pseudoatoms.cpp" />
-    <ClCompile Include="..\src_cpp\funcs.cpp" />
-    <ClCompile Include="..\src_cpp\Types.cpp" />
-    <ClCompile Include="..\src_cpp\Warp_GPU.cpp" />
-    <ClCompile Include="..\src_cpp\AtomFittingMain.cpp" />
-    <ClCompile Include="..\src_cpp\readMRC.cpp" />
+    <ClCompile Include="..\src_cpp\AtomFittingMain.cpp">
+      <Filter>SourceFiles</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_cpp\funcs.cpp">
+      <Filter>SourceFiles</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_cpp\metadata_container.cpp">
+      <Filter>SourceFiles</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_cpp\metadata_label.cpp">
+      <Filter>SourceFiles</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_cpp\metadata_table.cpp">
+      <Filter>SourceFiles</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_cpp\pseudoatoms.cpp">
+      <Filter>SourceFiles</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_cpp\readMRC.cpp">
+      <Filter>SourceFiles</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_cpp\Types.cpp">
+      <Filter>SourceFiles</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_cpp\Warp_GPU.cpp">
+      <Filter>SourceFiles</Filter>
+    </ClCompile>
+    <ClCompile Include="PseudoAtomGrid.cpp">
+      <Filter>SourceFiles</Filter>
+    </ClCompile>
+    <ClCompile Include="PseudoAtomGridCell.cpp">
+      <Filter>SourceFiles</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\src_cpp\pseudoatoms.h" />
-    <ClInclude Include="..\src_cpp\funcs.h" />
-    <ClInclude Include="..\src_cpp\liblionImports.h" />
-    <ClInclude Include="..\src_cpp\Types.h" />
-    <ClInclude Include="..\src_cpp\Warp_GPU.h" />
-    <ClInclude Include="..\src_cpp\readMRC.h" />
+    <ClInclude Include="..\src_cpp\metadata_label.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_cpp\metadata_container.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_cpp\funcs.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_cu\cudaHelpers.cuh">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_cpp\metadata_table.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_cpp\pseudoatoms.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_cpp\readMRC.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_cpp\Types.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_cpp\Warp_GPU.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_cpp\liblionImports.h">
+      <Filter>SourceFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="PseudoAtomGrid.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="PseudoAtomGridCell.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_cpp\AtomFitting.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="..\src_cu\cudaHelpers.cu">
+      <Filter>SourceFiles</Filter>
+    </CudaCompile>
   </ItemGroup>
 </Project>

@@ -1,0 +1,57 @@
+\documentclass{article}
+\usepackage[a4paper, margin=0.1cm]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\pagestyle{empty}
+\usepackage{braket}
+\usepackage{xcolor}
+\newcount\colveccount
+\newcommand*\colvec[1]{
+        \global\colveccount#1
+        \begin{pmatrix}
+        \colvecnext
+}
+\def\colvecnext#1{
+        #1
+        \global\advance\colveccount-1
+        \ifnum\colveccount>0
+                \\
+                \expandafter\colvecnext
+        \else
+                \end{pmatrix}
+        \fi
+}
+
+\usepackage{bbold}
+\newcommand{\iu}{{i\mkern1mu}}
+\begin{document}
+Current difference from ref volume for Pixel i at position $x_i$ is given by
+\begin{align*}
+D_i(x_1,..., x_{a_\alpha}, ..., x_n) &= \left(\frac{\sum_{x_{a_\beta} < x_i} (1-(x_i - x_{a_\beta}))w_{a_\beta}f(y,z) + \sum_{x_{a_\beta} > x_i} (1-(x_{a_\beta}-x_i))w_{a_\beta}f(y,z)}{\sum_{x_{a_\beta} < x_i} (1-(x_i - x_{a_\beta}))f(y,z) + \sum_{x_{a_\beta} > x_i} (1-(x_{a_\beta}-x_i))f(y,z)} - I_{\mathrm{exp}}\right)^2\\
+\frac{\partial D}{\partial x_{a_\alpha}} &= 2\left(\frac{\sum_{x_{a_\beta} < x_i} (1-(x_i - x_{a_\beta}))f(y,z)w_{a_\beta} + \sum_{x_{a_\beta} > x_i} (1-(x_{a_\beta}-x_i))f(y,z)w_{a_\beta}}{\sum_{x_{a_\beta} < x_i} (1-(x_i - x_{a_\beta})) + \sum_{x_{a_\beta} > x_i} (1-(x_{a_\beta}-x_i))f(y,z)} - I_{\mathrm{exp}}\right)\\
+& \cdot \frac{\partial}{\partial x_{a_\alpha}} \left(\frac{\sum_{x_{a_\beta} < x_i} (1-(x_i - x_{a_\beta}))f(y,z)w_{a_\beta} + \sum_{x_{a_\beta} > x_i} (1-(x_{a_\beta}-x_i))f(y,z)w_{a_\beta}}{\sum_{x_{a_\beta} < x_i} (1-(x_i - x_{a_\beta}))f(y,z) + \sum_{x_{a_\beta} > x_i} (1-(x_{a_\beta}-x_i))f(y,z)} - I_{\mathrm{exp}}\right)\\
+\end{align*}
+
+\begin{align*}
+u_i &= \sum_{x_{a_\beta} < x_i} (1-(x_i - x_{a_\beta}))f(y,z)w_{a_\beta} + \sum_{x_{a_\beta} > x_i} (1-(x_{a_\beta}-x_i))f(y,z)w_{a_\beta}\\
+\frac{\partial u_i}{\partial x_{a_\alpha}} &= \begin{cases} -w_{a_\alpha}f(y,z)\qquad x_{a_\alpha} > x_i\\w_{a_\alpha}f(y,z)\qquad x_{a_\alpha} < x_i\end{cases}\\
+v_i &= \sum_{x_{a_\beta} < x_i} (1-(x_i - x_{a_\beta}))f(y,z) + \sum_{x_{a_\beta} > x_i} (1-(x_{a_\beta}-x_i))f(y,z)\\
+\frac{\partial v_i}{\partial x_{a_\alpha}} &= \begin{cases} -f(y,z)\qquad x_{a_\alpha} > x_i\\f(y,z)\qquad x_{a_\alpha} < x_i\end{cases}
+\end{align*}
+
+
+\begin{align*}
+\frac{\partial D_i}{\partial x_{a_\alpha}} &= 2\left(\frac{u_i}{v_i} - I_{\mathrm{exp}}\right)\cdot \left(\frac{\frac{\partial u}{\partial x_{a_\alpha}}\cdot v_i - u_i\cdot\frac{\partial v_i}{\partial x_{a_\alpha}}}{v_i^2}\right)\\
+\end{align*}
+
+$x_{a_\alpha} > x_i$
+\begin{align*}
+\frac{\partial D_i}{\partial x_{a_\alpha}} &= 2\left(\frac{u_i}{v_i} - I_{\mathrm{exp}}\right)\cdot \left(\frac{-w_{a_\alpha}f(y,z)\cdot v_i + u_i f(y,z)}{v_i^2}\right)\\
+\end{align*}
+
+$x_{a_\alpha} < x_i$
+\begin{align*}
+\frac{\partial D_i}{\partial x_{a_\alpha}} &= 2\left(\frac{u_i}{v_i} - I_{\mathrm{exp}}\right)\cdot \left(\frac{w_{a_\alpha}f(y,z)\cdot v_i - u_i f(y,z)}{v_i^2}\right)\\
+\end{align*}
+
+\end{document}

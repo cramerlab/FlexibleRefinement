@@ -80,6 +80,9 @@
     <ClInclude Include="src_cu\cudaHelpers.cuh">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src_cpp\Projector.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="src_cu\gpu_project.cu">

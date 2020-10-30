@@ -105,6 +105,7 @@
     <ClInclude Include="src_cpp\metadata_container.h" />
     <ClInclude Include="src_cpp\metadata_label.h" />
     <ClInclude Include="src_cpp\metadata_table.h" />
+    <ClInclude Include="src_cpp\Projector.h" />
     <ClInclude Include="src_cpp\pseudoatoms.h" />
     <ClInclude Include="src_cpp\PseudoProjector.h" />
     <ClInclude Include="src_cpp\readMRC.h" />
