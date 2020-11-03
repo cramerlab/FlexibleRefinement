@@ -44,13 +44,13 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>D:\Software\gtom\include;D:\Software\FlexibleRefinement\src_cpp;D:\Software\FlexibleRefinement\src_cu;D:\Software\liblion;$(IncludePath)</IncludePath>
+    <IncludePath>..\..\LBFGSpp\include;..\external\eigen\;..\..\gtom\include;..\src_cpp;..\src_cu;..\..\liblion;$(IncludePath)</IncludePath>
     <LibraryPath>D:\Software\gtom\x64\$(Configuration)\;D:\Software\warp2\bin;D:\Software\liblion\x64\$(Configuration) (float);$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
     <IntDir>..\$(Platform)\$(Configuration)\</IntDir>
     <OutDir>..\$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>D:\Software\gtom\include;D:\Software\FlexibleRefinement\src_cpp;D:\Software\liblion;$(IncludePath)</IncludePath>
+    <IncludePath>..\..\LBFGSpp\include;..\external\eigen\;..\..\gtom\include;..\src_cpp;..\src_cu;..\..\liblion;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -99,6 +99,7 @@
     <ClCompile Include="..\src_cpp\metadata_table.cpp" />
     <ClCompile Include="..\src_cpp\pseudoatoms.cpp" />
     <ClCompile Include="..\src_cpp\readMRC.cpp" />
+    <ClCompile Include="..\src_cpp\Solver.cpp" />
     <ClCompile Include="..\src_cpp\Types.cpp" />
     <ClCompile Include="..\src_cpp\Warp_GPU.cpp" />
     <ClCompile Include="PseudoAtomGrid.cpp" />
@@ -113,6 +114,7 @@
     <ClInclude Include="..\src_cpp\metadata_table.h" />
     <ClInclude Include="..\src_cpp\pseudoatoms.h" />
     <ClInclude Include="..\src_cpp\readMRC.h" />
+    <ClInclude Include="..\src_cpp\Solver.h" />
     <ClInclude Include="..\src_cpp\Types.h" />
     <ClInclude Include="..\src_cpp\Warp_GPU.h" />
     <ClInclude Include="..\src_cu\cudaHelpers.cuh">

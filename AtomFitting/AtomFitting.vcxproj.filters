@@ -43,6 +43,9 @@
     <ClCompile Include="PseudoAtomGridCell.cpp">
       <Filter>SourceFiles</Filter>
     </ClCompile>
+    <ClCompile Include="..\src_cpp\Solver.cpp">
+      <Filter>HeaderFiles</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src_cpp\metadata_label.h">
@@ -82,6 +85,9 @@
       <Filter>HeaderFiles</Filter>
     </ClInclude>
     <ClInclude Include="..\src_cpp\AtomFitting.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_cpp\Solver.h">
       <Filter>HeaderFiles</Filter>
     </ClInclude>
   </ItemGroup>

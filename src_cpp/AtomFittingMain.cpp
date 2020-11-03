@@ -2,7 +2,11 @@
 #include <cstdlib>
 #include "readMRC.h"
 #include "pseudoatoms.h"
+#include "Solver.h"
 #include <random>
+#include <Eigen/Core>
+#include <LBFGS.h>
+
 int main(char** argv, int argc) {
 
 	idxtype N = 800000; //Estimate of number of Atoms
@@ -122,6 +126,10 @@ int main(char** argv, int argc) {
 	adampars->v = new float3[atoms.NAtoms];
 	memset(adampars->m, 0, sizeof(*(adampars->m))*atoms.NAtoms);
 	memset(adampars->v, 0, sizeof(*(adampars->v))*atoms.NAtoms);
+	Solver solver(&atoms, SuperRefVolume, Dims, super, false);
+	solver.run();
+	
+	/*
 	for (size_t i = 0; i < numIt; i++)
 	{
 		adampars->t++;
@@ -143,6 +151,7 @@ int main(char** argv, int argc) {
 	{
 		outfile << std::to_string(Error[i]) << std::endl;
 	}
+	*/
 
 
 	return EXIT_SUCCESS;

@@ -6,6 +6,8 @@
 #include "Types.h"
 #include "funcs.h"
 #include "Warp_GPU.h"
+#include "Eigen\Core"
+
 enum PseudoAtomMode { ATOM_GAUSSIAN=0, ATOM_INTERPOLATE=1 };
 
 
@@ -115,6 +117,8 @@ public:
 		}
 		return NAtoms;
 	}
+
+	double operator() (Eigen::VectorXd positions, Eigen::VectorXd& grad);
 
 };
 #endif // !PSEUDOATOMS

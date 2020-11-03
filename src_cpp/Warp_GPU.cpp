@@ -40,6 +40,20 @@ void ResizeMapGPU(MultidimArray<float> &img, int2 newDim)
 	FreeDevice(dout);
 }
 
+double SquaredSum(MultidimArray<float> &img) {
+	float* din = MallocDeviceFromHost(img.data, img.nzyxdim);
+	float* dout;
+	cudaErrchk(cudaMalloc(&dout, sizeof(float)*1))
+	d_MultiplyByVector(din, din, din, img.nzyxdim, 1);
+	
+	d_SumMonolithic(din, dout, img.nzyxdim, 1);
+	float output;
+	cudaMemcpy(&output, dout, sizeof(float) * 1, cudaMemcpyDeviceToHost);
+	cudaFree(din);
+	cudaFree(dout);
+	return output;
+}
+
 void Substract_GPU(MultidimArray<float> &img, MultidimArray<float> &substrahend) {
 	assert(substrahend.nzyxdim == img.nzyxdim && "Shapes should match");
 	float* din = MallocDeviceFromHost(img.data, img.nzyxdim);

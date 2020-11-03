@@ -1,6 +1,10 @@
 #include "pseudoatoms.h"
 #include "readMRC.h"
+
 using namespace relion;
+
+
+
 
 void Pseudoatoms::RasterizeToVolume(MultidimArray<RDOUBLE>& vol, int3 Dims, RDOUBLE super, bool resize)
 {
@@ -8,6 +12,9 @@ void Pseudoatoms::RasterizeToVolume(MultidimArray<RDOUBLE>& vol, int3 Dims, RDOU
 	{
 		vol.resizeNoCopy((long)(Dims.z * super + 0.5), (long)(Dims.y * super + 0.5), (long)(Dims.x * super + 0.5));
 		vol.initZeros();
+
+		Eigen::VectorXd positions(this->NAtoms * 3);
+
 		//resizeMap(vol, (long)(Dims.z * super + 0.5));
 		//ResizeMapGPU(vol, make_int3((int)(volSuper.xdim*super + 0.5), (int)(volSuper.ydim*super + 0.5), (int)(volSuper.zdim*super + 0.5)));
 
@@ -139,6 +146,11 @@ void Pseudoatoms::IntensityFromVolume(MultidimArray<RDOUBLE>& vol, RDOUBLE super
 	}
 
 	volSuper.coreDeallocate();
+}
+
+double Pseudoatoms::operator()(Eigen::VectorXd positions, Eigen::VectorXd & grad)
+{
+	return 0.0;
 }
 
 void Pseudoatoms::MoveAtoms(MultidimArray<RDOUBLE>& superRefVol, int3 Dims, RDOUBLE super, bool resize, double limit, ADAMParams * adamparams)
