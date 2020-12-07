@@ -4,3 +4,6 @@
 [submodule "external/LBFGSpp"]
 	path = external/LBFGSpp
 	url = https://github.com/yixuan/LBFGSpp/
+[submodule "external/lbfgs-cpp"]
+	path = external/lbfgs-cpp
+	url = https://github.com/FlyinTeller/lbfgs-cpp
