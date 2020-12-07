@@ -25,5 +25,7 @@ void writeFSC(MultidimArray<RDOUBLE> &V1, MultidimArray<RDOUBLE> &V2, FileName o
 
 RDOUBLE Lerp(RDOUBLE a, RDOUBLE b, RDOUBLE x);
 
+float getLength(float3 f);
+
 //RDOUBLE gaussian1D(RDOUBLE x, RDOUBLE sigma, RDOUBLE mu = 0);
 #endif // !FUNCS

@@ -6,7 +6,8 @@
 #include "Types.h"
 #include "funcs.h"
 #include "Warp_GPU.h"
-#include "Eigen\Core"
+#include <queue>
+#include <list>
 
 enum PseudoAtomMode { ATOM_GAUSSIAN=0, ATOM_INTERPOLATE=1 };
 
@@ -17,20 +18,25 @@ public:
 	std::vector<float3> AtomPositions;
 	PseudoAtomMode Mode;
 	Matrix1D<RDOUBLE> GaussianTable;
-	void RasterizeToVolume(MultidimArray<RDOUBLE> &vol, int3 Dims, RDOUBLE super, bool resize=true);
+	void RasterizeToVolume(MultidimArray<RDOUBLE> &vol, int3 Dims, RDOUBLE super, bool resize=true, bool weighting=true);
 	void IntensityFromVolume(MultidimArray<RDOUBLE> &vol, RDOUBLE super);
 	std::vector< RDOUBLE > AtomWeights;
+
 	RDOUBLE TableLength;
 	RDOUBLE Sigma;
 	idxtype NAtoms;
 
 	RDOUBLE GaussFactor;
-
+	std::list<int> *grid;
+	std::vector<int> *neighbours;
+	std::vector<float> *neighbour_dists;
+	int3 gridDims;
 	/*
 	Pseudoatoms(std::vector<Matrix1D<RDOUBLE>> atomPositions, std::vector< RDOUBLE > atomWeight, PseudoAtomMode = ATOM_INTERPOLATE, RDOUBLE sigma=1.0) {
 	
 	
 	}*/
+
 
 	Pseudoatoms(PseudoAtomMode mode = ATOM_INTERPOLATE, RDOUBLE sigma = 1.0, RDOUBLE gaussFactor = 1.0):Mode(mode), Sigma(sigma), GaussFactor(gaussFactor), NAtoms(0) {};
 
@@ -82,8 +88,8 @@ public:
 		}
 	}
 
-	void MoveAtoms(MultidimArray<RDOUBLE>& superRefVol, int3 Dims, RDOUBLE super, bool resize, float limit);
-	void MoveAtoms(MultidimArray<RDOUBLE>& superRefVol, int3 Dims, RDOUBLE super, bool resize, double limit, ADAMParams * adamparams);
+	/*void MoveAtoms(MultidimArray<RDOUBLE>& superRefVol, int3 Dims, RDOUBLE super, bool resize, float limit);
+	void MoveAtoms(MultidimArray<RDOUBLE>& superRefVol, int3 Dims, RDOUBLE super, bool resize, double limit, bool weight, ADAMParams * adamparams);*/
 
 	static idxtype readAtomsFromFile(FileName pdbFile, std::vector<float3> &AtomPositions, std::vector<RDOUBLE> &AtomIntensities, idxtype N=100000) {
 		std::ifstream ifs(pdbFile);
@@ -118,7 +124,41 @@ public:
 		return NAtoms;
 	}
 
-	double operator() (Eigen::VectorXd positions, Eigen::VectorXd& grad);
+	void initGrid(int3 Dims, float cutoff) {
+		gridDims = Dims;
+		grid = new std::list<int>[Elements(Dims)];
+		for (size_t i = 0; i < NAtoms; i++) {
+
+			int x = (int)AtomPositions[i].x;
+			int y = (int)AtomPositions[i].y;
+			int z = (int)AtomPositions[i].z;
+			grid[z*(Dims.x*Dims.y) + y * Dims.x + x].emplace_back(i);
+		}
+		neighbours = new std::vector<int>[NAtoms];
+		neighbour_dists = new std::vector<float>[NAtoms];
+		for (size_t i = 0; i < NAtoms; i++) {
+
+			float x = AtomPositions[i].x;
+			float y = AtomPositions[i].y;
+			float z = AtomPositions[i].z;
+			//search adjacent grid cells for close atoms
+			for (int zz = (int)std::floor(z - cutoff); zz <= (int)std::ceil(z + cutoff); zz++){
+				for (int yy = (int)std::floor(y - cutoff); yy <= (int)std::ceil(y + cutoff); yy++) {
+					for (int xx = (int)std::floor(x - cutoff); xx <= (int)std::ceil(x + cutoff); xx++) {
+						for (int otherAtomIdx : grid[zz*(Dims.x*Dims.y) + yy * Dims.x + xx]) {
+							float dist = getLength(AtomPositions[i] - AtomPositions[otherAtomIdx]);
+							if (dist < cutoff && otherAtomIdx != i) {
+								neighbours[i].emplace_back(otherAtomIdx);
+								neighbour_dists[i].emplace_back(dist);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	 
 
 };
 #endif // !PSEUDOATOMS

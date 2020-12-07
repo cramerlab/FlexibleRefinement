@@ -37,14 +37,20 @@
     <ClCompile Include="..\src_cpp\Warp_GPU.cpp">
       <Filter>SourceFiles</Filter>
     </ClCompile>
-    <ClCompile Include="PseudoAtomGrid.cpp">
+    <ClCompile Include="..\src_cpp\AtomMover.cpp">
       <Filter>SourceFiles</Filter>
     </ClCompile>
-    <ClCompile Include="PseudoAtomGridCell.cpp">
+    <ClCompile Include="..\src_cpp\ADAM_Solver.cpp">
       <Filter>SourceFiles</Filter>
     </ClCompile>
-    <ClCompile Include="..\src_cpp\Solver.cpp">
-      <Filter>HeaderFiles</Filter>
+    <ClCompile Include="..\src_cpp\LBFGS_Solver.cpp">
+      <Filter>SourceFiles</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_cpp\PseudoAtomGrid.cpp">
+      <Filter>SourceFiles</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src_cpp\PseudoAtomGridCell.cpp">
+      <Filter>SourceFiles</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -78,16 +84,22 @@
     <ClInclude Include="..\src_cpp\liblionImports.h">
       <Filter>SourceFiles</Filter>
     </ClInclude>
-    <ClInclude Include="PseudoAtomGrid.h">
-      <Filter>HeaderFiles</Filter>
-    </ClInclude>
-    <ClInclude Include="PseudoAtomGridCell.h">
-      <Filter>HeaderFiles</Filter>
-    </ClInclude>
     <ClInclude Include="..\src_cpp\AtomFitting.h">
       <Filter>HeaderFiles</Filter>
     </ClInclude>
-    <ClInclude Include="..\src_cpp\Solver.h">
+    <ClInclude Include="..\src_cpp\AtomMover.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_cpp\ADAM_Solver.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_cpp\LBFGS_Solver.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_cpp\PseudoAtomGrid.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src_cpp\PseudoAtomGridCell.h">
       <Filter>HeaderFiles</Filter>
     </ClInclude>
   </ItemGroup>

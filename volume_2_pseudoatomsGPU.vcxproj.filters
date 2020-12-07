@@ -68,9 +68,6 @@
     <ClCompile Include="src_cpp\histogram.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src_cpp\main_volume_to_pseudoatoms.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src_cpp\my_mask.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -99,6 +96,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src_cpp\metadata_table.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src_cpp\main_volume_to_pseudoatoms.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src_cpp\volume_to_pseudoatoms.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -2,16 +2,24 @@
 #include <cstdlib>
 #include "readMRC.h"
 #include "pseudoatoms.h"
-#include "Solver.h"
+#include "AtomMover.h"
 #include <random>
 #include <Eigen/Core>
-#include <LBFGS.h>
-
+#include <LBFGSpp/include/LBFGSB.h>
+#include "ADAM_Solver.h"
+#include "LBFGS_Solver.h"
 int main(char** argv, int argc) {
 
 	idxtype N = 800000; //Estimate of number of Atoms
 	FileName pixsize = "2.0";
-	float super = 4.0f;
+	float super = 1.0f;
+	
+	bool weighting = false;
+	std::string weightString;
+	if(weighting)
+		weightString = "WithWeighting";
+	else
+		weightString = "NoWeighting";
 	FileName starFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + ".projections_uniform_combined.distorted_10.star";
 
 
@@ -34,27 +42,26 @@ int main(char** argv, int argc) {
 	std::vector<RDOUBLE> AtomIntensities;
 	idxtype NAtoms = 0;
 	//NAtoms = Pseudoatoms::readAtomsFromFile(pdbFileName, AtomPositions, AtomIntensities, N); //actually read number of atoms
-	/*
-	float3 pos = { 1.25, 1.1, 1.1 };
+	
+	/*float3 pos = { 1.25, 1.5, 1.5 };
 	AtomPositions.emplace_back(pos);
 	AtomIntensities.emplace_back(1.0);
 	NAtoms++;
 
-	pos = { 1.75, 1.1, 1.1};
+	pos = { 1.75, 1.5, 1.5};
 	AtomPositions.emplace_back(pos);
 	AtomIntensities.emplace_back(2.0);
 	NAtoms++;
 	*/
-
 	static std::default_random_engine e;
 	e.seed(42); //Reproducible results for testing
 	static std::uniform_real_distribution<> dis(0, 1); // range 0 - 1
 
-	for (size_t x = 0; x < super*Dims.x-1; x++)
+	for (size_t x = (super*Dims.x)/4; x < 3*(super*Dims.x-1)/4; x++)
 	{
-		for (size_t y = 0; y < super*Dims.y-1; y++)
+		for (size_t y = (super*Dims.y) / 4; y < 3 * (super*Dims.y - 1) / 4; y++)
 		{
-			for (size_t z = 0; z < super*Dims.z-1; z++)
+			for (size_t z = (super*Dims.z) / 4; z < 3 * (super*Dims.z - 1) / 4; z++)
 			{
 				float3 pos = { (x+0.5)/super, (y+0.5)/super, (z+0.5)/super };
 				AtomPositions.emplace_back(pos);
@@ -64,19 +71,19 @@ int main(char** argv, int argc) {
 			}
 		}
 	}
-
+	
 	//Pseudoatoms atoms(pseudoPositions, pseudoweights, 2, ATOM_INTERPOLATE);
 	Pseudoatoms atoms(((float*)AtomPositions.data()), ((float*)AtomIntensities.data()), NAtoms, ATOM_INTERPOLATE);
-	std::string weightString = "WithWeighting";
+	atoms.initGrid(Dims, 1.1/super);
 	MultidimArray<float> SuperRefVolume;
-	atoms.RasterizeToVolume(SuperRefVolume, Dims, super, false);
+	atoms.RasterizeToVolume(SuperRefVolume, Dims, super, false, weighting);
 	{
 		MRCImage<float> refIm(SuperRefVolume);
 		refIm.writeAs<float>(fnOut + "SuperRefVol" + weightString + ".mrc", true);
 	}
 
 	MultidimArray<float> RefVolume;
-	atoms.RasterizeToVolume(RefVolume, Dims, super);
+	atoms.RasterizeToVolume(RefVolume, Dims, super, true, weighting);
 	{
 		MRCImage<float> refIm(RefVolume);
 		refIm.writeAs<float>(fnOut + "RefVol" + weightString + ".mrc", true);
@@ -85,28 +92,28 @@ int main(char** argv, int argc) {
 
 
 
-	for (size_t i = 0; i < NAtoms/2; i++)
+	for (size_t i = 0; i < NAtoms; i++)
 	{
 		float3 diff = { (dis(e) * 2 - 1)*0.4/super,(dis(e) * 2 - 1)*0.4/super, (dis(e) * 2 - 1)*0.4/super };
 		atoms.AtomPositions[i] = atoms.AtomPositions[i] + diff;
 	}
 
-
+	//atoms.AtomPositions[0].x = 1.1;
 
 	MultidimArray<float> SuperMovedVolume;
-	atoms.RasterizeToVolume(SuperMovedVolume, Dims, super, false);
+	atoms.RasterizeToVolume(SuperMovedVolume, Dims, super, false, weighting);
 	{
 		MRCImage<float> refIm(SuperMovedVolume);
 		refIm.writeAs<float>(fnOut + "SuperMovedVolume" + weightString + ".mrc", true);
 	}
 
 	MultidimArray<float> MovedVolume;
-	atoms.RasterizeToVolume(MovedVolume, Dims, super);
+	atoms.RasterizeToVolume(MovedVolume, Dims, super, true, weighting);
 	{
 		MRCImage<float> refIm(MovedVolume);
 		refIm.writeAs<float>(fnOut + "MovedVolume" + weightString + ".mrc", true);
 	}
-	int numIt = 50;
+	int numIt = 500;
 	float* Error = (float*)malloc(sizeof(float)*(numIt+1));
 	float err = 0.0;
 	FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY3D(MovedVolume) {
@@ -116,43 +123,25 @@ int main(char** argv, int argc) {
 	std::cout << Error[0] << std::endl;
 
 	//writeFSC(MovedVolume*referenceMaskIm(), referenceVolume()*referenceMaskIm(), fnOut + "MovedVolume" + weightString + ".fsc");
-	ADAMParams *adampars = new ADAMParams();
-	adampars->alpha = 0.001;
-	adampars->beta1 = 0.9;
-	adampars->beta2 = 0.999;
-	adampars->t = 0;
-	adampars->epsilon = 1e-8;
-	adampars->m = new float3[atoms.NAtoms];
-	adampars->v = new float3[atoms.NAtoms];
-	memset(adampars->m, 0, sizeof(*(adampars->m))*atoms.NAtoms);
-	memset(adampars->v, 0, sizeof(*(adampars->v))*atoms.NAtoms);
-	Solver solver(&atoms, SuperRefVolume, Dims, super, false);
-	solver.run();
+
 	
-	/*
-	for (size_t i = 0; i < numIt; i++)
-	{
-		adampars->t++;
-		atoms.MoveAtoms(SuperRefVolume, Dims, super, false, 0.1,adampars);
-		atoms.RasterizeToVolume(MovedVolume, Dims, super);
-		{
-			MRCImage<float> refIm(MovedVolume);
-			//refIm.writeAs<float>(fnOut + "MovedVolume" + weightString + "_it" + std::to_string(i) + ".mrc", true);
-		}
-		err = 0.0;
-		FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY3D(MovedVolume) {
-			err += pow(DIRECT_A3D_ELEM(MovedVolume, k, i, j) - DIRECT_A3D_ELEM(RefVolume, k, i, j), 2);
-		}
-		Error[i+1] = sqrt(err)/Elements(Dims);
-		std::cout << Error[i+1] <<  "\t" << 0.05*sqrt(3) << "\t" << sqrt(3)*0.1 / sqrt(i + 1) << std::endl;
-	}
+	AtomMover mover(&atoms, SuperRefVolume, Dims, super, false, weighting, 0.1);
+	
+	//solver.run();
+	ADAM_Solver adam_solver;
+	LBFGS_Solver lbfgs_solver;
+
+	//lbfgs_solver.run(mover, 500);
+	adam_solver.run(mover, numIt);
+	
+	
 	std::ofstream outfile("D:\\EMD\\9233\\AtomFitting\\iterationErr.txt", std::ios_base::out);
 	for (size_t i = 0; i < numIt; i++)
 	{
 		outfile << std::to_string(Error[i]) << std::endl;
 	}
-	*/
+	
+	
 
-
-	return EXIT_SUCCESS;
+ 	return EXIT_SUCCESS;
 }

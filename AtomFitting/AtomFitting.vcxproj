@@ -44,7 +44,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>..\..\LBFGSpp\include;..\external\eigen\;..\..\gtom\include;..\src_cpp;..\src_cu;..\..\liblion;$(IncludePath)</IncludePath>
+    <IncludePath>..\external;..\external\eigen\;..\..\gtom\include;..\src_cpp;..\src_cu;..\..\liblion;$(IncludePath)</IncludePath>
     <LibraryPath>D:\Software\gtom\x64\$(Configuration)\;D:\Software\warp2\bin;D:\Software\liblion\x64\$(Configuration) (float);$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
     <IntDir>..\$(Platform)\$(Configuration)\</IntDir>
     <OutDir>..\$(Platform)\$(Configuration)\</OutDir>
@@ -99,11 +99,13 @@
     <ClCompile Include="..\src_cpp\metadata_table.cpp" />
     <ClCompile Include="..\src_cpp\pseudoatoms.cpp" />
     <ClCompile Include="..\src_cpp\readMRC.cpp" />
-    <ClCompile Include="..\src_cpp\Solver.cpp" />
+    <ClCompile Include="..\src_cpp\AtomMover.cpp" />
     <ClCompile Include="..\src_cpp\Types.cpp" />
     <ClCompile Include="..\src_cpp\Warp_GPU.cpp" />
-    <ClCompile Include="PseudoAtomGrid.cpp" />
-    <ClCompile Include="PseudoAtomGridCell.cpp" />
+    <ClCompile Include="..\src_cpp\ADAM_Solver.cpp" />
+    <ClCompile Include="..\src_cpp\LBFGS_Solver.cpp" />
+    <ClCompile Include="..\src_cpp\PseudoAtomGrid.cpp" />
+    <ClCompile Include="..\src_cpp\PseudoAtomGridCell.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src_cpp\AtomFitting.h" />
@@ -114,14 +116,16 @@
     <ClInclude Include="..\src_cpp\metadata_table.h" />
     <ClInclude Include="..\src_cpp\pseudoatoms.h" />
     <ClInclude Include="..\src_cpp\readMRC.h" />
-    <ClInclude Include="..\src_cpp\Solver.h" />
+    <ClInclude Include="..\src_cpp\AtomMover.h" />
     <ClInclude Include="..\src_cpp\Types.h" />
     <ClInclude Include="..\src_cpp\Warp_GPU.h" />
     <ClInclude Include="..\src_cu\cudaHelpers.cuh">
       <FileType>Document</FileType>
     </ClInclude>
-    <ClInclude Include="PseudoAtomGrid.h" />
-    <ClInclude Include="PseudoAtomGridCell.h" />
+    <ClInclude Include="..\src_cpp\ADAM_Solver.h" />
+    <ClInclude Include="..\src_cpp\LBFGS_Solver.h" />
+    <ClInclude Include="..\src_cpp\PseudoAtomGrid.h" />
+    <ClInclude Include="..\src_cpp\PseudoAtomGridCell.h" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="..\src_cu\cudaHelpers.cu" />

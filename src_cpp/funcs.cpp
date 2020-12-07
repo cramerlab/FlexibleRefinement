@@ -112,3 +112,7 @@ void writeFSC(MultidimArray<RDOUBLE> &V1, MultidimArray<RDOUBLE> &V2, FileName o
 	}
 	MDfsc.write(outpath);
 }
+
+float getLength(float3 f) {
+	return sqrt(pow(f.x, 2) + pow(f.y, 2) + pow(f.z, 2));
+}
