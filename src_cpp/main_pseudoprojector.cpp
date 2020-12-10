@@ -361,9 +361,7 @@ float * do_reconstruction(MultidimArray<float> projections, MultidimArray<float>
 	return d_reconstruction;
 }
 
-
-int main(int argc, char** argv) {
-
+void ctfTest() {
 	cudaErrchk(cudaSetDevice(1));
 	cudaErrchk(cudaDeviceSynchronize());
 	// Define Parameters
@@ -439,7 +437,7 @@ int main(int argc, char** argv) {
 	StartIntensities.resize(RefIntensities.size(), (RDOUBLE)0);
 
 
-	
+
 	PseudoProjector proj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (float *)StartAtoms.data(), (RDOUBLE *)StartIntensities.data(), super, NAtoms);
 	proj.lambdaART = 0.001 / projections.zdim;
 	//PseudoProjector ctfProj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (float *)StartAtoms.data(), (RDOUBLE *)StartIntensities.data(), super, NAtoms);
@@ -635,7 +633,7 @@ int main(int argc, char** argv) {
 				tfloat3 *h_shifts = (tfloat3 *)malloc(1 * sizeof(*h_shifts));
 
 				h_shifts[0] = { refDims.x / 2, refDims.y / 2, refDims.z/2 };
-				
+
 
 				cudaErrchk(cudaFree(d_absfft_unweighted));
 				cudaErrchk(cudaFree(d_absfft_weighted));
@@ -704,8 +702,8 @@ int main(int argc, char** argv) {
 			}
 
 			delete after1Itoversample;
-		
-		
+
+
 			MRCImage<RDOUBLE> *finalReconstructionImage = proj.create3DImage(super);
 			if (CTFWeighting)
 			{
@@ -781,5 +779,108 @@ int main(int argc, char** argv) {
 			writeFSC(origVol(), (*finalReconstructionImage)(), fnOut + "_finalReconstruction.fsc");
 			writeFSC(origMasked(), (*finalReconstructionImage)() * Mask(), fnOut + "_finalReconstruction_masked.fsc");
 		}*/
+	}
+}
+
+
+int main(int argc, char** argv) {
+
+	cudaErrchk(cudaSetDevice(1));
+	cudaErrchk(cudaDeviceSynchronize());
+	// Define Parameters
+	idxtype N = 800000;
+	Algo algo = SIRT;
+	FileName pixsize = "2.0";
+	RDOUBLE super = 4.0;
+	bool writeProjections = true;	//Wether or not to write out projections before and after each iteration
+	idxtype numThreads = 24;
+	omp_set_num_threads(numThreads);
+	idxtype numIt = 3;
+
+	FileName projectionsStarFileName = "D:\\EMD\\9233\\Movement_Analysis\\original_proj.star";
+
+	FileName refFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + ".mrc";
+	FileName refMaskFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + "_mask.mrc";
+	FileName tsvFileName = "D:\\EMD\\9233\\Movement_Analysis\\ordered_movement_1.500000_weighting_false_4.000000_600\\moved.tsv";		//PDB File containing pseudo atom coordinates
+	//FileName pdbFileName = "D:\\EMD\\9233\\emd_9233_Scaled_2.0_largeMask.pdb.pdb";		//PDB File containing pseudo atom coordinates
+	FileName fnOut = "D:\\EMD\\9233\\Movement_Analysis\\ordered_movement_1.500000_weighting_false_4.000000_600\\Reconstruction_NoCorrection\\recon";
+
+	//Read Images
+	MRCImage<RDOUBLE> origVol = MRCImage<RDOUBLE>::readAs(refFileName);
+	MRCImage<RDOUBLE> origMasked = MRCImage<RDOUBLE>::readAs(refFileName);
+	MRCImage<RDOUBLE> Mask = MRCImage<RDOUBLE>::readAs(refMaskFileName);
+	origMasked.setData(origMasked()*Mask());
+	origMasked.writeAs<float>(refFileName.withoutExtension() + "_masked.mrc", true);
+	int3 refDims = { origVol().xdim, origVol().ydim, origVol().zdim };
+
+	float3 *angles;
+	MultidimArray<RDOUBLE> projections;
+	idxtype numProj = readProjections(projectionsStarFileName, projections, &angles, false);
+	//numProj = 2048;
+
+
+	cudaErrchk(cudaDeviceSynchronize());
+	if (writeProjections)
+	{
+		MRCImage<RDOUBLE> projectionsIM(projections);
+		projectionsIM.writeAs<float>(fnOut + "_readProjections.mrc", true);
+	}
+	weightProjections(projections, angles, refDims);
+	cudaErrchk(cudaDeviceSynchronize());
+	if (writeProjections)
+	{
+		MRCImage<RDOUBLE> projectionsIM(projections);
+		projectionsIM.writeAs<float>(fnOut + "_readProjectionsWeighted.mrc", true);
+	}
+
+	Pseudoatoms *Atoms = Pseudoatoms::ReadTsvFile(tsvFileName);
+
+	float* zeroWeights = (float*)malloc(sizeof(float)*Atoms->NAtoms);
+	for (size_t i = 0; i < Atoms->NAtoms; i++)
+	{
+		zeroWeights[i] = 0.0f;
+	}
+
+	PseudoProjector proj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (RDOUBLE*) Atoms->AtomPositions.data(), zeroWeights, super, (unsigned int) Atoms->NAtoms);
+	proj.lambdaART = 0.001 / projections.zdim;
+	//PseudoProjector ctfProj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (float *)StartAtoms.data(), (RDOUBLE *)StartIntensities.data(), super, NAtoms);
+	//ctfProj.lambdaART = 0.1 / projections.zdim;
+	PseudoProjector RefProj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (RDOUBLE*)Atoms->AtomPositions.data(), (RDOUBLE*)Atoms->AtomWeights.data(), super, Atoms->NAtoms);
+
+	MRCImage<RDOUBLE> *RefImage = RefProj.create3DImage(super);
+	RefImage->writeAs<float>(fnOut + "_ref3DIm.mrc", true);
+
+	MultidimArray<float> refArray = RefImage->operator()();
+	delete RefImage;
+	cudaErrchk(cudaDeviceSynchronize());
+
+
+	// Do Iterative reconstruction
+	for (size_t itIdx = 0; itIdx < numIt; itIdx++)
+	{
+		if (algo == SIRT) {
+			//proj.SIRT(projections, CTF, angles, numProj, NULL, NULL, NULL, NULL, 0, 0);
+			//ctfProj.SIRT(realCTF, angles, numProj, 0, 0);
+			if (true)
+			{
+				// Debug variant that writes out correction images
+				MultidimArray<RDOUBLE> Itheo, Icorr, Idiff, Inorm;
+				proj.SIRT(projections, angles, numProj, &Itheo, &Icorr, &Idiff, &Inorm, 0.0, 0.0);
+				MRCImage<RDOUBLE> imItheo(Itheo);
+				imItheo.writeAs<float>(fnOut + "_" + std::to_string(itIdx + 1) + "stit_Itheo.mrc", true);
+				MRCImage<RDOUBLE> imIcorr(Icorr);
+				imIcorr.writeAs<float>(fnOut + "_" + std::to_string(itIdx + 1) + "stit_Icorr.mrc", true);
+				MRCImage<RDOUBLE> imIdiff(Idiff);
+				imIdiff.writeAs<float>(fnOut + "_" + std::to_string(itIdx + 1) + "stit_Idiff.mrc", true);
+				MRCImage<RDOUBLE> imInorm(Inorm);
+				imInorm.writeAs<float>(fnOut + "_" + std::to_string(itIdx + 1) + "stit_Inorm.mrc", true);
+			}
+		}
+
+		MRCImage<RDOUBLE> *after1Itoversample = proj.create3DImage(super);
+		after1Itoversample->writeAs<float>(fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + ".mrc", true);
+		writeFSC(origVol(), (*after1Itoversample)(), fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + ".fsc");
+		writeFSC(origMasked(), (*after1Itoversample)() * Mask(), fnOut + "_it" + std::to_string(itIdx + 1) + "_oversampled" + std::to_string((int)super) + "_masked.fsc");
+		delete after1Itoversample;
 	}
 }

@@ -745,6 +745,31 @@ void PseudoProjector::projectForward(float3 *angles, idxtype numAngles, Multidim
 	cudaFree(d_atomPositions);
 }
 
+static inline void outputDeviceAsImage(tcomplex *d_data, int3 Dims, FileName outName) {
+
+	float *d_abs;
+	cudaErrchk(cudaMalloc(&d_abs, ElementsFFT(Dims) * sizeof(*d_abs)));
+	d_Abs(d_data, d_abs, ElementsFFT(Dims));
+
+	MultidimArray<float> h_data(Dims.z, Dims.y, ElementsFFT1(Dims.x));
+	cudaErrchk(cudaMemcpy(h_data.data, d_abs, ElementsFFT(Dims) * sizeof(*d_abs), cudaMemcpyDeviceToHost));
+	MRCImage<float> h_im(h_data);
+	h_im.writeAs<float>(outName, true);
+	cudaErrchk(cudaFree(d_abs));
+}
+
+static inline void outputDeviceAsImage(float *d_data, int3 Dims, FileName outName, bool isFT = false) {
+	MultidimArray<float> h_data(Dims.z, Dims.y, isFT ? (Dims.x / 2 + 1) : Dims.x);
+	cudaErrchk(cudaMemcpy(h_data.data, d_data, isFT ? ElementsFFT(Dims) : Elements(Dims) * sizeof(*d_data), cudaMemcpyDeviceToHost));
+	MRCImage<float> h_im(h_data);
+	h_im.writeAs<float>(outName, true);
+}
+
+static inline void outputAsImage(MultidimArray<float> h_data, FileName outName) {
+	MRCImage<float> h_im(h_data);
+	h_im.writeAs<float>(outName, true);
+}
+
 RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, idxtype numAngles, MultidimArray<RDOUBLE>* Itheo, MultidimArray<RDOUBLE>* Icorr, MultidimArray<RDOUBLE>* Idiff, MultidimArray<RDOUBLE>* superICorr, RDOUBLE shiftX, RDOUBLE shiftY)
 {
 	//cudaErrchk(cudaSetDevice(1));
@@ -1023,30 +1048,7 @@ RDOUBLE PseudoProjector::CTFSIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, i
 
 }
 
-static inline void outputDeviceAsImage(tcomplex *d_data, int3 Dims, FileName outName) {
-	
-	float *d_abs;
-	cudaErrchk(cudaMalloc(&d_abs, ElementsFFT(Dims)*sizeof(*d_abs)));
-	d_Abs(d_data, d_abs, ElementsFFT(Dims));
 
-	MultidimArray<float> h_data(Dims.z, Dims.y, ElementsFFT1(Dims.x));
-	cudaErrchk(cudaMemcpy(h_data.data, d_abs, ElementsFFT(Dims)*sizeof(*d_abs), cudaMemcpyDeviceToHost));
-	MRCImage<float> h_im(h_data);
-	h_im.writeAs<float>(outName, true);
-	cudaErrchk(cudaFree(d_abs));
-}
-
-static inline void outputDeviceAsImage(float *d_data, int3 Dims, FileName outName, bool isFT=false) {
-	MultidimArray<float> h_data(Dims.z, Dims.y, isFT?(Dims.x/2+1):Dims.x);
-	cudaErrchk(cudaMemcpy(h_data.data, d_data, isFT?ElementsFFT(Dims):Elements(Dims)*sizeof(*d_data), cudaMemcpyDeviceToHost));
-	MRCImage<float> h_im(h_data);
-	h_im.writeAs<float>(outName, true);
-}
-
-static inline void outputAsImage(MultidimArray<float> h_data, FileName outName) {
-	MRCImage<float> h_im(h_data);
-	h_im.writeAs<float>(outName, true);
-}
 
 RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBLE> &CTFs, float3 *angles, idxtype numAngles, MultidimArray<RDOUBLE>* Itheo, MultidimArray<RDOUBLE>* Icorr, MultidimArray<RDOUBLE>* Idiff, MultidimArray<RDOUBLE>* superICorr, RDOUBLE shiftX, RDOUBLE shiftY)
 {
