@@ -13,6 +13,6 @@ class ADAM_Solver
 		Eigen::VectorXd v;
 
 public:
-	void run(AtomMover &mover, int numIt);
+	void run(AtomMover &mover, int numIt, FileName outfile="");
 };
 

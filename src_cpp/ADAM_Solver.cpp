@@ -1,9 +1,9 @@
 #include "ADAM_Solver.h"
+#include <fstream>
 
 
 
-
-void ADAM_Solver::run(AtomMover &mover, int numIt)
+void ADAM_Solver::run(AtomMover &mover, int numIt, FileName outfile)
 {
 	alpha = 0.01;
 	beta1 = 0.9;
@@ -12,7 +12,9 @@ void ADAM_Solver::run(AtomMover &mover, int numIt)
 	epsilon = 1e-8;
 	m = Eigen::VectorXd::Zero(3*mover.Atoms->NAtoms);
 	v = Eigen::VectorXd::Zero(3*mover.Atoms->NAtoms);
-	
+	std::ofstream ofs;
+	if(outfile != "")
+		ofs = std::ofstream(outfile);
 
 	double fx;
 	Eigen::VectorXd positions(mover.Atoms->NAtoms * 3);
@@ -48,6 +50,9 @@ void ADAM_Solver::run(AtomMover &mover, int numIt)
 		double pos1_u = positions[1];
 		double pos2_u = positions[2];
 		fx = mover(positions, grad);
+		if (outfile != "")
+			ofs << i << ": " << fx << std::endl;
+		
 		std::cout << i << ": " << fx << std::endl;
 		/*{ (float)(AtomPositions[p].x - adamparams->alpha*mt.x / (sqrt(vt.x) + adamparams->epsilon)),
 								(float)(AtomPositions[p].y - adamparams->alpha*mt.y / (sqrt(vt.y) + adamparams->epsilon)),
