@@ -2,6 +2,7 @@
 #ifndef PSEUDOATOMS
 #define PSEUDOATOMS
 #include "AtomFitting.h"
+#include <assert.h>
 #include "liblionImports.h"
 #include "Types.h"
 #include "funcs.h"
@@ -18,7 +19,7 @@ public:
 	std::vector<float3> AtomPositions;
 	PseudoAtomMode Mode;
 	Matrix1D<RDOUBLE> GaussianTable;
-	void RasterizeToVolume(MultidimArray<RDOUBLE> &vol, int3 Dims, RDOUBLE super, bool resize=true, bool weighting=true);
+	void RasterizeToVolume(MultidimArray<RDOUBLE> &vol, int3 Dims, RDOUBLE super, bool resize=true, bool weighting=false);
 	void IntensityFromVolume(MultidimArray<RDOUBLE> &vol, RDOUBLE super);
 	std::vector< RDOUBLE > AtomWeights;
 
@@ -122,6 +123,85 @@ public:
 			}
 		}
 		return NAtoms;
+	}
+
+	static Pseudoatoms* ReadTsvFile(FileName tsvFileName) {
+		FILE* ifs = fopen(tsvFileName.c_str(), "r");
+		if (ifs == NULL) {
+			std::cerr << "Failed to open " << tsvFileName << std::endl;
+			exit(EXIT_FAILURE);
+		}
+		char buffer[1000];
+		int N;
+		fscanf(ifs, "%d\n", &N);
+		float *AtomPositions = (float*)malloc(sizeof(*AtomPositions) * N * 3);
+		float *AtomWeights = (float*)malloc(sizeof(*AtomWeights) * N);
+		fscanf(ifs, "%s\n", buffer);
+		if (!(buffer[0] == '#')) {
+			std::cerr << "Invalid line " << std::string(buffer) << std::endl;
+		}
+		bool stop = false;
+		while (!stop)
+		{
+			float x, y, z, weight;
+			int idx;
+			int n = fscanf(ifs, "%d\t%f\t%f\t%f\t%f\n", &idx, &x, &y, &z, &weight);
+			//sscanf(buffer, "%d\t%f\t%f\t%f\t%f\n", &idx, &x, &y, &z, &weight);
+			if (n == 5) {
+				assert(idx < N);
+				AtomPositions[3 * idx + 0] = x;
+				AtomPositions[3 * idx + 1] = y;
+				AtomPositions[3 * idx + 2] = z;
+				AtomWeights[idx] = weight;
+			}
+			else
+				stop = true;
+		}
+
+		return new Pseudoatoms(AtomPositions, AtomWeights, N, ATOM_INTERPOLATE);
+	}
+
+	void writeTsvFile(FileName tsvFileName) {
+		/*std::ofstream ifs(tsvFileName);
+		if (ifs.fail()) {
+			std::cerr << "Failed to open " << tsvFileName << std::endl;
+			exit(EXIT_FAILURE);
+		}
+
+		for (size_t i = 0; i < NAtoms; i++)
+		{
+			ifs << std::to_string(i) << '\t' << AtomPositions[i].x << '\t' << AtomPositions[i].y << '\t' << AtomPositions[i].z << '\t' << AtomWeights[i] << std::endl;
+		}
+		ifs << "##################################" << std::endl;
+		for (size_t i = 0; i < NAtoms; i++)
+		{
+			for (size_t j = 0; j < neighbours[i].size(); j++)
+			{
+			//	ifs << i << '\t' << '\t' << j << '\t' << neighbour_dists[i][j] << std::endl;
+			} 
+		}*/
+
+		FILE* ofs = fopen(tsvFileName.c_str(), "w");
+		if (ofs == NULL) {
+			std::cerr << "Failed to open " << tsvFileName << std::endl;
+			exit(EXIT_FAILURE);
+		}
+
+		fprintf(ofs, "%d\n", NAtoms);
+		fprintf(ofs, "##################################\n");
+		for (size_t i = 0; i < NAtoms; i++)
+		{
+			fprintf(ofs, "%d\t%.10f\t%.10f\t%.10f\t%.10f\n", i, AtomPositions[i].x, AtomPositions[i].y, AtomPositions[i].z, AtomWeights[i]);
+		}
+		fprintf(ofs, "##################################\n");
+		for (size_t i = 0; i < NAtoms; i++)
+		{
+			for (size_t j = 0; j < neighbours[i].size(); j++)
+			{
+				//	ifs << i << '\t' << '\t' << j << '\t' << neighbour_dists[i][j] << std::endl;
+			}
+		}
+		fclose(ofs);
 	}
 
 	void initGrid(int3 Dims, float cutoff) {

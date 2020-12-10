@@ -15,16 +15,16 @@ static inline void outputDeviceAsImage(float *d_data, int3 Dims, FileName outNam
 	MRCImage<float> h_im(h_data);
 	h_im.writeAs<float>(outName, true);
 }
-void writeProjectionsToDisk(Pseudoatoms &atoms, float3* angles, idxtype numAngles, float super, int3 Dims, FileName outname) {
+void writeProjectionsToDisk(Pseudoatoms *Atoms, float3* angles, idxtype numAngles, float super, int3 Dims, FileName outname) {
 
 	cudaErrchk(cudaDeviceSynchronize());
 	float3 * d_atomPositions;
-	cudaErrchk(cudaMalloc((void**)&d_atomPositions, atoms.NAtoms * sizeof(float3)));
-	cudaErrchk(cudaMemcpy(d_atomPositions, atoms.AtomPositions.data(), atoms.NAtoms * sizeof(float3), cudaMemcpyHostToDevice));
+	cudaErrchk(cudaMalloc((void**)&d_atomPositions, Atoms->NAtoms * sizeof(float3)));
+	cudaErrchk(cudaMemcpy(d_atomPositions, Atoms->AtomPositions.data(), Atoms->NAtoms * sizeof(float3), cudaMemcpyHostToDevice));
 
 	float * d_atomIntensities;
-	cudaErrchk(cudaMalloc((void**)&d_atomIntensities, atoms.NAtoms * sizeof(float)));
-	cudaErrchk(cudaMemcpy(d_atomIntensities, atoms.AtomWeights.data(), atoms.NAtoms * sizeof(float), cudaMemcpyHostToDevice));
+	cudaErrchk(cudaMalloc((void**)&d_atomIntensities, Atoms->NAtoms * sizeof(float)));
+	cudaErrchk(cudaMemcpy(d_atomIntensities, Atoms->AtomWeights.data(), Atoms->NAtoms * sizeof(float), cudaMemcpyHostToDevice));
 
 	idxtype GPU_FREEMEM;
 	idxtype GPU_MEMLIMIT;
@@ -81,7 +81,7 @@ void writeProjectionsToDisk(Pseudoatoms &atoms, float3* angles, idxtype numAngle
 		batchSuperProjDim.z = batch;
 		float3 * h_angles = angles + startIm;
 
-		RealspacePseudoProjectForward(d_atomPositions, d_atomIntensities, atoms.NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
+		RealspacePseudoProjectForward(d_atomPositions, d_atomIntensities, Atoms->NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
 		cudaErrchk(cudaPeekAtLastError());
 		if (false)
 			outputDeviceAsImage(d_superProjections, batchSuperProjDim, outname + std::string("_d_superProjectionsBatch_it") + std::to_string(startIm) + ".mrc", false);
@@ -187,16 +187,20 @@ int main(int argc, char** argv) {
 	ProgVolumeToPseudoatoms initializer(21, new char*[21]{ "consecutive_rastering","-i", "D:\\EMD\\9233\\emd_9233_Scaled_2.0.mrc", "-o", "D:\\EMD\\9233\\Consecutive_Rastering\emd_9233_Scaled_2.0_600k_0.pdb", "--initialSeeds", bufferN, "--oversampling", bufferSuper, "--mask", "binary_file",
 		"--maskfile", "D:\\EMD\\9233\\emd_9233_Scaled_2.0_mask.mrc", "--InterpolateValues", "true", "--dontAllowMovement",  "true", "--dontAllowIntensity", "true", "--dontAllowNumberChange", "false" });
 
-
-	initializer.run();
-	Pseudoatoms Atoms = initializer.Atoms;
-
 	MultidimArray<RFLOAT> rastered;
 	FileName outdirBase = "D:\\EMD\\9233\\Movement_Analysis\\";
+	/*
+	initializer.run();
+	Pseudoatoms Atoms = initializer.Atoms;
+	Atoms.initGrid(dims, 0.9);
 
+	Atoms.writeTsvFile(outdirBase + "original.tsv");
+	*/
+	
+	Pseudoatoms * Atoms = Pseudoatoms::ReadTsvFile(outdirBase + "original.tsv");
 	if (false)
 	{
-		Atoms.RasterizeToVolume(rastered, { (int)im().xdim, (int)im().ydim, (int)im().zdim }, super, true, weighting);
+		Atoms->RasterizeToVolume(rastered, { (int)im().xdim, (int)im().ydim, (int)im().zdim }, super, true, weighting);
 		{
 			MRCImage<float> out(rastered);
 			out.writeAs<float>(outdirBase + "original.mrc");
@@ -205,15 +209,15 @@ int main(int argc, char** argv) {
 		writeFSC(im(), rastered, std::string(outdirBase) + "original_fsc.star");
 		writeProjectionsToDisk(Atoms, angles, numProj, super, dims, outdirBase + "original_proj.mrc");
 	}
-	Atoms.initGrid(dims, 0.9);
+	
 	MultidimArray<RFLOAT> refVolume1;
 	MultidimArray<RFLOAT> refVolume2;
 	MultidimArray<RFLOAT> refVolume4;
 
-	Atoms.RasterizeToVolume(refVolume1, dims, 1.0, false, weighting);
-	Atoms.RasterizeToVolume(refVolume2, dims, 2.0, false, weighting);
-	Atoms.RasterizeToVolume(refVolume4, dims, 4.0, false, weighting);
-	float diff = 0.5;
+	Atoms->RasterizeToVolume(refVolume1, dims, 1.0, false, weighting);
+	Atoms->RasterizeToVolume(refVolume2, dims, 2.0, false, weighting);
+	Atoms->RasterizeToVolume(refVolume4, dims, 4.0, false, weighting);
+	float diff = 1.5;
 	//for (float diff : diffList) {
 	{
 		FileName outdir = outdirBase + "ordered_movement_" + std::to_string(diff) + "_weighting_" + (weighting ? "true" : "false") + "_" + std::to_string(super) + "_" + std::to_string(N / 1000) + "\\";
@@ -223,79 +227,84 @@ int main(int argc, char** argv) {
 		e.seed(42); //Reproducible results for testing
 		static std::uniform_real_distribution<> dis(0, 1); // range 0 - 1
 
-		for (size_t i = 0; i < Atoms.NAtoms; i++)
+		for (size_t i = 0; i < Atoms->NAtoms; i++)
 		{
 			//float3 distance = { (dis(e) * 2 - 1)*diff,(dis(e) * 2 - 1)*diff, (dis(e) * 2 - 1)*diff };
-			float3 distance = { diff * Atoms.AtomPositions[i].z / dims.z,diff * Atoms.AtomPositions[i].z / dims.z ,0 };
-			Atoms.AtomPositions[i] = Atoms.AtomPositions[i] + distance;
+			float3 distance = { diff * Atoms->AtomPositions[i].z / dims.z,diff * Atoms->AtomPositions[i].z / dims.z ,0 };
+			Atoms->AtomPositions[i] = Atoms->AtomPositions[i] + distance;
 		}
 
-		Atoms.RasterizeToVolume(rastered, { (int)im().xdim, (int)im().ydim, (int)im().zdim }, super, true, weighting);
+		Atoms->RasterizeToVolume(rastered, { (int)im().xdim, (int)im().ydim, (int)im().zdim }, super, true, weighting);
 		{
 			MRCImage<float> out(rastered);
 			out.writeAs<float>(outdir + "moved.mrc");
 		}
+		writeProjectionsToDisk(Atoms, angles, numProj, super, dims, outdir + "moved_proj.mrc");
 		writeFSC(im()*mask(), rastered*mask(), std::string(outdir) + "moved_fsc_masked.star");
 		writeFSC(im(), rastered, std::string(outdir) + "moved_fsc.star");
 		//writeProjectionsToDisk(Atoms, angles, numProj, super, dims, outdir + "moved_proj.mrc");
-
+		Atoms->writeTsvFile(outdir + "moved.tsv");
 
 		//Try to correct
 
 		//First using 1 ref
-		{/*
-			AtomMover mover(&Atoms, refVolume1, dims, 1.0, false, weighting, 0.1);
+		{
+			AtomMover mover(Atoms, refVolume1, dims, 1.0, false, weighting, 0.01);
 			ADAM_Solver adam_solver;
-			int numIt = 50;
+			int numIt = 300;
 
 			//lbfgs_solver.run(mover, 500);
-			adam_solver.run(mover, numIt);
+			adam_solver.run(mover, numIt, outdir + "moved_" + std::to_string(numIt) + "_1.log");
 
-			Atoms.RasterizeToVolume(rastered, { (int)im().xdim, (int)im().ydim, (int)im().zdim }, super, true, weighting);
+			Atoms->RasterizeToVolume(rastered, { (int)im().xdim, (int)im().ydim, (int)im().zdim }, super, true, weighting);
 			{
 				MRCImage<float> out(rastered);
-				out.writeAs<float>(outdir + "moved_50_1.mrc");
+				out.writeAs<float>(outdir + "moved_" + std::to_string(numIt) + "_1.mrc");
 			}
-			writeFSC(im()*mask(), rastered*mask(), std::string(outdir) + "moved_50_1_fsc_masked.star");
-			writeFSC(im(), rastered, std::string(outdir) + "moved_50_1_fsc.star");
-			writeProjectionsToDisk(Atoms, angles, numProj, super, dims, outdir + "moved_50_1_proj.mrc");
-		*/}
+			writeFSC(im()*mask(), rastered*mask(), std::string(outdir) + "moved_" + std::to_string(numIt) + "_1_fsc_masked.star");
+			writeFSC(im(), rastered, std::string(outdir) + "moved_" + std::to_string(numIt) + "_1_fsc.star");
+			writeProjectionsToDisk(Atoms, angles, numProj, super, dims, outdir + "moved_" + std::to_string(numIt) + "_1_proj.mrc");
+			Atoms->writeTsvFile(outdir + "moved_" + std::to_string(numIt) + "_1.tsv");
+		}
 
 		//First using 2 ref
 		{
-			AtomMover mover(&Atoms, refVolume2, dims, 2.0, false, weighting, 0.01);
+			AtomMover mover(Atoms, refVolume2, dims, 2.0, false, weighting, 0.01);
 			ADAM_Solver adam_solver;
-			int numIt = 50;
+			int numIt = 300;
 
 			//lbfgs_solver.run(mover, 500);
-			adam_solver.run(mover, numIt);
+			adam_solver.run(mover, numIt, outdir + "moved_" + std::to_string(numIt) + "_2.log");
 
-			Atoms.RasterizeToVolume(rastered, { (int)im().xdim, (int)im().ydim, (int)im().zdim }, super, true, weighting);
+			Atoms->RasterizeToVolume(rastered, { (int)im().xdim, (int)im().ydim, (int)im().zdim }, super, true, weighting);
 			{
 				MRCImage<float> out(rastered);
-				out.writeAs<float>(outdir + "moved_50_2.mrc");
+				out.writeAs<float>(outdir + "moved_" + std::to_string(numIt) + "_2.mrc");
 			}
-			writeFSC(im()*mask(), rastered*mask(), std::string(outdir) + "moved_50_2_fsc_masked.star");
-			writeFSC(im(), rastered, std::string(outdir) + "moved_50_2_fsc.star");
-			writeProjectionsToDisk(Atoms, angles, numProj, super, dims, outdir + "moved_50_2_proj.mrc");
+			writeFSC(im()*mask(), rastered*mask(), std::string(outdir) + "moved_" + std::to_string(numIt) + "_2_fsc_masked.star");
+			writeFSC(im(), rastered, std::string(outdir) + "moved_" + std::to_string(numIt) + "_2_fsc.star");
+			writeProjectionsToDisk(Atoms, angles, numProj, super, dims, outdir + "moved_" + std::to_string(numIt) + "_2_proj.mrc");
+			Atoms->writeTsvFile(outdir + "moved_" + std::to_string(numIt) + "_2.tsv");
 		}
 
 		{
-			AtomMover mover(&Atoms, refVolume4, dims, 4.0, false, weighting, 0.1);
+			AtomMover mover(Atoms, refVolume4, dims, 4.0, false, weighting, 0.01);
 			ADAM_Solver adam_solver;
-			int numIt = 50;
+			int numIt = 300;
 
 			//lbfgs_solver.run(mover, 500);
-			adam_solver.run(mover, numIt);
+			adam_solver.run(mover, numIt, outdir + "moved_" + std::to_string(numIt) + "_4.log");
 
-			Atoms.RasterizeToVolume(rastered, { (int)im().xdim, (int)im().ydim, (int)im().zdim }, super, true, weighting);
+			Atoms->RasterizeToVolume(rastered, { (int)im().xdim, (int)im().ydim, (int)im().zdim }, super, true, weighting);
 			{
 				MRCImage<float> out(rastered);
-				out.writeAs<float>(outdir + "moved_50_4.mrc");
+				out.writeAs<float>(outdir + "moved_" + std::to_string(numIt) + "_4.mrc");
 			}
-			writeFSC(im()*mask(), rastered*mask(), std::string(outdir) + "moved_50_4_fsc_masked.star");
-			writeFSC(im(), rastered, std::string(outdir) + "moved_50_4_fsc.star");
+			writeFSC(im()*mask(), rastered*mask(), std::string(outdir) + "moved_" + std::to_string(numIt) + "_4_fsc_masked.star");
+			writeFSC(im(), rastered, std::string(outdir) + "moved_" + std::to_string(numIt) + "_4_fsc.star");
 			writeProjectionsToDisk(Atoms, angles, numProj, super, dims, outdir + "moved_50_4_proj.mrc");
+			Atoms->writeTsvFile(outdir + "moved_" + std::to_string(numIt) + "_4.tsv");
 		}
 	}
+	
 }
