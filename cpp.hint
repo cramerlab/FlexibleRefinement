@@ -1,0 +1,12 @@
+// Hint files help the Visual Studio IDE interpret Visual C++ identifiers
+// such as names of functions and macros.
+// For more information see https://go.microsoft.com/fwlink/?linkid=865984
+#define FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY2D(m) for (size_t i=0; i<YSIZE(m); i++) for (size_t j=0; j<XSIZE(m); j++)
+// Hint files help the Visual Studio IDE interpret Visual C++ identifiers
+// such as names of functions and macros.
+// For more information see https://go.microsoft.com/fwlink/?linkid=865984
+#define FOR_ALL_ELEMENTS_IN_ARRAY3D_BETWEEN(corner1, corner2) for (ZZ(r)=ZZ((corner1)); ZZ(r)<=ZZ((corner2)); ++ZZ(r)) for (YY(r)=YY((corner1)); YY(r)<=YY((corner2)); ++YY(r)) for (XX(r)=XX((corner1)); XX(r)<=XX((corner2)); ++XX(r))
+// Hint files help the Visual Studio IDE interpret Visual C++ identifiers
+// such as names of functions and macros.
+// For more information see https://go.microsoft.com/fwlink/?linkid=865984
+#define FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY3D(V) for (size_t k=0; k<ZSIZE(V); k++) for (size_t i=0; i<YSIZE(V); i++) for (size_t j=0; j<XSIZE(V); j++)
