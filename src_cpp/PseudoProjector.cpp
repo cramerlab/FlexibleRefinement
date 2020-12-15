@@ -29,8 +29,6 @@ static inline void outputAsImage(MultidimArray<float> h_data, FileName outName) 
 	h_im.writeAs<float>(outName, true);
 }
 
-
-
 RDOUBLE PseudoProjector::ART_single_image(const MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBLE> &Itheo, MultidimArray<RDOUBLE> &Icorr, MultidimArray<RDOUBLE> &Idiff, RDOUBLE rot, RDOUBLE tilt, RDOUBLE psi, RDOUBLE shiftX, RDOUBLE shiftY)
 {
 	Idiff.initZeros();
@@ -208,8 +206,6 @@ RDOUBLE PseudoProjector::ART_batched(const MultidimArray<RDOUBLE> &Iexp, Multidi
 	delete[] EulerVec;
 	return mean_error;
 }
-
-
 
 RDOUBLE PseudoProjector::ART_multi_Image_step(RDOUBLE * Iexp, float3 * angles, RDOUBLE *gaussTables, RDOUBLE *gaussTables2, RDOUBLE tableLength, RDOUBLE shiftX, RDOUBLE shiftY, unsigned int numImages) {
 
@@ -812,8 +808,6 @@ void PseudoProjector::project_Pseudo(MultidimArray<RDOUBLE> &proj, MultidimArray
 	}
 
 }
-
-
 
 RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, idxtype numAngles, RDOUBLE shiftX, RDOUBLE shiftY)
 {
