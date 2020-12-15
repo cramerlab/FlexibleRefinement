@@ -17,6 +17,7 @@ class Pseudoatoms {
 
 public:
 	std::vector<float3> AtomPositions;
+	std::vector<float *> alternativePositions;
 	PseudoAtomMode Mode;
 	Matrix1D<RDOUBLE> GaussianTable;
 	void RasterizeToVolume(MultidimArray<RDOUBLE> &vol, int3 Dims, RDOUBLE super, bool resize=true, bool weighting=false);
@@ -32,12 +33,6 @@ public:
 	std::vector<int> *neighbours;
 	std::vector<float> *neighbour_dists;
 	int3 gridDims;
-	/*
-	Pseudoatoms(std::vector<Matrix1D<RDOUBLE>> atomPositions, std::vector< RDOUBLE > atomWeight, PseudoAtomMode = ATOM_INTERPOLATE, RDOUBLE sigma=1.0) {
-	
-	
-	}*/
-
 
 	Pseudoatoms(PseudoAtomMode mode = ATOM_INTERPOLATE, RDOUBLE sigma = 1.0, RDOUBLE gaussFactor = 1.0):Mode(mode), Sigma(sigma), GaussFactor(gaussFactor), NAtoms(0) {};
 
@@ -88,9 +83,6 @@ public:
 			GaussianTable *= gaussian1D(0, sigma);
 		}
 	}
-
-	/*void MoveAtoms(MultidimArray<RDOUBLE>& superRefVol, int3 Dims, RDOUBLE super, bool resize, float limit);
-	void MoveAtoms(MultidimArray<RDOUBLE>& superRefVol, int3 Dims, RDOUBLE super, bool resize, double limit, bool weight, ADAMParams * adamparams);*/
 
 	static idxtype readAtomsFromFile(FileName pdbFile, std::vector<float3> &AtomPositions, std::vector<RDOUBLE> &AtomIntensities, idxtype N=100000) {
 		std::ifstream ifs(pdbFile);
@@ -162,24 +154,6 @@ public:
 	}
 
 	void writeTsvFile(FileName tsvFileName) {
-		/*std::ofstream ifs(tsvFileName);
-		if (ifs.fail()) {
-			std::cerr << "Failed to open " << tsvFileName << std::endl;
-			exit(EXIT_FAILURE);
-		}
-
-		for (size_t i = 0; i < NAtoms; i++)
-		{
-			ifs << std::to_string(i) << '\t' << AtomPositions[i].x << '\t' << AtomPositions[i].y << '\t' << AtomPositions[i].z << '\t' << AtomWeights[i] << std::endl;
-		}
-		ifs << "##################################" << std::endl;
-		for (size_t i = 0; i < NAtoms; i++)
-		{
-			for (size_t j = 0; j < neighbours[i].size(); j++)
-			{
-			//	ifs << i << '\t' << '\t' << j << '\t' << neighbour_dists[i][j] << std::endl;
-			} 
-		}*/
 
 		FILE* ofs = fopen(tsvFileName.c_str(), "w");
 		if (ofs == NULL) {
@@ -194,13 +168,7 @@ public:
 			fprintf(ofs, "%d\t%.10f\t%.10f\t%.10f\t%.10f\n", i, AtomPositions[i].x, AtomPositions[i].y, AtomPositions[i].z, AtomWeights[i]);
 		}
 		fprintf(ofs, "##################################\n");
-		for (size_t i = 0; i < NAtoms; i++)
-		{
-			for (size_t j = 0; j < neighbours[i].size(); j++)
-			{
-				//	ifs << i << '\t' << '\t' << j << '\t' << neighbour_dists[i][j] << std::endl;
-			}
-		}
+
 		fclose(ofs);
 	}
 
@@ -238,7 +206,12 @@ public:
 		}
 	}
 
-	 
+	void addAlternativeOrientation(float * positions, int n) {
+		assert(n == NAtoms);
+		float * copy = (float *)malloc(sizeof(*copy)*NAtoms * 3);
+		memcpy(copy, positions, sizeof(*copy)*NAtoms * 3);
+		alternativePositions.emplace_back(copy);
+	}
 
 };
 #endif // !PSEUDOATOMS
