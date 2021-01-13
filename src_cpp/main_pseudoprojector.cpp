@@ -785,7 +785,26 @@ void ctfTest() {
 
 int main(int argc, char** argv) {
 
-	cudaErrchk(cudaSetDevice(1));
+	int deviceCount = 0;
+	cudaErrchk(cudaGetDeviceCount(&deviceCount));
+	idxtype maxMem = 0;
+	int maxmemDevice = -1;
+	for (int i = 0; i < deviceCount; i++)
+	{
+		cudaErrchk(cudaSetDevice(i));
+		idxtype GPU_FREEMEM;
+		idxtype GPU_MEMLIMIT;
+		cudaMemGetInfo(&GPU_FREEMEM, &GPU_MEMLIMIT);
+		if (GPU_FREEMEM > maxMem) {
+			maxmemDevice = i;
+			maxMem = GPU_FREEMEM;
+		}
+	}
+	if (maxmemDevice == -1) {
+		std::cerr << "There was no device that had memory left out of " << deviceCount << " devices" << std::endl;
+		return EXIT_FAILURE;
+	}
+	cudaErrchk(cudaSetDevice(maxmemDevice));
 	cudaErrchk(cudaDeviceSynchronize());
 	// Define Parameters
 	idxtype N = 800000;
@@ -797,13 +816,17 @@ int main(int argc, char** argv) {
 	omp_set_num_threads(numThreads);
 	idxtype numIt = 3;
 
-	FileName projectionsStarFileName = "D:\\EMD\\9233\\Movement_Analysis\\original_proj.star";
+	FileName projectionsOneStarFileName = "D:\\EMD\\9233\\Movement_Analysis\\original_proj.star";
+	FileName tsvOneFileName = "D:\\EMD\\9233\\Movement_Analysis\\original.tsv";
+
+	FileName projectionsTwoStarFileName = "D:\\EMD\\9233\\Movement_Analysis\\moved_proj.star";
+	FileName tsvTwoFileName = "D:\\EMD\\9233\\Movement_Analysis\\ordered_movement_1.500000_weighting_false_4.000000_600\\moved.tsv";
 
 	FileName refFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + ".mrc";
 	FileName refMaskFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + "_mask.mrc";
-	FileName tsvFileName = "D:\\EMD\\9233\\Movement_Analysis\\ordered_movement_1.500000_weighting_false_4.000000_600\\moved.tsv";		//PDB File containing pseudo atom coordinates
+	//PDB File containing pseudo atom coordinates
 	//FileName pdbFileName = "D:\\EMD\\9233\\emd_9233_Scaled_2.0_largeMask.pdb.pdb";		//PDB File containing pseudo atom coordinates
-	FileName fnOut = "D:\\EMD\\9233\\Movement_Analysis\\ordered_movement_1.500000_weighting_false_4.000000_600\\Reconstruction_NoCorrection\\recon";
+	FileName fnOut = "D:\\EMD\\9233\\Movement_Analysis\\ordered_movement_1.500000_weighting_false_4.000000_600\\Reconstruction_Multiple_Correction\\recon";
 
 	//Read Images
 	MRCImage<RDOUBLE> origVol = MRCImage<RDOUBLE>::readAs(refFileName);
@@ -813,17 +836,43 @@ int main(int argc, char** argv) {
 	origMasked.writeAs<float>(refFileName.withoutExtension() + "_masked.mrc", true);
 	int3 refDims = { origVol().xdim, origVol().ydim, origVol().zdim };
 
-	float3 *angles;
-	MultidimArray<RDOUBLE> projections;
-	idxtype numProj = readProjections(projectionsStarFileName, projections, &angles, false);
+	float3 *anglesOne;
+	MultidimArray<RDOUBLE> projectionsOne;
+	idxtype numProjOne = readProjections(projectionsOneStarFileName, projectionsOne, &anglesOne, false);
+
+	float3 *anglesTwo;
+	MultidimArray<RDOUBLE> projectionsTwo;
+	idxtype numProjTwo = readProjections(projectionsTwoStarFileName, projectionsTwo, &anglesTwo, false);
 	//numProj = 2048;
 
+	MultidimArray<RDOUBLE> projections(projectionsOne.zdim + projectionsTwo.zdim, projectionsOne.ydim, projectionsOne.xdim);
+	memcpy(projections.data, projectionsOne.data, projectionsOne.zyxdim * sizeof(*projections.data));
+	memcpy(projections.data + projectionsOne.zyxdim, projectionsTwo.data, projectionsTwo.zyxdim * sizeof(*projections.data));
 
+	idxtype numProj = numProjOne + numProjTwo;
+	float3 * angles = (float3*)malloc(numProj * sizeof(*angles));
+	memcpy(angles, anglesOne, numProjOne * sizeof(*angles));
+	memcpy(angles+numProjOne, anglesTwo, numProjTwo * sizeof(*angles));
+
+
+	int *positionMatching = (int*)malloc(sizeof(int)*numProj);
+	for (size_t i = 0; i < numProjOne; i++)
+	{
+		positionMatching[i] = 0;
+	}
+	for (size_t i = numProjOne; i < numProj; i++)
+	{
+		positionMatching[i] = 1;
+	}
 	cudaErrchk(cudaDeviceSynchronize());
 	if (writeProjections)
 	{
 		MRCImage<RDOUBLE> projectionsIM(projections);
 		projectionsIM.writeAs<float>(fnOut + "_readProjections.mrc", true);
+		MRCImage<RDOUBLE> projectionsIMOne(projectionsOne);
+		projectionsIMOne.writeAs<float>(fnOut + "_readProjectionsOne.mrc", true);
+		MRCImage<RDOUBLE> projectionsIMTwo(projectionsTwo);
+		projectionsIMTwo.writeAs<float>(fnOut + "_readProjectionsTwo.mrc", true);
 	}
 	weightProjections(projections, angles, refDims);
 	cudaErrchk(cudaDeviceSynchronize());
@@ -833,19 +882,28 @@ int main(int argc, char** argv) {
 		projectionsIM.writeAs<float>(fnOut + "_readProjectionsWeighted.mrc", true);
 	}
 
-	Pseudoatoms *Atoms = Pseudoatoms::ReadTsvFile(tsvFileName);
+	Pseudoatoms *Atoms = Pseudoatoms::ReadTsvFile(tsvOneFileName);
 
-	float* zeroWeights = (float*)malloc(sizeof(float)*Atoms->NAtoms);
+	Pseudoatoms *AtomsTwo = Pseudoatoms::ReadTsvFile(tsvTwoFileName);
+
+	Atoms->addAlternativeOrientation((float*)AtomsTwo->alternativePositions[0], AtomsTwo->NAtoms);
+
+
+
+	int3 projDim = make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim));
+	PseudoProjector RefProj(projDim, Atoms, super);
+	
+	
 	for (size_t i = 0; i < Atoms->NAtoms; i++)
 	{
-		zeroWeights[i] = 0.0f;
+		Atoms->AtomWeights[i] = 0;
 	}
-
-	PseudoProjector proj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (RDOUBLE*) Atoms->AtomPositions.data(), zeroWeights, super, (unsigned int) Atoms->NAtoms);
+	
+	PseudoProjector proj(projDim, Atoms, super);
 	proj.lambdaART = 0.001 / projections.zdim;
 	//PseudoProjector ctfProj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (float *)StartAtoms.data(), (RDOUBLE *)StartIntensities.data(), super, NAtoms);
 	//ctfProj.lambdaART = 0.1 / projections.zdim;
-	PseudoProjector RefProj(make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim)), (RDOUBLE*)Atoms->AtomPositions.data(), (RDOUBLE*)Atoms->AtomWeights.data(), super, Atoms->NAtoms);
+
 
 	MRCImage<RDOUBLE> *RefImage = RefProj.create3DImage(super);
 	RefImage->writeAs<float>(fnOut + "_ref3DIm.mrc", true);
@@ -853,6 +911,7 @@ int main(int argc, char** argv) {
 	MultidimArray<float> refArray = RefImage->operator()();
 	delete RefImage;
 	cudaErrchk(cudaDeviceSynchronize());
+
 
 
 	// Do Iterative reconstruction
@@ -865,7 +924,7 @@ int main(int argc, char** argv) {
 			{
 				// Debug variant that writes out correction images
 				MultidimArray<RDOUBLE> Itheo, Icorr, Idiff, Inorm;
-				proj.SIRT(projections, angles, numProj, &Itheo, &Icorr, &Idiff, &Inorm, 0.0, 0.0);
+				proj.SIRT(projections, angles, positionMatching, numProj, &Itheo, &Icorr, &Idiff, &Inorm, 0.0, 0.0);
 				MRCImage<RDOUBLE> imItheo(Itheo);
 				imItheo.writeAs<float>(fnOut + "_" + std::to_string(itIdx + 1) + "stit_Itheo.mrc", true);
 				MRCImage<RDOUBLE> imIcorr(Icorr);

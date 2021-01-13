@@ -44,8 +44,8 @@ public:
 
 	PseudoAtomMode mode;
 
-	Pseudoatoms atoms;
-	Pseudoatoms ctfAtoms;
+	Pseudoatoms *atoms;
+	Pseudoatoms *ctfAtoms;
 
 	//std::vector< Matrix1D<RDOUBLE> > atomPositions;
 	
@@ -60,8 +60,8 @@ public:
 
 
 	//PseudoProjector with Gaussian mode
-	PseudoProjector(int3 dims, RDOUBLE *atomPositionCArr, RDOUBLE *atomWeights, RDOUBLE sigma, RDOUBLE super, unsigned int nAtoms):Dims(dims), sigma(sigma), super(super),mode(ATOM_GAUSSIAN), atoms(atomPositionCArr, atomWeights, nAtoms, ATOM_GAUSSIAN, sigma, GAUSS_FACTOR), lambdaART(0.1){	
-		
+	PseudoProjector(int3 dims, RDOUBLE *atomPositionCArr, RDOUBLE *atomWeights, RDOUBLE sigma, RDOUBLE super, unsigned int nAtoms):Dims(dims), sigma(sigma), super(super),mode(ATOM_GAUSSIAN), lambdaART(0.1){	
+		atoms = new Pseudoatoms(atomPositionCArr, atomWeights, nAtoms, ATOM_GAUSSIAN, sigma, GAUSS_FACTOR);
 		RDOUBLE sigma4 = 4 * sigma;
 		tableLength = sigma4;
 		gaussianProjectionTable = Matrix1D<RDOUBLE>(CEIL(sigma4*sqrt(3) * GAUSS_FACTOR + 1));
@@ -73,7 +73,15 @@ public:
 		gaussianProjectionTable2 *= gaussianProjectionTable;
 	};
 
-	PseudoProjector(int3 dims, RDOUBLE *atomPositionCArr, RDOUBLE *atomWeights, RDOUBLE super, unsigned int nAtoms) :Dims(dims), sigma(0), super(super),mode(ATOM_INTERPOLATE), atoms(atomPositionCArr, atomWeights, nAtoms, ATOM_INTERPOLATE),ctfAtoms(atomPositionCArr, 0.0f, nAtoms, ATOM_INTERPOLATE), lambdaART(0.1) {};
+	PseudoProjector(int3 dims, RDOUBLE *atomPositionCArr, RDOUBLE *atomWeights, RDOUBLE super, unsigned int nAtoms) :Dims(dims), sigma(0), super(super), mode(ATOM_INTERPOLATE), lambdaART(0.1) {
+		atoms = new Pseudoatoms(atomPositionCArr, atomWeights, nAtoms, ATOM_INTERPOLATE);
+		ctfAtoms = new Pseudoatoms(atomPositionCArr, 0.0f, nAtoms, ATOM_INTERPOLATE);
+	};
+
+	PseudoProjector(int3 dims, Pseudoatoms *p_atoms, RDOUBLE super) :Dims(dims), sigma(0), super(super), mode(ATOM_INTERPOLATE), lambdaART(0.1) {
+		atoms = new Pseudoatoms(p_atoms);
+		ctfAtoms = new Pseudoatoms(p_atoms);
+	};
 
 	RDOUBLE ART_single_image(const MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBLE> &Itheo, MultidimArray<RDOUBLE> &Icorr, MultidimArray<RDOUBLE> &Idiff, RDOUBLE rot, RDOUBLE tilt, RDOUBLE psi, RDOUBLE shiftX, RDOUBLE shiftY);
 	RDOUBLE ART_single_image(const MultidimArray<RDOUBLE> &Iexp, RDOUBLE rot, RDOUBLE tilt, RDOUBLE psi, RDOUBLE shiftX, RDOUBLE shiftY);
@@ -113,11 +121,12 @@ public:
 
 
 	void setAtomPositions(std::vector<float3> newPositions) {
-		atoms.AtomPositions = newPositions;
+		atoms->AtomPositions = newPositions;
 	}
 
-	RDOUBLE SIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, idxtype batch, RDOUBLE shiftX, RDOUBLE shiftY);
-	RDOUBLE SIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, idxtype batch, MultidimArray<RDOUBLE>* Itheo, MultidimArray<RDOUBLE>* Icorr, MultidimArray<RDOUBLE>* Idiff, MultidimArray<RDOUBLE>* Inorm, RDOUBLE shiftX, RDOUBLE shiftY);
+	RDOUBLE SIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, idxtype numAngles, RDOUBLE shiftX, RDOUBLE shiftY);
+	RDOUBLE SIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, idxtype numAngles, MultidimArray<RDOUBLE>* Itheo, MultidimArray<RDOUBLE>* Icorr, MultidimArray<RDOUBLE>* Idiff, MultidimArray<RDOUBLE>* Inorm, RDOUBLE shiftX, RDOUBLE shiftY);
+	RDOUBLE SIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, int *positionMapping, idxtype numAngles, MultidimArray<RDOUBLE>* Itheo, MultidimArray<RDOUBLE>* Icorr, MultidimArray<RDOUBLE>* Idiff, MultidimArray<RDOUBLE>* Inorm, RDOUBLE shiftX, RDOUBLE shiftY);
 	RDOUBLE SIRT(MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBLE> &CTFs, float3 *angles, idxtype numAngles, MultidimArray<RDOUBLE>* Itheo, MultidimArray<RDOUBLE>* Icorr, MultidimArray<RDOUBLE>* Idiff, MultidimArray<RDOUBLE>* superICorr, RDOUBLE shiftX, RDOUBLE shiftY);
 
 	RDOUBLE VolumeUpdate(MultidimArray<RDOUBLE> &Volume, RDOUBLE shiftX, RDOUBLE shiftY);

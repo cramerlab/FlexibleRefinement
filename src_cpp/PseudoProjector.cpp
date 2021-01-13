@@ -300,7 +300,7 @@ RDOUBLE PseudoProjector::ART_multi_Image_step_DB(RDOUBLE * Iexp, RDOUBLE * Itheo
 MRCImage<RDOUBLE> *PseudoProjector::create3DImage(RDOUBLE oversampling) {
 
 	MRCImage<RDOUBLE> *Volume = new MRCImage<RDOUBLE>();
-	atoms.RasterizeToVolume(Volume->data, Dims, oversampling);
+	atoms->RasterizeToVolume(Volume->data, Dims, oversampling);
 	Volume->header.dimensions = Dims;
 	return Volume;
 }
@@ -311,12 +311,12 @@ RDOUBLE PseudoProjector::CTFSIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, i
 	cudaErrchk(cudaDeviceSynchronize());
 
 	float3 * d_ctfAtomPositions;
-	cudaErrchk(cudaMalloc((void**)&d_ctfAtomPositions, ctfAtoms.NAtoms * sizeof(float3)));
-	cudaErrchk(cudaMemcpy(d_ctfAtomPositions, ctfAtoms.AtomPositions.data(), ctfAtoms.NAtoms, cudaMemcpyHostToDevice));
+	cudaErrchk(cudaMalloc((void**)&d_ctfAtomPositions, ctfAtoms->NAtoms * sizeof(float3)));
+	cudaErrchk(cudaMemcpy(d_ctfAtomPositions, ctfAtoms->AtomPositions.data(), ctfAtoms->NAtoms, cudaMemcpyHostToDevice));
 
 	float * d_ctfAtomIntensities;
-	cudaErrchk(cudaMalloc((void**)&d_ctfAtomIntensities, ctfAtoms.NAtoms * sizeof(float)));
-	cudaErrchk(cudaMemcpy(d_ctfAtomIntensities, ctfAtoms.AtomWeights.data(), ctfAtoms.NAtoms, cudaMemcpyHostToDevice));
+	cudaErrchk(cudaMalloc((void**)&d_ctfAtomIntensities, ctfAtoms->NAtoms * sizeof(float)));
+	cudaErrchk(cudaMemcpy(d_ctfAtomIntensities, ctfAtoms->AtomWeights.data(), ctfAtoms->NAtoms, cudaMemcpyHostToDevice));
 
 	idxtype GPU_FREEMEM;
 	idxtype GPU_MEMLIMIT;
@@ -384,7 +384,7 @@ RDOUBLE PseudoProjector::CTFSIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, i
 			float3 * h_angles = angles + startIm;
 
 			cudaErrchk(cudaMemcpy(d_iExp, Iexp.data + startIm * Elements2(dimsproj), batch*Elements2(dimsproj) * sizeof(float), cudaMemcpyHostToDevice));
-			RealspacePseudoProjectForward(d_ctfAtomPositions, d_ctfAtomIntensities, atoms.NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
+			RealspacePseudoProjectForward(d_ctfAtomPositions, d_ctfAtomIntensities, atoms->NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
 			cudaErrchk(cudaPeekAtLastError());
 
 			//We have planned for ElementsPerBatch many transforms, therefore we scale also the non existing parts between the end of batch and the end of d_superProj
@@ -428,11 +428,11 @@ RDOUBLE PseudoProjector::CTFSIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, i
 			d_Scale(d_projectionsBatch, d_superProjections, gtom::toInt3(dimsproj), gtom::toInt3(superDimsproj), T_INTERP_FOURIER, &planForward, &planBackward, ElementsPerBatch);
 			if (superICorr != NULL)
 				cudaErrchk(cudaMemcpy(superICorr->data + startIm * Elements2(superDimsproj), d_superProjections, batch*Elements2(superDimsproj) * sizeof(float), cudaMemcpyDeviceToHost));
-			RealspacePseudoProjectBackward(d_ctfAtomPositions, d_ctfAtomIntensities, ctfAtoms.NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
+			RealspacePseudoProjectBackward(d_ctfAtomPositions, d_ctfAtomIntensities, ctfAtoms->NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
 			cudaErrchk(cudaPeekAtLastError());
 
 		}
-		cudaErrchk(cudaMemcpy(ctfAtoms.AtomWeights.data(), d_ctfAtomIntensities, ctfAtoms.NAtoms * sizeof(*(ctfAtoms.AtomWeights.data())), cudaMemcpyDeviceToHost));
+		cudaErrchk(cudaMemcpy(ctfAtoms->AtomWeights.data(), d_ctfAtomIntensities, ctfAtoms->NAtoms * sizeof(*(ctfAtoms->AtomWeights.data())), cudaMemcpyDeviceToHost));
 		cufftDestroy(planForward);
 		cufftDestroy(planBackward);
 		cudaErrchk(cudaFree(d_superProjections));
@@ -451,12 +451,12 @@ void PseudoProjector::projectForward(float3 *angles, idxtype numAngles, Multidim
 {
 	//cudaErrchk(cudaSetDevice(1));
 	float3 * d_atomPositions;
-	cudaErrchk(cudaMalloc((void**)&d_atomPositions, atoms.NAtoms * sizeof(float3)));
-	cudaErrchk(cudaMemcpy(d_atomPositions, atoms.AtomPositions.data(), atoms.NAtoms * sizeof(float3), cudaMemcpyHostToDevice));
+	cudaErrchk(cudaMalloc((void**)&d_atomPositions, atoms->NAtoms * sizeof(float3)));
+	cudaErrchk(cudaMemcpy(d_atomPositions, atoms->AtomPositions.data(), atoms->NAtoms * sizeof(float3), cudaMemcpyHostToDevice));
 
 	float * d_atomIntensities;
-	cudaErrchk(cudaMalloc((void**)&d_atomIntensities, atoms.NAtoms * sizeof(float)));
-	cudaErrchk(cudaMemcpy(d_atomIntensities, atoms.AtomWeights.data(), atoms.NAtoms * sizeof(float), cudaMemcpyHostToDevice));
+	cudaErrchk(cudaMalloc((void**)&d_atomIntensities, atoms->NAtoms * sizeof(float)));
+	cudaErrchk(cudaMemcpy(d_atomIntensities, atoms->AtomWeights.data(), atoms->NAtoms * sizeof(float), cudaMemcpyHostToDevice));
 
 	idxtype GPU_FREEMEM;
 	idxtype GPU_MEMLIMIT;
@@ -471,7 +471,7 @@ void PseudoProjector::projectForward(float3 *angles, idxtype numAngles, Multidim
 	idxtype space = Elements2(dimsproj) * sizeof(float);
 	idxtype ElementsPerBatch = 0.9*(GPU_FREEMEM / ((2 * Elements2(superDimsproj) + Elements2(dimsproj) + Elements2(dimsproj)) * sizeof(float)));
 
-	ElementsPerBatch = std::min(numAngles, (idxtype)2048);	//Hard limit of elementsPerBatch instead of calculating
+	ElementsPerBatch = std::min(numAngles, (idxtype)1024);	//Hard limit of elementsPerBatch instead of calculating
 	Itheo.resizeNoCopy(numAngles, dimsproj.y, dimsproj.x);
 
 
@@ -512,7 +512,7 @@ void PseudoProjector::projectForward(float3 *angles, idxtype numAngles, Multidim
 
 
 			float3 * h_angles = angles + startIm;
-			RealspacePseudoProjectForward(d_atomPositions, d_atomIntensities, atoms.NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
+			RealspacePseudoProjectForward(d_atomPositions, d_atomIntensities, atoms->NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
 			cudaErrchk(cudaPeekAtLastError());
 
 			//We have planned for ElementsPerBatch many transforms, therefore we scale also the non existing parts between the end of batch and the end of d_superProj
@@ -564,7 +564,7 @@ void PseudoProjector::project_Pseudo(MultidimArray<RDOUBLE> &proj, MultidimArray
 		YY(actualAtomPosition) -= Dims.y / 2;
 		ZZ(actualAtomPosition) -= Dims.z / 2;
 
-		RDOUBLE weight = atoms.AtomWeights[n];
+		RDOUBLE weight = atoms->AtomWeights[n];
 
 		Uproject_to_plane(actualAtomPosition, Euler, actprj);
 		XX(actprj) += Dims.x / 2;
@@ -667,7 +667,7 @@ void PseudoProjector::project_Pseudo(MultidimArray<RDOUBLE> &proj, MultidimArray
 
 				if (direction == PSEUDO_BACKWARD)
 				{
-					atoms.AtomWeights[n] += vol_corr;
+					atoms->AtomWeights[n] += vol_corr;
 					//atomWeight[n] = atomWeight[n] > 0 ? atomWeight[n] : 0;
 				}
 			}
@@ -681,7 +681,7 @@ void PseudoProjector::project_Pseudo(MultidimArray<RDOUBLE> &proj, MultidimArray
 void PseudoProjector::project_Pseudo(MultidimArray<RDOUBLE> &proj, MultidimArray<RDOUBLE> &norm_proj, Matrix2D<RDOUBLE> &Euler, RDOUBLE shiftX, RDOUBLE shiftY, int direction)
 {
 	// Project all pseudo atoms ............................................
-	int numAtoms = atoms.AtomPositions.size();
+	int numAtoms = atoms->AtomPositions.size();
 	Matrix1D<RDOUBLE> actprj(3);
 	double sigma4 = this->tableLength;
 	Matrix1D<RDOUBLE> actualAtomPosition;
@@ -689,11 +689,11 @@ void PseudoProjector::project_Pseudo(MultidimArray<RDOUBLE> &proj, MultidimArray
 	for (int n = 0; n < numAtoms; n++)
 	{
 
-		XX(actualAtomPosition) = atoms.AtomPositions[n].x - Dims.x / 2;
-		YY(actualAtomPosition) = atoms.AtomPositions[n].y - Dims.y / 2;
-		ZZ(actualAtomPosition) = atoms.AtomPositions[n].z - Dims.z / 2;
+		XX(actualAtomPosition) = atoms->AtomPositions[n].x - Dims.x / 2;
+		YY(actualAtomPosition) = atoms->AtomPositions[n].y - Dims.y / 2;
+		ZZ(actualAtomPosition) = atoms->AtomPositions[n].z - Dims.z / 2;
 
-		RDOUBLE weight = atoms.AtomWeights[n];
+		RDOUBLE weight = atoms->AtomWeights[n];
 
 		Uproject_to_plane(actualAtomPosition, Euler, actprj);
 		XX(actprj) += Dims.x / 2;
@@ -751,7 +751,7 @@ void PseudoProjector::project_Pseudo(MultidimArray<RDOUBLE> &proj, MultidimArray
 
 				if (direction == PSEUDO_BACKWARD)
 				{
-					atoms.AtomWeights[n] += vol_corr;
+					atoms->AtomWeights[n] += vol_corr;
 					//atomWeight[n] = atomWeight[n] > 0 ? atomWeight[n] : 0;
 				}
 			} // If not collapsed
@@ -820,12 +820,12 @@ RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, idxt
 	//cudaErrchk(cudaSetDevice(1));
 	cudaErrchk(cudaDeviceSynchronize());
 	float3 * d_atomPositions;
-	cudaErrchk(cudaMalloc((void**)&d_atomPositions, atoms.NAtoms * sizeof(float3)));
-	cudaErrchk(cudaMemcpy(d_atomPositions, atoms.AtomPositions.data(), atoms.NAtoms * sizeof(float3), cudaMemcpyHostToDevice));
+	cudaErrchk(cudaMalloc((void**)&d_atomPositions, atoms->NAtoms * sizeof(float3)));
+	cudaErrchk(cudaMemcpy(d_atomPositions, atoms->AtomPositions.data(), atoms->NAtoms * sizeof(float3), cudaMemcpyHostToDevice));
 
 	float * d_atomIntensities;
-	cudaErrchk(cudaMalloc((void**)&d_atomIntensities, atoms.NAtoms * sizeof(float3)));
-	cudaErrchk(cudaMemcpy(d_atomIntensities, atoms.AtomWeights.data(), atoms.NAtoms * sizeof(float), cudaMemcpyHostToDevice));
+	cudaErrchk(cudaMalloc((void**)&d_atomIntensities, atoms->NAtoms * sizeof(float3)));
+	cudaErrchk(cudaMemcpy(d_atomIntensities, atoms->AtomWeights.data(), atoms->NAtoms * sizeof(float), cudaMemcpyHostToDevice));
 
 	idxtype GPU_FREEMEM;
 	idxtype GPU_MEMLIMIT;
@@ -840,7 +840,7 @@ RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, idxt
 	idxtype space = Elements2(dimsproj) * sizeof(float);
 	idxtype ElementsPerBatch = 0.9*(GPU_FREEMEM / ((2*Elements2(superDimsproj)+ Elements2(dimsproj)+ Elements2(dimsproj)) * sizeof(float)));
 
-	ElementsPerBatch = std::min(numAngles, (idxtype)2048);	//Hard limit of elementsPerBatch instead of calculating
+	ElementsPerBatch = std::min(numAngles, (idxtype)1024);	//Hard limit of elementsPerBatch instead of calculating
 	if (Itheo != NULL)
 		Itheo->resizeNoCopy(numAngles, dimsproj.y, dimsproj.x);
 	if (Icorr != NULL)
@@ -891,7 +891,7 @@ RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, idxt
 
 			float3 * h_angles = angles+startIm;
 			cudaMemcpy(d_iExp, Iexp.data+startIm*Elements2(dimsproj), batch*Elements2(dimsproj) * sizeof(float), cudaMemcpyHostToDevice);
-			RealspacePseudoProjectForward(d_atomPositions, d_atomIntensities, atoms.NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
+			RealspacePseudoProjectForward(d_atomPositions, d_atomIntensities, atoms->NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
 			cudaErrchk(cudaPeekAtLastError());
 
 			//We have planned for ElementsPerBatch many transforms, therefore we scale also the non existing parts between the end of batch and the end of d_superProj
@@ -932,11 +932,152 @@ RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, idxt
 			d_Scale(d_projectionsBatch, d_superProjections, gtom::toInt3(dimsproj), gtom::toInt3(superDimsproj), T_INTERP_FOURIER, &planForward, &planBackward, ElementsPerBatch);
 			if (superICorr != NULL)
 				cudaErrchk(cudaMemcpy(superICorr->data + startIm * Elements2(superDimsproj), d_superProjections, batch*Elements2(superDimsproj) * sizeof(float), cudaMemcpyDeviceToHost));
-			RealspacePseudoProjectBackward(d_atomPositions, d_atomIntensities, atoms.NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
+			RealspacePseudoProjectBackward(d_atomPositions, d_atomIntensities, atoms->NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
 			cudaErrchk(cudaPeekAtLastError());
 			
 		}
-		cudaErrchk(cudaMemcpy(atoms.AtomWeights.data(), d_atomIntensities, atoms.NAtoms*sizeof(*(atoms.AtomWeights.data())), cudaMemcpyDeviceToHost));
+		cudaErrchk(cudaMemcpy(atoms->AtomWeights.data(), d_atomIntensities, atoms->NAtoms*sizeof(*(atoms->AtomWeights.data())), cudaMemcpyDeviceToHost));
+		cufftDestroy(planForward);
+		cufftDestroy(planBackward);
+		cudaErrchk(cudaFree(d_superProjections));
+		cudaErrchk(cudaFree(d_projections));
+
+	}
+	cudaErrchk(cudaFree(d_atomPositions));
+	cudaErrchk(cudaFree(d_atomIntensities));
+	return 0.0;
+}
+
+RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, int *positionMatching, idxtype numAngles, MultidimArray<RDOUBLE>* Itheo, MultidimArray<RDOUBLE>* Icorr, MultidimArray<RDOUBLE>* Idiff, MultidimArray<RDOUBLE>* superICorr, RDOUBLE shiftX, RDOUBLE shiftY)
+{
+	//cudaErrchk(cudaSetDevice(1));
+	cudaErrchk(cudaDeviceSynchronize());
+	float3 * d_atomPositions;
+	cudaErrchk(cudaMalloc((void**)&d_atomPositions, atoms->alternativePositions.size() * atoms->NAtoms * sizeof(float3)));
+	for (size_t i = 0; i < atoms->alternativePositions.size(); i++)
+	{
+		cudaErrchk(cudaMemcpy(d_atomPositions+i* atoms->NAtoms, atoms->alternativePositions[i], atoms->NAtoms * sizeof(float3), cudaMemcpyHostToDevice));
+	}
+	
+	float * d_atomIntensities;
+	cudaErrchk(cudaMalloc((void**)&d_atomIntensities, atoms->NAtoms * sizeof(float3)));
+	cudaErrchk(cudaMemcpy(d_atomIntensities, atoms->AtomWeights.data(), atoms->NAtoms * sizeof(float), cudaMemcpyHostToDevice));
+
+	int * d_positionMapping;
+	cudaErrchk(cudaMalloc((void**)&d_positionMapping, numAngles * sizeof(*d_positionMapping)));
+	cudaErrchk(cudaMemcpy(d_positionMapping, positionMatching, numAngles * sizeof(*d_positionMapping), cudaMemcpyHostToDevice));
+
+	idxtype GPU_FREEMEM;
+	idxtype GPU_MEMLIMIT;
+	cudaMemGetInfo(&GPU_FREEMEM, &GPU_MEMLIMIT);
+
+	int3 dimsvolume = { Dims.x, Dims.y, Dims.z };
+	int3 superDimsvolume = { Dims.x * super, Dims.y * super, Dims.z * super };
+
+	int2 superDimsproj = { Dims.x * super, Dims.y * super };
+	int2 dimsproj = { Dims.x,  Dims.y };
+
+	idxtype space = Elements2(dimsproj) * sizeof(float);
+	idxtype ElementsPerBatch = 0.9*(GPU_FREEMEM / ((2 * Elements2(superDimsproj) + Elements2(dimsproj) + Elements2(dimsproj)) * sizeof(float)));
+
+	ElementsPerBatch = std::min(numAngles, (idxtype)512);	//Hard limit of elementsPerBatch instead of calculating
+	if (Itheo != NULL)
+		Itheo->resizeNoCopy(numAngles, dimsproj.y, dimsproj.x);
+	if (Icorr != NULL)
+		Icorr->resizeNoCopy(numAngles, dimsproj.y, dimsproj.x);
+	if (Idiff != NULL)
+		Idiff->resizeNoCopy(numAngles, dimsproj.y, dimsproj.x);
+	if (superICorr != NULL)
+		superICorr->resizeNoCopy(numAngles, superDimsproj.y, superDimsproj.x);
+
+	RDOUBLE mean_error = 0.0;
+	int ndims = DimensionCount(gtom::toInt3(superDimsproj));
+	int nSuper[3] = { 1, superDimsproj.y, superDimsproj.x };
+	int n[3] = { 1, dimsproj.y, dimsproj.x };
+	cufftHandle planForward, planBackward;
+	cufftType directionF = IS_TFLOAT_DOUBLE ? CUFFT_D2Z : CUFFT_R2C;
+
+	cufftErrchk(cufftPlanMany(&planForward, ndims, nSuper + (3 - ndims),
+		NULL, 1, 0,
+		NULL, 1, 0,
+		directionF, ElementsPerBatch));
+
+	cufftType directionB = IS_TFLOAT_DOUBLE ? CUFFT_Z2D : CUFFT_C2R;
+	cufftErrchk(cufftPlanMany(&planBackward, ndims, n + (3 - ndims),
+		NULL, 1, 0,
+		NULL, 1, 0,
+		directionB, ElementsPerBatch));
+
+	{
+
+		idxtype numBatches = (int)(std::ceil(((float)numAngles) / ((float)ElementsPerBatch)));
+
+		float * d_superProjections;
+		float * d_iExp;
+		float * d_projections;
+
+		cudaErrchk(cudaMalloc(&d_superProjections, ElementsPerBatch*Elements2(superDimsproj) * sizeof(float)));
+		cudaErrchk(cudaMalloc(&d_iExp, ElementsPerBatch*Elements2(dimsproj) * sizeof(float)));
+		cudaErrchk(cudaMalloc(&d_projections, numBatches*ElementsPerBatch * Elements2(dimsproj) * sizeof(float)));
+
+
+
+		// Forward project in batches
+		for (idxtype startIm = 0; startIm < numAngles; startIm += ElementsPerBatch)
+		{
+			idxtype batch = std::min(ElementsPerBatch, numAngles - startIm);
+			float * d_projectionsBatch = d_projections + startIm * Elements2(dimsproj);
+			int * d_positionMappingBatch = d_positionMapping + startIm;
+
+			float3 * h_angles = angles + startIm;
+			cudaMemcpy(d_iExp, Iexp.data + startIm * Elements2(dimsproj), batch*Elements2(dimsproj) * sizeof(float), cudaMemcpyHostToDevice);
+			RealspacePseudoProjectForward(d_atomPositions, d_atomIntensities, d_positionMappingBatch, atoms->NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
+			cudaErrchk(cudaPeekAtLastError());
+
+			//We have planned for ElementsPerBatch many transforms, therefore we scale also the non existing parts between the end of batch and the end of d_superProj
+			d_Scale(d_superProjections, d_projectionsBatch, gtom::toInt3(superDimsproj), gtom::toInt3(dimsproj), T_INTERP_FOURIER, &planForward, &planBackward, ElementsPerBatch);
+			if (Itheo != NULL)
+				cudaErrchk(cudaMemcpy(Itheo->data + startIm * Elements2(dimsproj), d_projectionsBatch, batch*Elements2(dimsproj) * sizeof(float), cudaMemcpyDeviceToHost));
+			gtom::d_SubtractVector(d_projectionsBatch, d_iExp, d_projectionsBatch, batch*Elements2(dimsproj), 1);
+			if (Idiff != NULL)
+				cudaErrchk(cudaMemcpy(Idiff->data + startIm * Elements2(dimsproj), d_projectionsBatch, batch*Elements2(dimsproj) * sizeof(float), cudaMemcpyDeviceToHost));
+			gtom::d_MultiplyByScalar(d_projectionsBatch, d_projectionsBatch, batch*Elements2(dimsproj), -lambdaART);
+			if (Icorr != NULL)
+				cudaErrchk(cudaMemcpy(Icorr->data + startIm * Elements2(dimsproj), d_projectionsBatch, batch*Elements2(dimsproj) * sizeof(float), cudaMemcpyDeviceToHost));
+		}
+
+		cudaErrchk(cudaFree(d_iExp));
+		cufftDestroy(planForward);
+		cufftDestroy(planBackward);
+
+		cufftErrchk(cufftPlanMany(&planForward, ndims, n + (3 - ndims),
+			NULL, 1, 0,
+			NULL, 1, 0,
+			directionF, ElementsPerBatch));
+
+		cufftType directionB = IS_TFLOAT_DOUBLE ? CUFFT_Z2D : CUFFT_C2R;
+		cufftErrchk(cufftPlanMany(&planBackward, ndims, nSuper + (3 - ndims),
+			NULL, 1, 0,
+			NULL, 1, 0,
+			directionB, ElementsPerBatch));
+
+
+		// Backproject
+		for (idxtype startIm = 0; startIm < numAngles; startIm += ElementsPerBatch)
+		{
+			idxtype batch = std::min(ElementsPerBatch, numAngles - startIm);
+			float * d_projectionsBatch = d_projections + startIm * Elements2(dimsproj);
+			int * d_positionMappingBatch = d_positionMapping + startIm;
+			float3 * h_angles = angles + startIm;
+
+			d_Scale(d_projectionsBatch, d_superProjections, gtom::toInt3(dimsproj), gtom::toInt3(superDimsproj), T_INTERP_FOURIER, &planForward, &planBackward, ElementsPerBatch);
+			if (superICorr != NULL)
+				cudaErrchk(cudaMemcpy(superICorr->data + startIm * Elements2(superDimsproj), d_superProjections, batch*Elements2(superDimsproj) * sizeof(float), cudaMemcpyDeviceToHost));
+			RealspacePseudoProjectBackward(d_atomPositions, d_atomIntensities, d_positionMappingBatch, atoms->NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
+			cudaErrchk(cudaPeekAtLastError());
+
+		}
+		cudaErrchk(cudaMemcpy(atoms->AtomWeights.data(), d_atomIntensities, atoms->NAtoms * sizeof(*(atoms->AtomWeights.data())), cudaMemcpyDeviceToHost));
 		cufftDestroy(planForward);
 		cufftDestroy(planBackward);
 		cudaErrchk(cudaFree(d_superProjections));
@@ -959,16 +1100,16 @@ RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBL
 
 	cudaErrchk(cudaDeviceSynchronize());
 	float3 * d_atomPositions;
-	cudaErrchk(cudaMalloc((void**)&d_atomPositions, atoms.NAtoms * sizeof(float3)));
-	cudaErrchk(cudaMemcpy(d_atomPositions, atoms.AtomPositions.data(), atoms.NAtoms * sizeof(float3), cudaMemcpyHostToDevice));
+	cudaErrchk(cudaMalloc((void**)&d_atomPositions, atoms->NAtoms * sizeof(float3)));
+	cudaErrchk(cudaMemcpy(d_atomPositions, atoms->AtomPositions.data(), atoms->NAtoms * sizeof(float3), cudaMemcpyHostToDevice));
 
 	float * d_atomIntensities;
-	cudaErrchk(cudaMalloc((void**)&d_atomIntensities, atoms.NAtoms * sizeof(float)));
-	cudaErrchk(cudaMemcpy(d_atomIntensities, atoms.AtomWeights.data(), atoms.NAtoms * sizeof(float), cudaMemcpyHostToDevice));
+	cudaErrchk(cudaMalloc((void**)&d_atomIntensities, atoms->NAtoms * sizeof(float)));
+	cudaErrchk(cudaMemcpy(d_atomIntensities, atoms->AtomWeights.data(), atoms->NAtoms * sizeof(float), cudaMemcpyHostToDevice));
 
 	float * d_ctfAtomIntensities;
-	cudaErrchk(cudaMalloc((void**)&d_ctfAtomIntensities, atoms.NAtoms * sizeof(float)));
-	cudaErrchk(cudaMemcpy(d_ctfAtomIntensities, ctfAtoms.AtomWeights.data(), atoms.NAtoms, cudaMemcpyHostToDevice));
+	cudaErrchk(cudaMalloc((void**)&d_ctfAtomIntensities, atoms->NAtoms * sizeof(float)));
+	cudaErrchk(cudaMemcpy(d_ctfAtomIntensities, ctfAtoms->AtomWeights.data(), atoms->NAtoms, cudaMemcpyHostToDevice));
 
 	FileName tmpDir = std::string("D:\\EMD\\9233\\TomoReconstructions\\Debug\\") + std::to_string(it) + "_";
 
@@ -1050,7 +1191,7 @@ RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBL
 				outputDeviceAsImage(d_iExp, batchProjDim, tmpDir + std::string("d_iExp_it") + std::to_string(startIm) + ".mrc", false);
 
 			cudaErrchk(cudaMemcpy(d_ctfs, CTFs.data + startIm * ElementsFFT2(dimsproj), batch*ElementsFFT2(dimsproj) * sizeof(float), cudaMemcpyHostToDevice));
-			RealspacePseudoProjectForward(d_atomPositions, d_atomIntensities, atoms.NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
+			RealspacePseudoProjectForward(d_atomPositions, d_atomIntensities, atoms->NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
 			if (true)
 				outputDeviceAsImage(d_superProjections, batchSuperProjDim, tmpDir + std::string("d_superProjectionsBatch_it") + std::to_string(startIm) + ".mrc", false);
 			cudaErrchk(cudaPeekAtLastError());
@@ -1090,8 +1231,8 @@ RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBL
 
 
 		float* d_copyAtomIntensities;
-		cudaErrchk(cudaMalloc(&d_copyAtomIntensities, atoms.NAtoms * sizeof(*d_copyAtomIntensities)));
-		cudaErrchk(cudaMemcpy(d_copyAtomIntensities, d_atomIntensities, atoms.NAtoms * sizeof(*d_copyAtomIntensities), cudaMemcpyDeviceToDevice));
+		cudaErrchk(cudaMalloc(&d_copyAtomIntensities, atoms->NAtoms * sizeof(*d_copyAtomIntensities)));
+		cudaErrchk(cudaMemcpy(d_copyAtomIntensities, d_atomIntensities, atoms->NAtoms * sizeof(*d_copyAtomIntensities), cudaMemcpyDeviceToDevice));
 		// Backproject
 		for (idxtype startIm = 0; startIm < numAngles; startIm += ElementsPerBatch)
 		{
@@ -1102,7 +1243,7 @@ RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBL
 			d_Scale(d_projectionsBatch, d_superProjections, gtom::toInt3(dimsproj), gtom::toInt3(superDimsproj), T_INTERP_FOURIER, &planForward, &planBackward, ElementsPerBatch);
 			if (superICorr != NULL)
 				cudaErrchk(cudaMemcpy(superICorr->data + startIm * Elements2(superDimsproj), d_superProjections, batch*Elements2(superDimsproj) * sizeof(float), cudaMemcpyDeviceToHost));
-			RealspacePseudoProjectBackward(d_atomPositions, d_atomIntensities, atoms.NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
+			RealspacePseudoProjectBackward(d_atomPositions, d_atomIntensities, atoms->NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
 			cudaErrchk(cudaPeekAtLastError());
 
 		}
@@ -1111,14 +1252,14 @@ RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBL
 		cudaErrchk(cudaFree(d_projectionsBatchFFT));
 
 		MultidimArray<RDOUBLE> volBefore;
-		this->atoms.RasterizeToVolume(volBefore, this->Dims, this->super, false);
-		cudaErrchk(cudaMemcpy(atoms.AtomWeights.data(), d_atomIntensities, atoms.NAtoms * sizeof(*(atoms.AtomWeights.data())), cudaMemcpyDeviceToHost));
+		this->atoms->RasterizeToVolume(volBefore, this->Dims, this->super, false);
+		cudaErrchk(cudaMemcpy(atoms->AtomWeights.data(), d_atomIntensities, atoms->NAtoms * sizeof(*(atoms->AtomWeights.data())), cudaMemcpyDeviceToHost));
 		if(true)
 			outputAsImage(volBefore, tmpDir + "volBefore.mrc");
 
 
 		MultidimArray<RDOUBLE> volAfter;
-		this->atoms.RasterizeToVolume(volAfter, this->Dims, this->super, false);
+		this->atoms->RasterizeToVolume(volAfter, this->Dims, this->super, false);
 		if (true)
 			outputAsImage(volAfter, tmpDir + "volAfter.mrc");
 
@@ -1138,7 +1279,7 @@ RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBL
 			outputDeviceAsImage(d_fftDiffConvolved, this->Dims * this->super, tmpDir + "d_fftDiffConvolved.mrc");
 
 		MultidimArray<RDOUBLE> ctfRecon;
-		this->ctfAtoms.RasterizeToVolume(ctfRecon, this->Dims, this->super, false);
+		this->ctfAtoms->RasterizeToVolume(ctfRecon, this->Dims, this->super, false);
 		if (true)
 			outputAsImage(ctfRecon, tmpDir + "ctfRecon.mrc");
 
@@ -1165,7 +1306,7 @@ RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBL
 		d_IFFTC2R(d_fftDiffConvolved, d_diffConvolved, DimensionCount(this->Dims), this->Dims*this->super, 1);
 		if (true)
 			outputDeviceAsImage(d_diffConvolved, this->Dims * this->super, tmpDir + "d_diffDivided.mrc");
-		RealspaceVolumeUpdate(d_atomPositions, d_copyAtomIntensities, atoms.NAtoms, d_diffConvolved, this->Dims, this->super);
+		RealspaceVolumeUpdate(d_atomPositions, d_copyAtomIntensities, atoms->NAtoms, d_diffConvolved, this->Dims, this->super);
 
 		cufftDestroy(planForward);
 		cufftDestroy(planBackward);
@@ -1189,12 +1330,12 @@ RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBL
 RDOUBLE PseudoProjector::VolumeUpdate(MultidimArray<RDOUBLE> &Volume, RDOUBLE shiftX, RDOUBLE shiftY) {
 
 	float3 * d_atomPositions;
-	cudaErrchk(cudaMalloc((void**)&d_atomPositions, atoms.NAtoms * sizeof(float3)));
-	cudaErrchk(cudaMemcpy(d_atomPositions, atoms.AtomPositions.data(), atoms.NAtoms * sizeof(float3), cudaMemcpyHostToDevice));
+	cudaErrchk(cudaMalloc((void**)&d_atomPositions, atoms->NAtoms * sizeof(float3)));
+	cudaErrchk(cudaMemcpy(d_atomPositions, atoms->AtomPositions.data(), atoms->NAtoms * sizeof(float3), cudaMemcpyHostToDevice));
 
 	float * d_atomIntensities;
-	cudaErrchk(cudaMalloc((void**)&d_atomIntensities, atoms.NAtoms * sizeof(float)));
-	cudaErrchk(cudaMemcpy(d_atomIntensities, atoms.AtomWeights.data(), atoms.NAtoms * sizeof(float), cudaMemcpyHostToDevice));
+	cudaErrchk(cudaMalloc((void**)&d_atomIntensities, atoms->NAtoms * sizeof(float)));
+	cudaErrchk(cudaMemcpy(d_atomIntensities, atoms->AtomWeights.data(), atoms->NAtoms * sizeof(float), cudaMemcpyHostToDevice));
 
 	float * d_volumeUpdate;
 	cudaErrchk(cudaMalloc((void**)&d_volumeUpdate, Elements(this->Dims) * sizeof(*d_volumeUpdate)));
@@ -1205,9 +1346,9 @@ RDOUBLE PseudoProjector::VolumeUpdate(MultidimArray<RDOUBLE> &Volume, RDOUBLE sh
 
 	d_Scale(d_volumeUpdate, d_superVolumeUpdate, this->Dims, this->super*this->Dims, gtom::T_INTERP_CUBIC, NULL, NULL, 1, NULL, NULL);
 	cudaErrchk(cudaDeviceSynchronize());
-	RealspaceVolumeUpdate(d_atomPositions, d_atomIntensities, atoms.NAtoms, d_superVolumeUpdate, this->Dims, this->super);
+	RealspaceVolumeUpdate(d_atomPositions, d_atomIntensities, atoms->NAtoms, d_superVolumeUpdate, this->Dims, this->super);
 	cudaErrchk(cudaDeviceSynchronize());
-	cudaErrchk(cudaMemcpy(atoms.AtomWeights.data(), d_atomIntensities, atoms.NAtoms * sizeof(float), cudaMemcpyDeviceToHost));
+	cudaErrchk(cudaMemcpy(atoms->AtomWeights.data(), d_atomIntensities, atoms->NAtoms * sizeof(float), cudaMemcpyDeviceToHost));
 
 	cudaErrchk(cudaFree(d_atomPositions));
 	cudaErrchk(cudaFree(d_atomIntensities));

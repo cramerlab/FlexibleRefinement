@@ -57,7 +57,7 @@ void ADAM_Solver::run(AtomMover &mover, int numIt, FileName outfile)
 		/*{ (float)(AtomPositions[p].x - adamparams->alpha*mt.x / (sqrt(vt.x) + adamparams->epsilon)),
 								(float)(AtomPositions[p].y - adamparams->alpha*mt.y / (sqrt(vt.y) + adamparams->epsilon)),
 								(float)(AtomPositions[p].z - adamparams->alpha*mt.z / (sqrt(vt.z) + adamparams->epsilon)) };
-		atoms.RasterizeToVolume(MovedVolume, Dims, super, true, weighting);
+		atoms->RasterizeToVolume(MovedVolume, Dims, super, true, weighting);
 		{
 			MRCImage<float> refIm(MovedVolume);
 			//refIm.writeAs<float>(fnOut + "MovedVolume" + weightString + "_it" + std::to_string(i) + ".mrc", true);
