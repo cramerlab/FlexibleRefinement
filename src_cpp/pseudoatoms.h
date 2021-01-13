@@ -48,6 +48,55 @@ public:
 			AtomWeights.push_back(atomWeight);
 		}
 
+		addAlternativeOrientation(atomPositionCArr, NAtoms);
+
+		if (mode == ATOM_GAUSSIAN) {
+			RDOUBLE sigma4 = 4 * sigma;
+			TableLength = sigma4;
+			GaussianTable = Matrix1D<RDOUBLE>(CEIL(sigma4*sqrt(3) * GaussFactor + 1));
+
+			FOR_ALL_ELEMENTS_IN_MATRIX1D(GaussianTable)
+				GaussianTable(i) = gaussian1D(i / ((RDOUBLE)GaussFactor), sigma);
+			GaussianTable *= gaussian1D(0, sigma);
+		}
+	}
+
+	Pseudoatoms(Pseudoatoms *other, RDOUBLE atomWeight, PseudoAtomMode mode = ATOM_INTERPOLATE, RDOUBLE sigma = 1.0, RDOUBLE gaussFactor = 1.0) :Mode(mode), Sigma(sigma), GaussFactor(gaussFactor){
+		NAtoms = other->NAtoms;
+		AtomPositions = other->AtomPositions;
+		AtomPositions.reserve(NAtoms);
+
+		AtomWeights.reserve(NAtoms);
+		for (size_t i = 0; i < NAtoms; i++)
+		{
+			AtomWeights.push_back(atomWeight);
+		}
+		for (size_t i = 0; i < other->alternativePositions.size(); i++)
+		{
+			addAlternativeOrientation(other->alternativePositions[i], NAtoms);
+		}
+
+
+		if (mode == ATOM_GAUSSIAN) {
+			RDOUBLE sigma4 = 4 * sigma;
+			TableLength = sigma4;
+			GaussianTable = Matrix1D<RDOUBLE>(CEIL(sigma4*sqrt(3) * GaussFactor + 1));
+
+			FOR_ALL_ELEMENTS_IN_MATRIX1D(GaussianTable)
+				GaussianTable(i) = gaussian1D(i / ((RDOUBLE)GaussFactor), sigma);
+			GaussianTable *= gaussian1D(0, sigma);
+		}
+	}
+
+	Pseudoatoms(Pseudoatoms *other, PseudoAtomMode mode = ATOM_INTERPOLATE, RDOUBLE sigma = 1.0, RDOUBLE gaussFactor = 1.0) :Mode(mode), Sigma(sigma), GaussFactor(gaussFactor) {
+		NAtoms = other->NAtoms;
+		AtomPositions = other->AtomPositions;
+		AtomWeights = other->AtomWeights;
+
+		for (size_t i = 0; i < other->alternativePositions.size(); i++)
+		{
+			addAlternativeOrientation(other->alternativePositions[i], NAtoms);
+		}
 
 		if (mode == ATOM_GAUSSIAN) {
 			RDOUBLE sigma4 = 4 * sigma;
@@ -72,6 +121,7 @@ public:
 			AtomWeights.push_back(atomWeights[i]);
 		}
 
+		addAlternativeOrientation(atomPositionCArr, NAtoms);
 
 		if (mode == ATOM_GAUSSIAN) {
 			RDOUBLE sigma4 = 4 * sigma;
@@ -212,6 +262,8 @@ public:
 		memcpy(copy, positions, sizeof(*copy)*NAtoms * 3);
 		alternativePositions.emplace_back(copy);
 	}
+
+
 
 };
 #endif // !PSEUDOATOMS
