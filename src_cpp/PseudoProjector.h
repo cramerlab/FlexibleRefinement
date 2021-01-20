@@ -101,6 +101,8 @@ public:
 
 	RDOUBLE CTFSIRT(MultidimArray<RDOUBLE> &CTFs, float3 *angles, idxtype numAngles, MultidimArray<RDOUBLE>* Itheo, MultidimArray<RDOUBLE>* Icorr, MultidimArray<RDOUBLE>* Idiff, MultidimArray<RDOUBLE>* superICorr, RDOUBLE shiftX, RDOUBLE shiftY);
 
+	RDOUBLE CTFSIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, int *positionMatching, idxtype numAngles, MultidimArray<RDOUBLE>* Itheo, MultidimArray<RDOUBLE>* Icorr, MultidimArray<RDOUBLE>* Idiff, MultidimArray<RDOUBLE>* superICorr, RDOUBLE shiftX, RDOUBLE shiftY);
+
 	void projectForward(float3 *angles, idxtype numAngles, MultidimArray<RDOUBLE>& Itheo, RDOUBLE shiftX, RDOUBLE shiftY);
 
 	void project_Pseudo(RDOUBLE * out,
@@ -128,6 +130,7 @@ public:
 	RDOUBLE SIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, idxtype numAngles, MultidimArray<RDOUBLE>* Itheo, MultidimArray<RDOUBLE>* Icorr, MultidimArray<RDOUBLE>* Idiff, MultidimArray<RDOUBLE>* Inorm, RDOUBLE shiftX, RDOUBLE shiftY);
 	RDOUBLE SIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, int *positionMapping, idxtype numAngles, MultidimArray<RDOUBLE>* Itheo, MultidimArray<RDOUBLE>* Icorr, MultidimArray<RDOUBLE>* Idiff, MultidimArray<RDOUBLE>* Inorm, RDOUBLE shiftX, RDOUBLE shiftY);
 	RDOUBLE SIRT(MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBLE> &CTFs, float3 *angles, idxtype numAngles, MultidimArray<RDOUBLE>* Itheo, MultidimArray<RDOUBLE>* Icorr, MultidimArray<RDOUBLE>* Idiff, MultidimArray<RDOUBLE>* superICorr, RDOUBLE shiftX, RDOUBLE shiftY);
+	RDOUBLE SIRT(MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBLE> &CTFs, float3 *angles, int *positionMatching, idxtype numAngles, MultidimArray<RDOUBLE>* Itheo, MultidimArray<RDOUBLE>* Icorr, MultidimArray<RDOUBLE>* Idiff, MultidimArray<RDOUBLE>* superICorr, RDOUBLE shiftX, RDOUBLE shiftY);
 
 	RDOUBLE VolumeUpdate(MultidimArray<RDOUBLE> &Volume, RDOUBLE shiftX, RDOUBLE shiftY);
 

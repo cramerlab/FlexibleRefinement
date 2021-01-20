@@ -2,6 +2,7 @@
 
 
 #include "PseudoProjector.h"
+#include <filesystem>
 #include "cxxopts.hpp"
 #include <string>
 #include "metadata_table.h"
@@ -15,7 +16,7 @@
 #include "Projector.h"
 #define WRITE_PROJECTIONS
 
-
+namespace fs = std::filesystem;
 enum Algo { ART = 0, SIRT = 1 };
 
 struct params {
@@ -782,6 +783,33 @@ void ctfTest() {
 	}
 }
 
+void applyRandomNoise(MultidimArray<RDOUBLE> projections) {
+
+
+		float minSignal = 100000;
+		float maxSignal = -100000;
+		double mean = 0.0;
+		FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(projections) {
+			RDOUBLE val = DIRECT_MULTIDIM_ELEM(projections, n);
+			minSignal = std::min(minSignal, val);
+			maxSignal = std::max(maxSignal, val);
+			mean += val;
+		}
+		mean  /= projections.nzyxdim;
+		if (minSignal < 0) {
+
+			FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(projections) {
+				DIRECT_MULTIDIM_ELEM(projections, n) = DIRECT_MULTIDIM_ELEM(projections, n) - minSignal;
+
+			}
+			mean -= minSignal;
+		}
+
+		
+
+
+}
+
 
 int main(int argc, char** argv) {
 
@@ -826,7 +854,10 @@ int main(int argc, char** argv) {
 	FileName refMaskFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + "_mask.mrc";
 	//PDB File containing pseudo atom coordinates
 	//FileName pdbFileName = "D:\\EMD\\9233\\emd_9233_Scaled_2.0_largeMask.pdb.pdb";		//PDB File containing pseudo atom coordinates
-	FileName fnOut = "D:\\EMD\\9233\\Movement_Analysis\\ordered_movement_1.500000_weighting_false_4.000000_600\\Reconstruction_Multiple_Correction\\recon";
+	FileName outdir = "D:\\EMD\\9233\\Movement_Analysis\\ordered_movement_1.500000_weighting_false_4.000000_600\\Reconstruction_Multiple_Correction_CTF_with_weighting\\";
+	fs::create_directories(outdir.c_str());
+	
+	FileName fnOut = outdir + "recon";
 
 	//Read Images
 	MRCImage<RDOUBLE> origVol = MRCImage<RDOUBLE>::readAs(refFileName);
@@ -839,15 +870,29 @@ int main(int argc, char** argv) {
 	float3 *anglesOne;
 	MultidimArray<RDOUBLE> projectionsOne;
 	idxtype numProjOne = readProjections(projectionsOneStarFileName, projectionsOne, &anglesOne, false);
+	MultidimArray<RDOUBLE> CTFOne(projectionsOne.zdim, projectionsOne.ydim, projectionsOne.xdim / 2 + 1);
+	FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(CTFOne) {
+		DIRECT_MULTIDIM_ELEM(CTFOne, n) = 1.0;
+	}
 
 	float3 *anglesTwo;
 	MultidimArray<RDOUBLE> projectionsTwo;
 	idxtype numProjTwo = readProjections(projectionsTwoStarFileName, projectionsTwo, &anglesTwo, false);
 	//numProj = 2048;
+	MultidimArray<RDOUBLE> CTFTwo(projectionsOne.zdim, projectionsOne.ydim, projectionsOne.xdim / 2 + 1);
+	FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(CTFTwo) {
+		DIRECT_MULTIDIM_ELEM(CTFTwo, n) = 1.0;
+	}
 
 	MultidimArray<RDOUBLE> projections(projectionsOne.zdim + projectionsTwo.zdim, projectionsOne.ydim, projectionsOne.xdim);
 	memcpy(projections.data, projectionsOne.data, projectionsOne.zyxdim * sizeof(*projections.data));
 	memcpy(projections.data + projectionsOne.zyxdim, projectionsTwo.data, projectionsTwo.zyxdim * sizeof(*projections.data));
+
+	
+
+	MultidimArray<RDOUBLE> CTF(CTFOne.zdim + CTFTwo.zdim, CTFOne.ydim, CTFOne.xdim);
+	memcpy(CTF.data, CTFOne.data, CTFOne.zyxdim * sizeof(*projections.data));
+	memcpy(CTF.data + CTFOne.zyxdim, CTFTwo.data, CTFTwo.zyxdim * sizeof(*projections.data));
 
 	idxtype numProj = numProjOne + numProjTwo;
 	float3 * angles = (float3*)malloc(numProj * sizeof(*angles));
@@ -874,6 +919,7 @@ int main(int argc, char** argv) {
 		MRCImage<RDOUBLE> projectionsIMTwo(projectionsTwo);
 		projectionsIMTwo.writeAs<float>(fnOut + "_readProjectionsTwo.mrc", true);
 	}
+	applyRandomNoise(projections);
 	weightProjections(projections, angles, refDims);
 	cudaErrchk(cudaDeviceSynchronize());
 	if (writeProjections)
@@ -918,9 +964,9 @@ int main(int argc, char** argv) {
 	for (size_t itIdx = 0; itIdx < numIt; itIdx++)
 	{
 		if (algo == SIRT) {
-			//proj.SIRT(projections, CTF, angles, numProj, NULL, NULL, NULL, NULL, 0, 0);
+			proj.SIRT(projections, CTF, angles, positionMatching, numProj, NULL, NULL, NULL, NULL, 0, 0);
 			//ctfProj.SIRT(realCTF, angles, numProj, 0, 0);
-			if (true)
+			if (false)
 			{
 				// Debug variant that writes out correction images
 				MultidimArray<RDOUBLE> Itheo, Icorr, Idiff, Inorm;

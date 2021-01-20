@@ -1,6 +1,6 @@
 #include "liblionImports.h"
 #include "metadata_table.h"
-#include "pseudoatoms->h"
+#include "pseudoatoms.h"
 #include "readMRC.h"
 #include "volume_to_pseudoatoms.h"
 #include <random>
@@ -16,12 +16,12 @@ void writeProjectionsToDisk(Pseudoatoms &atoms, float3* angles, idxtype numAngle
 
 	cudaErrchk(cudaDeviceSynchronize());
 	float3 * d_atomPositions;
-	cudaErrchk(cudaMalloc((void**)&d_atomPositions, atoms->NAtoms * sizeof(float3)));
-	cudaErrchk(cudaMemcpy(d_atomPositions, atoms->AtomPositions.data(), atoms->NAtoms * sizeof(float3), cudaMemcpyHostToDevice));
+	cudaErrchk(cudaMalloc((void**)&d_atomPositions, atoms.NAtoms * sizeof(float3)));
+	cudaErrchk(cudaMemcpy(d_atomPositions, atoms.AtomPositions.data(), atoms.NAtoms * sizeof(float3), cudaMemcpyHostToDevice));
 
 	float * d_atomIntensities;
-	cudaErrchk(cudaMalloc((void**)&d_atomIntensities, atoms->NAtoms * sizeof(float)));
-	cudaErrchk(cudaMemcpy(d_atomIntensities, atoms->AtomWeights.data(), atoms->NAtoms * sizeof(float), cudaMemcpyHostToDevice));
+	cudaErrchk(cudaMalloc((void**)&d_atomIntensities, atoms.NAtoms * sizeof(float)));
+	cudaErrchk(cudaMemcpy(d_atomIntensities, atoms.AtomWeights.data(), atoms.NAtoms * sizeof(float), cudaMemcpyHostToDevice));
 
 	idxtype GPU_FREEMEM;
 	idxtype GPU_MEMLIMIT;
@@ -78,7 +78,7 @@ void writeProjectionsToDisk(Pseudoatoms &atoms, float3* angles, idxtype numAngle
 		batchSuperProjDim.z = batch;
 		float3 * h_angles = angles + startIm;
 
-		RealspacePseudoProjectForward(d_atomPositions, d_atomIntensities, atoms->NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
+		RealspacePseudoProjectForward(d_atomPositions, d_atomIntensities, atoms.NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
 		cudaErrchk(cudaPeekAtLastError());
 		if (false)
 			outputDeviceAsImage(d_superProjections, batchSuperProjDim, outname + std::string("_d_superProjectionsBatch_it") + std::to_string(startIm) + ".mrc", false);

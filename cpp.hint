@@ -10,3 +10,5 @@
 // such as names of functions and macros.
 // For more information see https://go.microsoft.com/fwlink/?linkid=865984
 #define FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY3D(V) for (size_t k=0; k<ZSIZE(V); k++) for (size_t i=0; i<YSIZE(V); i++) for (size_t j=0; j<XSIZE(V); j++)
+
+#define DimensionCount(dims) (3 - tmax(2 - tmax((dims).z, 1), 0) - tmax(2 - tmax((dims).y, 1), 0) - tmax(2 - tmax((dims).x, 1), 0))
