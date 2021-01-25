@@ -103,8 +103,8 @@ public:
 
 	RDOUBLE CTFSIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, int *positionMatching, idxtype numAngles, MultidimArray<RDOUBLE>* Itheo, MultidimArray<RDOUBLE>* Icorr, MultidimArray<RDOUBLE>* Idiff, MultidimArray<RDOUBLE>* superICorr, RDOUBLE shiftX, RDOUBLE shiftY);
 
-	void projectForward(float3 *angles, idxtype numAngles, MultidimArray<RDOUBLE>& Itheo, RDOUBLE shiftX, RDOUBLE shiftY);
-
+	void projectForward(float3 *angles, int* positionMatching, MultidimArray<RDOUBLE>* ctfs, MultidimArray<RDOUBLE>& projections, idxtype numAngles, RDOUBLE shiftX, RDOUBLE shiftY);
+	
 	void project_Pseudo(RDOUBLE * out,
 		RDOUBLE * out_nrm,
 		float3 angles,
