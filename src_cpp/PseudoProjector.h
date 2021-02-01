@@ -99,6 +99,8 @@ public:
 
 	MRCImage<RDOUBLE> *create3DImage(RDOUBLE oversampling = 1.0);
 
+	void createMask(float3 *angles, int* positionMatching, MultidimArray<RDOUBLE>* CTFs, MultidimArray<RDOUBLE>& projections, idxtype numAngles, RDOUBLE shiftX, RDOUBLE shiftY);
+
 	RDOUBLE CTFSIRT(MultidimArray<RDOUBLE> &CTFs, float3 *angles, idxtype numAngles, MultidimArray<RDOUBLE>* Itheo, MultidimArray<RDOUBLE>* Icorr, MultidimArray<RDOUBLE>* Idiff, MultidimArray<RDOUBLE>* superICorr, RDOUBLE shiftX, RDOUBLE shiftY);
 
 	RDOUBLE CTFSIRT(MultidimArray<RDOUBLE> &Iexp, float3 *angles, int *positionMatching, idxtype numAngles, MultidimArray<RDOUBLE>* Itheo, MultidimArray<RDOUBLE>* Icorr, MultidimArray<RDOUBLE>* Idiff, MultidimArray<RDOUBLE>* superICorr, RDOUBLE shiftX, RDOUBLE shiftY);

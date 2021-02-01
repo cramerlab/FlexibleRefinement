@@ -27,6 +27,17 @@ void RealspacePseudoProjectForward(float3* d_atomPositions,
 	float3* h_angles,
 	int batch);
 
+
+void RealspacePseudoCreateMask(float3* d_atomPositions,
+	float *d_atomIntensities,
+	int *d_positionMapping,
+	unsigned int nAtoms,
+	int3 dimsvolume,
+	float* d_projections,
+	int2 dimsproj,
+	float3* h_angles,
+	int batch);
+
 void RealspacePseudoProjectBackward(float3* d_atomPositions,
 	float *d_atomIntensities,
 	int *d_positionMapping,

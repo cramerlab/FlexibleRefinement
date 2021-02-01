@@ -699,6 +699,46 @@ void PseudoProjector::projectForward(float3 *angles, int* positionMatching, Mult
 	}
 }
 
+void PseudoProjector::createMask(float3 *angles, int* positionMatching, MultidimArray<RDOUBLE>* CTFs, MultidimArray<RDOUBLE>& projections, idxtype numAngles, RDOUBLE shiftX, RDOUBLE shiftY)
+{
+	cudaErrchk(cudaDeviceSynchronize());
+	float3 * d_atomPositions;
+	cudaErrchk(cudaMalloc((void**)&d_atomPositions, atoms->alternativePositions.size() * atoms->NAtoms * sizeof(float3)));
+	for (size_t i = 0; i < atoms->alternativePositions.size(); i++)
+	{
+		cudaErrchk(cudaMemcpy(d_atomPositions + i * atoms->NAtoms, atoms->alternativePositions[i], atoms->NAtoms * sizeof(float3), cudaMemcpyHostToDevice));
+	}
+
+	float * d_atomIntensities;
+	cudaErrchk(cudaMalloc((void**)&d_atomIntensities, atoms->NAtoms * sizeof(float)));
+	cudaErrchk(cudaMemcpy(d_atomIntensities, atoms->AtomWeights.data(), atoms->NAtoms * sizeof(float), cudaMemcpyHostToDevice));
+
+	int * d_positionMatching;
+	cudaErrchk(cudaMalloc((void**)&d_positionMatching, numAngles * sizeof(*d_positionMatching)));
+	cudaErrchk(cudaMemcpy(d_positionMatching, positionMatching, numAngles * sizeof(*d_positionMatching), cudaMemcpyHostToDevice));
+
+	int3 dimsvolume = { Dims.x, Dims.y, Dims.z };
+	int2 dimsproj = { Dims.x,  Dims.y };
+
+
+	float * d_projections;
+	cudaErrchk(cudaMalloc(&d_projections, numAngles * Elements2(dimsproj) * sizeof(float)));
+
+
+	// Forward project
+
+
+	RealspacePseudoCreateMask(d_atomPositions, d_atomIntensities, d_positionMatching, atoms->NAtoms, dimsvolume, d_projections, dimsproj, angles, numAngles);
+	cudaErrchk(cudaPeekAtLastError());
+
+	projections.resizeNoCopy(numAngles, dimsproj.y, dimsproj.x);
+	cudaErrchk(cudaMemcpy(projections.data, d_projections, projections.nzyxdim * sizeof(*d_projections), cudaMemcpyDeviceToHost));
+	cudaErrchk(cudaFree(d_projections));
+	cudaErrchk(cudaFree(d_atomIntensities));
+	cudaErrchk(cudaFree(d_atomPositions));
+	cudaErrchk(cudaFree(d_positionMatching));
+}
+
 void PseudoProjector::project_Pseudo(RDOUBLE * out, RDOUBLE * out_nrm,float3 angles, RDOUBLE shiftX, RDOUBLE shiftY, int direction)
 {
 	MultidimArray<RDOUBLE> proj = MultidimArray<RDOUBLE>(1, this->Dims.y, this->Dims.x);

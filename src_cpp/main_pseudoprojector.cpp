@@ -783,7 +783,7 @@ void ctfTest() {
 		}*/
 	}
 }
-
+unsigned seed = 42;
 MultidimArray<RDOUBLE> applyRandomNoise(MultidimArray<RDOUBLE> &projections, MultidimArray<RDOUBLE> &maskProjections, RDOUBLE snr) {
 
 
@@ -809,7 +809,7 @@ MultidimArray<RDOUBLE> applyRandomNoise(MultidimArray<RDOUBLE> &projections, Mul
 	stdDevSig = sqrt(stdDevSig/maskSum);
 	double stdDevNoise = stdDevSig / snr;
 	MultidimArray<RDOUBLE> noise(projections.zdim, projections.ydim, projections.xdim);
-	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+	//unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 	std::default_random_engine generator(seed);
 	std::normal_distribution<RDOUBLE> distribution(0, mean / snr);
 
@@ -858,15 +858,15 @@ int main(int argc, char** argv) {
 	FileName tsvOneFileName = "D:\\EMD\\9233\\Movement_Analysis\\original.tsv";
 
 	bool haveSecondFile = true;
-	FileName projectionsTwoStarFileName = "D:\\EMD\\9233\\Movement_Analysis\\moved_proj.star";
-	FileName tsvTwoFileName = "D:\\EMD\\9233\\Movement_Analysis\\ordered_movement_1.500000_weighting_false_4.000000_600\\moved.tsv";
+	FileName projectionsTwoStarFileName = "D:\\EMD\\9233\\Movement_Analysis\\original_proj.star";
+	FileName tsvTwoFileName = "D:\\EMD\\9233\\Movement_Analysis\\original.tsv";
 
 	FileName refFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + ".mrc";
 	FileName refMaskFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + "_mask.mrc";
 	//PDB File containing pseudo atom coordinates
 	//FileName pdbFileName = "D:\\EMD\\9233\\emd_9233_Scaled_2.0_largeMask.pdb.pdb";		//PDB File containing pseudo atom coordinates
-	for (int multiply = 2; multiply < 10; multiply++) {
-		FileName outdir = "D:\\EMD\\9233\\Movement_Analysis\\ordered_movement_1.500000_weighting_false_4.000000_600\\Reconstruction_Multiple_" + std::to_string(multiply) + "_Correction_with_weighting\\";
+	for (int multiply = 1; multiply < 10; multiply++) {
+		FileName outdir = "D:\\EMD\\9233\\Movement_Analysis\\Reconstruction_Single_" + std::to_string(multiply) + "_with_weighting\\";
 		fs::create_directories(outdir.c_str());
 
 		FileName fnOut = outdir + "recon";
@@ -934,7 +934,7 @@ int main(int argc, char** argv) {
 		}
 		for (size_t i = numProjOne; i < numProj; i++)
 		{
-			positionMatching[i] = 1;
+			positionMatching[i] = 0;
 		}
 		cudaErrchk(cudaDeviceSynchronize());
 		if (writeProjections)
@@ -974,7 +974,7 @@ int main(int argc, char** argv) {
 		if (!fs::exists(fnOut + "_projMask.mrc")) {
 			PseudoProjector MaskProj(projDim, Atoms, 1.0);
 
-			MaskProj.projectForward(angles, positionMatching, NULL, projectionMask, numProj, 0.0, 0.0);
+			MaskProj.createMask(angles, positionMatching, NULL, projectionMask, numProj, 0.0, 0.0);
 
 			projectionMask.binarize(0.1);
 			{
@@ -993,20 +993,34 @@ int main(int argc, char** argv) {
 
 		MultidimArray<RDOUBLE> unnoised = projections;
 
-		float snrs[] = { std::numeric_limits<float>::infinity(),0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0 };
+		float snrs[] = { 0.1 };
 		for (float snr : snrs)
 		{
+			double lambda = 0.1;
 			PseudoProjector proj(projDim, Atoms, super);
-			proj.lambdaART = 0.001 / projections.zdim;
+			proj.lambdaART = lambda / projections.zdim;
 			projections = unnoised;
 			if (snr != std::numeric_limits<float>::infinity()) {
 				MultidimArray<RDOUBLE> noise = applyRandomNoise(projections, projectionMask, snr);
-				fnOut = outdir + "snr_" + std::to_string(snr) + "\\recon";
-				fs::create_directories((outdir + "snr_" + std::to_string(snr)).c_str());
+				fnOut = outdir + "lb_" + std::to_string(lambda) + "_snr_" + std::to_string(snr) + "\\recon";
+				fs::create_directories((outdir + "lb_" + std::to_string(lambda) + "_snr_" + std::to_string(snr)).c_str());
 				if (true)
 				{
 					MRCImage<RDOUBLE> projectionsIM(projections);
 					projectionsIM.writeAs<float>(fnOut + "_readProjectionsnoised.mrc", true);
+					MRCImage<RDOUBLE> noiseIm(noise);
+					noiseIm.writeAs<float>(fnOut + "_noise.mrc", true);
+				}
+			}
+			else {
+				fnOut = outdir + "lb_" + std::to_string(lambda) + "_snr_inf\\recon";
+				fs::create_directories((outdir + "lb_" + std::to_string(lambda) + "_snr_" + std::to_string(snr)).c_str());
+				if (true)
+				{
+					MRCImage<RDOUBLE> projectionsIM(projections);
+					projectionsIM.writeAs<float>(fnOut + "_readProjectionsnoised.mrc", true);
+					MultidimArray<RDOUBLE> noise;
+					noise.resize(projections.zdim, projections.ydim, projections.xdim);
 					MRCImage<RDOUBLE> noiseIm(noise);
 					noiseIm.writeAs<float>(fnOut + "_noise.mrc", true);
 				}
