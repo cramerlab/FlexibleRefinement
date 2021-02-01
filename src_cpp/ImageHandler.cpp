@@ -12,10 +12,27 @@ int main(int argc, char **argv)
 {
 	FileName f1 = argv[1];
 	FileName f2 = argv[2];
-	FileName out = argv[3];
 	MRCImage<RDOUBLE> im1 = MRCImage<RDOUBLE>::readAs(f1);
 	MRCImage<RDOUBLE> im2 = MRCImage<RDOUBLE>::readAs(f2);
-	writeFSC(im1(), im2(), out);
+	
+	FileName out;
+	if (argc == 5) {
+		FileName maskName = argv[3];
+		out = argv[4];
+		MRCImage<RDOUBLE> mask = MRCImage<RDOUBLE>::readAs(maskName);
+		MultidimArray<RDOUBLE> masked1 = im1()*mask();
+		MultidimArray<RDOUBLE> masked2 = im2()*mask();
+
+		writeFSC(im1(), im2(), out + "_masked.fsc");
+	}
+	else
+	{
+		out = argv[3];
+		writeFSC(im1(), im2(), out + ".fsc");
+	}
+
+
+
 
 	return EXIT_SUCCESS;
 }
