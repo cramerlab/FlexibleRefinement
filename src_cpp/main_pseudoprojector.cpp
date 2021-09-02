@@ -59,6 +59,67 @@ params readParams(cxxopts::ParseResult &res) {
 
 }
 
+void weightCTF(MultidimArray<RDOUBLE> &CTF, float3 * angles, int3 dims)
+{
+	int maxR = dims.x / 2;
+	float* Weights = new float[maxR];
+
+	for (int r = 0; r < maxR; r++)
+	{
+		float Sum = 0;
+
+		float3 Point = { (float)r, 0, 0 };
+
+		for (int a = 0; a < CTF.zdim; a++)
+		{
+			glm::vec3 Normal = glm::transpose(Matrix3Euler(angles[a])) * glm::vec3(0, 0, 1);
+			float Dist = abs(Normal.x*Point.x + Normal.y*Point.y + Normal.z*Point.z);
+			Sum += std::max((float)0, 1 - Dist);
+		}
+
+		Weights[r] = 1.0f / std::max(1.0f, Sum);
+	}
+
+	MultidimArray<float> Weights2D(dims.y, dims.x / 2 + 1);
+
+	int i = 0;
+	for (int y = 0; y < dims.y; y++)
+	{
+		int yy = y < dims.y / 2 + 1 ? y : y - dims.y;
+
+		for (int x = 0; x < dims.x / 2 + 1; x++)
+		{
+			int xx = x;
+			float r = (float)sqrt(xx * xx + yy * yy);
+			Weights2D.data[i++] = Weights[std::min(maxR - 1, (int)std::round(r))];
+		}
+	}
+
+	if (false) {
+		MRCImage<float> weightIm(Weights2D);
+		weightIm.writeAs<float>("D:\\EMD\\9233\\TomoReconstructions\\projectionsWeighting_weights2D.mrc");
+	}
+	idxtype batch = 1024;
+
+
+	int3 sliceFTDim = { CTF.xdim, CTF.ydim, 1 };
+	int sliceFTElements = sliceFTDim.x*sliceFTDim.y;
+
+
+	for (int idx = 0; idx < CTF.zdim;) {
+		int batchElements = std::min(CTF.zdim - idx, batch);
+		float * d_ctf;
+		cudaErrchk(cudaMalloc(&d_ctf, sliceFTElements * batchElements * sizeof(float)));
+		cudaErrchk(cudaMemcpy(d_ctf, CTF.data + sliceFTElements * idx, CTF.yxdim*batchElements * sizeof(float), cudaMemcpyHostToDevice));
+		float * d_weights = MallocDeviceFromHost(Weights2D.data, Weights2D.yxdim);		
+		d_MultiplyByVector(d_ctf, d_weights, d_ctf, sliceFTElements, batchElements);
+		cudaErrchk(cudaMemcpy(CTF.data + sliceFTElements * idx, d_ctf, sliceFTElements*batchElements * sizeof(float), cudaMemcpyDeviceToHost));
+		cudaErrchk(cudaFree(d_weights));
+		idx += batchElements;
+	}
+
+}
+
 
 void weightProjections(MultidimArray<RDOUBLE> &projections, float3 * angles, int3 dims)
 {
@@ -783,6 +844,7 @@ void ctfTest() {
 		}*/
 	}
 }
+
 unsigned seed = 42;
 MultidimArray<RDOUBLE> applyRandomNoise(MultidimArray<RDOUBLE> &projections, MultidimArray<RDOUBLE> &maskProjections, RDOUBLE snr) {
 
@@ -811,7 +873,8 @@ MultidimArray<RDOUBLE> applyRandomNoise(MultidimArray<RDOUBLE> &projections, Mul
 	MultidimArray<RDOUBLE> noise(projections.zdim, projections.ydim, projections.xdim);
 	//unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 	std::default_random_engine generator(seed);
-	std::normal_distribution<RDOUBLE> distribution(0, mean / snr);
+	//std::normal_distribution<RDOUBLE> distribution(0, mean / snr);
+	std::normal_distribution<RDOUBLE> distribution(0, stdDevNoise);
 
 	FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(noise) {
 		DIRECT_MULTIDIM_ELEM(noise, n) = distribution(generator);
@@ -852,23 +915,29 @@ int main(int argc, char** argv) {
 	bool writeProjections = false;	//Wether or not to write out projections before and after each iteration
 	idxtype numThreads = 24;
 	omp_set_num_threads(numThreads);
-	idxtype numIt = 3;
+	idxtype numIt = 1;
 
-	FileName projectionsOneStarFileName = "D:\\EMD\\9233\\Movement_Analysis\\original_proj.star";
-	FileName tsvOneFileName = "D:\\EMD\\9233\\Movement_Analysis\\original.tsv";
+	FileName projectionsOneStarFileName = "D:\\EMD\\9233\\Movement_Analysis_tomo\\800k\\original_proj.star";
+	FileName tsvOneFileName = "D:\\EMD\\9233\\Movement_Analysis_tomo\\800k\\original.tsv";
+	FileName ctfOneFileName = "D:\\EMD\\9233\\Projections_2.0_tomo\\projections_tomo_ctf.mrc";
+	bool haveCTF = true;
+	bool haveSecondFile = false;
+	FileName projectionsTwoStarFileName = "D:\\EMD\\9233\\Movement_Analysis_tomo\\800k\\non_linear_ordered_movement_5.000000_weighting_false_4.000000_800\\moved_proj.star";
+	FileName tsvTwoFileName = "D:\\EMD\\9233\\Movement_Analysis_tomo\\800k\\non_linear_ordered_movement_5.000000_weighting_false_4.000000_800\\moved.tsv";
 
-	bool haveSecondFile = true;
-	FileName projectionsTwoStarFileName = "D:\\EMD\\9233\\Movement_Analysis\\original_proj.star";
-	FileName tsvTwoFileName = "D:\\EMD\\9233\\Movement_Analysis\\original.tsv";
+	bool haveThirdFile = false;
+	FileName projectionsThreeStarFileName = "D:\\EMD\\9233\\Movement_Analysis_tomo\\800k\\non_linear_ordered_movement_4.000000_weighting_false_4.000000_800\\moved_proj.star";
+	FileName tsvThreeFileName = "D:\\EMD\\9233\\Movement_Analysis_tomo\\800k\\non_linear_ordered_movement_5.000000_weighting_false_4.000000_800\\moved.tsv";
 
 	FileName refFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + ".mrc";
 	FileName refMaskFileName = "D:\\EMD\\9233\\emd_9233_Scaled_" + pixsize + "_mask.mrc";
 	//PDB File containing pseudo atom coordinates
 	//FileName pdbFileName = "D:\\EMD\\9233\\emd_9233_Scaled_2.0_largeMask.pdb.pdb";		//PDB File containing pseudo atom coordinates
-	for (int multiply = 1; multiply < 10; multiply++) {
-		FileName outdir = "D:\\EMD\\9233\\Movement_Analysis\\Reconstruction_Single_" + std::to_string(multiply) + "_with_weighting\\";
+	
+	for (int multiply = 1; multiply < 2; multiply++) {
+		FileName outdir = "D:\\EMD\\9233\\Movement_Analysis_tomo\\800k\\Reconstruction_Single_" + std::to_string(multiply) + "_real_CTF_with_weighting\\";
 		fs::create_directories(outdir.c_str());
-
+		//fs::create_directories((outdir + "Debug").c_str());
 		FileName fnOut = outdir + "recon";
 
 		//Read Images
@@ -883,11 +952,14 @@ int main(int argc, char** argv) {
 		MultidimArray<RDOUBLE> projectionsOne;
 		idxtype numProjOne = readProjections(projectionsOneStarFileName, projectionsOne, &anglesOne, false);
 		MultidimArray<RDOUBLE> CTFOne(projectionsOne.zdim, projectionsOne.ydim, projectionsOne.xdim / 2 + 1);
-		FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(CTFOne) {
+		/*FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(CTFOne) {
 			DIRECT_MULTIDIM_ELEM(CTFOne, n) = 1.0;
-		}
+		}*/
+		MRCImage<float> ctfIm = MRCImage<float>::readAs(ctfOneFileName);
+		CTFOne = ctfIm();
 
-		float3 *anglesTwo;
+
+		float3 *anglesTwo = NULL;
 		MultidimArray<RDOUBLE> projectionsTwo;
 		idxtype numProjTwo = 0;
 		if (haveSecondFile) {
@@ -911,30 +983,67 @@ int main(int argc, char** argv) {
 			DIRECT_MULTIDIM_ELEM(CTFTwo, n) = 1.0;
 		}
 
-		idxtype numProj = numProjOne + numProjTwo;
+
+		float3 *anglesThree = NULL;
+		MultidimArray<RDOUBLE> projectionsThree;
+		idxtype numProjThree = 0;
+		if (haveThirdFile) {
+
+			numProjThree = readProjections(projectionsThreeStarFileName, projectionsThree, &anglesThree, false);
+			float3 *newAnglesThree = (float3*)malloc(multiply * numProjThree * sizeof(float3));
+			MultidimArray<RDOUBLE> newProjectionsThree(multiply*numProjThree, projectionsThree.ydim, projectionsThree.xdim);
+			for (size_t i = 0; i < multiply; i++)
+			{
+				memcpy(newAnglesThree + numProjThree * i, anglesTwo, numProjThree * sizeof(float3));
+				memcpy(newProjectionsThree.data + newProjectionsThree.nzyxdim * i, projectionsThree.data, newProjectionsThree.nzyxdim * sizeof(RDOUBLE));
+			}
+			numProjThree *= multiply;
+			free(anglesThree);
+			anglesThree = newAnglesThree;
+			projectionsThree = newProjectionsThree;
+		}
+		//numProj = 2048;
+		MultidimArray<RDOUBLE> CTFThree(projectionsThree.zdim, projectionsThree.ydim, projectionsThree.xdim / 2 + 1);
+		FOR_ALL_DIRECT_ELEMENTS_IN_MULTIDIMARRAY(CTFThree) {
+			DIRECT_MULTIDIM_ELEM(CTFThree, n) = 1.0;
+		}
+
+		idxtype numProj = numProjOne + numProjTwo + numProjThree;
 
 		MultidimArray<RDOUBLE> projections(numProj, projectionsOne.ydim, projectionsOne.xdim);
 		MultidimArray<RDOUBLE> CTF(numProj, CTFOne.ydim, CTFOne.xdim);
 		float3 * angles = (float3*)malloc(numProj * sizeof(*angles));
 		memcpy(projections.data, projectionsOne.data, projectionsOne.zyxdim * sizeof(*projections.data));
 		memcpy(CTF.data, CTFOne.data, CTFOne.zyxdim * sizeof(*projections.data));
-
 		memcpy(angles, anglesOne, numProjOne * sizeof(*angles));
+
+		CTF = CTF * CTF;
+		multiplyByCtf(projections, CTF);
+		weightCTF(CTF, angles, refDims);
 		if (haveSecondFile) {
 			memcpy(projections.data + projectionsOne.zyxdim, projectionsTwo.data, projectionsTwo.zyxdim * sizeof(*projections.data));
 			memcpy(CTF.data + CTFOne.zyxdim, CTFTwo.data, CTFTwo.zyxdim * sizeof(*projections.data));
 			memcpy(angles + numProjOne, anglesTwo, numProjTwo * sizeof(*angles));
 		}
 
+		if (haveThirdFile) {
+			memcpy(projections.data + projectionsOne.zyxdim + projectionsTwo.nzyxdim, projectionsThree.data, projectionsThree.zyxdim * sizeof(*projections.data));
+			memcpy(CTF.data + CTFOne.zyxdim + CTFTwo.zyxdim, CTFThree.data, CTFThree.zyxdim * sizeof(*projections.data));
+			memcpy(angles + numProjOne+numProjTwo, anglesThree, numProjThree * sizeof(*angles));
+		}
 
 		int *positionMatching = (int*)malloc(sizeof(int)*numProj);
 		for (size_t i = 0; i < numProjOne; i++)
 		{
 			positionMatching[i] = 0;
 		}
-		for (size_t i = numProjOne; i < numProj; i++)
+		for (size_t i = numProjOne; i < numProjOne + numProjTwo; i++)
 		{
-			positionMatching[i] = 0;
+			positionMatching[i] = 1;
+		}
+		for (size_t i = numProjOne+numProjTwo; i < numProj; i++)
+		{
+			positionMatching[i] = 2;
 		}
 		cudaErrchk(cudaDeviceSynchronize());
 		if (writeProjections)
@@ -961,7 +1070,12 @@ int main(int argc, char** argv) {
 			Atoms->addAlternativeOrientation((float*)AtomsTwo->alternativePositions[0], AtomsTwo->NAtoms);
 			delete AtomsTwo;
 		}
+		if (haveSecondFile) {
+			Pseudoatoms *AtomsThree = Pseudoatoms::ReadTsvFile(tsvThreeFileName);
 
+			Atoms->addAlternativeOrientation((float*)AtomsThree->alternativePositions[0], AtomsThree->NAtoms);
+			delete AtomsThree;
+		}
 
 		int3 projDim = make_int3((int)(projections.xdim), (int)(projections.xdim), (int)(projections.xdim));
 		PseudoProjector RefProj(projDim, Atoms, super);
@@ -990,10 +1104,10 @@ int main(int argc, char** argv) {
 		{
 			Atoms->AtomWeights[i] = 0;
 		}
-
+	
 		MultidimArray<RDOUBLE> unnoised = projections;
 
-		float snrs[] = { 0.1 };
+		float snrs[] = { std::numeric_limits<float>::infinity(), 10, 1, 0.1};
 		for (float snr : snrs)
 		{
 			double lambda = 0.1;
@@ -1050,7 +1164,10 @@ int main(int argc, char** argv) {
 			for (size_t itIdx = 0; itIdx < numIt; itIdx++)
 			{
 				if (algo == SIRT) {
-					proj.SIRT(projections, angles, positionMatching, numProj, NULL, NULL, NULL, NULL, 0, 0);
+					if (haveCTF)
+						proj.SIRT(projections, CTF, angles, positionMatching, numProj, NULL, NULL, NULL, NULL, 0, 0);
+					else
+						proj.SIRT(projections, angles, positionMatching, numProj, NULL, NULL, NULL, NULL, 0, 0);
 					//ctfProj.SIRT(realCTF, angles, numProj, 0, 0);
 					if (false)
 					{

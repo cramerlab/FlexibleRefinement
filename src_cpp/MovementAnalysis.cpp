@@ -2,6 +2,7 @@
 #include "AtomMover.h"
 #include "metadata_table.h"
 #include "pseudoatoms.h"
+#include <filesystem>
 #include "readMRC.h"
 #include "volume_to_pseudoatoms.h"
 #include <random>
@@ -9,6 +10,11 @@
 #include <direct.h>
 #include "ADAM_Solver.h"
 #include <omp.h>
+#include <io.h>
+
+
+namespace fs = std::filesystem;
+
 static inline void outputDeviceAsImage(float *d_data, int3 Dims, FileName outName, bool isFT = false) {
 	MultidimArray<float> h_data(Dims.z, Dims.y, isFT ? (Dims.x / 2 + 1) : Dims.x);
 	cudaErrchk(cudaMemcpy(h_data.data, d_data, isFT ? ElementsFFT(Dims) : Elements(Dims) * sizeof(*d_data), cudaMemcpyDeviceToHost));
@@ -166,40 +172,59 @@ idxtype readProjections(FileName starFileName, MultidimArray<RDOUBLE> &projectio
 int main(int argc, char** argv) {
 	omp_set_num_threads(20);
 
-	MRCImage<float> im = MRCImage<float>::readAs("D:\\EMD\\9233\\emd_9233_Scaled_2.0.mrc");
-	MRCImage<float> mask = MRCImage<float>::readAs("D:\\EMD\\9233\\emd_9233_Scaled_2.0_mask.mrc");
+	// Parameters
+	FileName inVol = "D:\\EMD\\9233\\emd_9233_Scaled_2.0.mrc";
+	FileName inMask = "D:\\EMD\\9233\\emd_9233_Scaled_2.0_mask.mrc";
+	FileName inProj = "D:\\EMD\\9233\\emd_9233_Scaled_2.0.projections_tomo.star";
+	FileName outdirBase = "D:\\EMD\\9233\\Movement_Analysis_tomo\\800k\\";
+
+	std::vector<RFLOAT> steps = { 0.5, 1.0, 2.0, 4.0 };
+	float diff = 5.0;
+	int N = 800000;
+	bool weighting = false;
+	float super = 4;
+	std::vector<int> its_per_step = { 100, 100, 100, 50};
+
+
+
+	MRCImage<float> im = MRCImage<float>::readAs(inVol);
+	MRCImage<float> mask = MRCImage<float>::readAs(inMask);
+	if (!fs::exists(outdirBase.c_str())) {
+		fs::create_directories(outdirBase.c_str());
+	}
 	int3 dims = { im().xdim, im().ydim, im().zdim };
 	//float super = 4.0;
-	bool weighting = false;
-	int N = 600000;
-	//float diff = 0.4;
-	float diffList[10] = { 0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0 };
-	//int N = 1000000;
-	float super = 4;
+
+
+
 	float3 *angles;
 	MultidimArray<RDOUBLE> refProjections;
-	idxtype numProj = readProjections("D:\\EMD\\9233\\emd_9233_Scaled_2.0.projections_uniform.star", refProjections, &angles, false);
+	idxtype numProj = readProjections(inProj, refProjections, &angles, false);
 	char bufferN[100];
 	char bufferSuper[100];
-
-	sprintf(bufferN, "%d", (int)N);
+	char bufferIn[1000];
+	char bufferMask[1000];
+	sprintf(bufferN, "%d", N);
+	sprintf(bufferIn, "%s", inVol.c_str());
+	sprintf(bufferMask, "%s", inMask.c_str());
 	sprintf(bufferSuper, "%lf", super);
-	ProgVolumeToPseudoatoms initializer(21, new char*[21]{ "consecutive_rastering","-i", "D:\\EMD\\9233\\emd_9233_Scaled_2.0.mrc", "-o", "D:\\EMD\\9233\\Consecutive_Rastering\emd_9233_Scaled_2.0_600k_0.pdb", "--initialSeeds", bufferN, "--oversampling", bufferSuper, "--mask", "binary_file",
-		"--maskfile", "D:\\EMD\\9233\\emd_9233_Scaled_2.0_mask.mrc", "--InterpolateValues", "true", "--dontAllowMovement",  "true", "--dontAllowIntensity", "true", "--dontAllowNumberChange", "false" });
+	ProgVolumeToPseudoatoms initializer(21, new char*[21]{ "consecutive_rastering","-i", bufferIn, "-o", "foo", "--initialSeeds", bufferN, "--oversampling", bufferSuper, "--mask", "binary_file",
+		"--maskfile", bufferMask, "--InterpolateValues", "true", "--dontAllowMovement",  "true", "--dontAllowIntensity", "true", "--dontAllowNumberChange", "false" });
 
 	MultidimArray<RFLOAT> rastered;
-	FileName outdirBase = "D:\\EMD\\9233\\Movement_Analysis\\";
-	/*
-	initializer.run();
-	Pseudoatoms Atoms = initializer.Atoms;
-	Atoms.initGrid(dims, 0.9);
-
-	Atoms.writeTsvFile(outdirBase + "original.tsv");
-	*/
+	Pseudoatoms * Atoms;
 	
-	Pseudoatoms * Atoms = Pseudoatoms::ReadTsvFile(outdirBase + "original.tsv");
-	if (false)
-	{
+	if (fs::exists((outdirBase + "original.tsv").c_str())){
+		Atoms = Pseudoatoms::ReadTsvFile(outdirBase + "original.tsv");
+		Atoms->initGrid(dims, 0.2);
+	}
+	else {
+		initializer.run();
+		Atoms = new Pseudoatoms(initializer.Atoms);
+		Atoms->initGrid(dims, 0.2);
+		Atoms->writeTsvFile(outdirBase + "original.tsv");
+	}
+	if (!fs::exists(outdirBase + "original.mrc")){
 		Atoms->RasterizeToVolume(rastered, { (int)im().xdim, (int)im().ydim, (int)im().zdim }, super, true, weighting);
 		{
 			MRCImage<float> out(rastered);
@@ -209,15 +234,15 @@ int main(int argc, char** argv) {
 		writeFSC(im(), rastered, std::string(outdirBase) + "original_fsc.star");
 		writeProjectionsToDisk(Atoms, angles, numProj, super, dims, outdirBase + "original_proj.mrc");
 	}
-	
-	MultidimArray<RFLOAT> refVolume1;
-	MultidimArray<RFLOAT> refVolume2;
-	MultidimArray<RFLOAT> refVolume4;
+	outdirBase += "non_linear_";
 
-	Atoms->RasterizeToVolume(refVolume1, dims, 1.0, false, weighting);
-	Atoms->RasterizeToVolume(refVolume2, dims, 2.0, false, weighting);
-	Atoms->RasterizeToVolume(refVolume4, dims, 4.0, false, weighting);
-	float diff = 1.5;
+	std::vector<MultidimArray<RFLOAT>> refVolumes;
+	for (auto step : steps) {
+		MultidimArray<RFLOAT> refVol;
+		Atoms->RasterizeToVolume(refVol, dims, step, false, weighting);
+		refVolumes.emplace_back(refVol);
+	}
+
 	//for (float diff : diffList) {
 	{
 		FileName outdir = outdirBase + "ordered_movement_" + std::to_string(diff) + "_weighting_" + (weighting ? "true" : "false") + "_" + std::to_string(super) + "_" + std::to_string(N / 1000) + "\\";
@@ -230,7 +255,7 @@ int main(int argc, char** argv) {
 		for (size_t i = 0; i < Atoms->NAtoms; i++)
 		{
 			//float3 distance = { (dis(e) * 2 - 1)*diff,(dis(e) * 2 - 1)*diff, (dis(e) * 2 - 1)*diff };
-			float3 distance = { diff * Atoms->AtomPositions[i].z / dims.z,diff * Atoms->AtomPositions[i].z / dims.z ,0 };
+			float3 distance = { diff * pow(Atoms->AtomPositions[i].z / dims.z,2),diff * pow(Atoms->AtomPositions[i].z / dims.z,2) ,0 };
 			Atoms->AtomPositions[i] = Atoms->AtomPositions[i] + distance;
 		}
 
@@ -247,6 +272,26 @@ int main(int argc, char** argv) {
 
 		//Try to correct
 
+		for (int i = 0; i < steps.size(); i++) {
+			AtomMover mover(Atoms, refVolumes[i], dims, steps[i], false, weighting, 0.01);
+			ADAM_Solver adam_solver;
+			int numIt = its_per_step[i];
+
+			//lbfgs_solver.run(mover, 500);
+			adam_solver.run(mover, numIt, outdir + "moved_" + std::to_string(numIt) + "_" + std::to_string(i) + ".log");
+
+			Atoms->RasterizeToVolume(rastered, { (int)im().xdim, (int)im().ydim, (int)im().zdim }, super, true, weighting);
+			{
+				MRCImage<float> out(rastered);
+				out.writeAs<float>(outdir + "moved_" + std::to_string(numIt) + "_" + std::to_string(i) + ".mrc");
+			}
+			writeFSC(im()*mask(), rastered*mask(), std::string(outdir) + "moved_" + std::to_string(numIt) + "_" + std::to_string(i) + "_fsc_masked.star");
+			writeFSC(im(), rastered, std::string(outdir) + "moved_" + std::to_string(numIt) + "_" + std::to_string(i) + "_fsc.star");
+			writeProjectionsToDisk(Atoms, angles, numProj, super, dims, outdir + "moved_" + std::to_string(numIt) + "_" + std::to_string(i) + "_proj.mrc");
+			Atoms->writeTsvFile(outdir + "moved_" + std::to_string(numIt) + "_" + std::to_string(i) + ".tsv");
+		}
+
+		/*
 		//First using 1 ref
 		{
 			AtomMover mover(Atoms, refVolume1, dims, 1.0, false, weighting, 0.01);
@@ -305,6 +350,7 @@ int main(int argc, char** argv) {
 			writeProjectionsToDisk(Atoms, angles, numProj, super, dims, outdir + "moved_50_4_proj.mrc");
 			Atoms->writeTsvFile(outdir + "moved_" + std::to_string(numIt) + "_4.tsv");
 		}
+		*/
 	}
 	
 }

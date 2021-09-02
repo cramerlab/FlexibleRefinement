@@ -1568,8 +1568,8 @@ RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBL
 	cudaErrchk(cudaMalloc((void**)&d_positionMatching, numAngles * sizeof(*d_positionMatching)));
 	cudaErrchk(cudaMemcpy(d_positionMatching, positionMatching, numAngles * sizeof(*d_positionMatching), cudaMemcpyHostToDevice));
 
-	FileName tmpDir = std::string("D:\\EMD\\9233\\TomoReconstructions\\Debug\\") + std::to_string(it) + "_";
-
+	FileName tmpDir = std::string("D:\\EMD\\9233\\Movement_Analysis_tomo\\800k\\Reconstruction_Single_1_real_CTF_with_weighting\\lb_0.100000_snr_inf\\Debug\\") + std::to_string(it) + "_";
+	bool writeDebug = true;
 	idxtype GPU_FREEMEM;
 	idxtype GPU_MEMLIMIT;
 	cudaMemGetInfo(&GPU_FREEMEM, &GPU_MEMLIMIT);
@@ -1644,22 +1644,22 @@ RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBL
 			float3 * h_angles = angles + startIm;
 
 			cudaErrchk(cudaMemcpy(d_iExp, Iexp.data + startIm * Elements2(dimsproj), batch*Elements2(dimsproj) * sizeof(float), cudaMemcpyHostToDevice));
-			if (true)
+			if (writeDebug)
 				outputDeviceAsImage(d_iExp, batchProjDim, tmpDir + std::string("d_iExp_it") + std::to_string(startIm) + ".mrc", false);
 
 			cudaErrchk(cudaMemcpy(d_ctfs, CTFs.data + startIm * ElementsFFT2(dimsproj), batch*ElementsFFT2(dimsproj) * sizeof(float), cudaMemcpyHostToDevice));
 			RealspacePseudoProjectForward(d_atomPositions, d_atomIntensities, d_positionMatching, atoms->NAtoms, superDimsvolume, d_superProjections, superDimsproj, super, h_angles, batch);
-			if (true)
+			if (writeDebug)
 				outputDeviceAsImage(d_superProjections, batchSuperProjDim, tmpDir + std::string("d_superProjectionsBatch_it") + std::to_string(startIm) + ".mrc", false);
 			cudaErrchk(cudaPeekAtLastError());
 
 			//We have planned for ElementsPerBatch many transforms, therefore we scale also the non existing parts between the end of batch and the end of d_superProj
 			d_Scale(d_superProjections, d_projectionsBatch, gtom::toInt3(superDimsproj), gtom::toInt3(dimsproj), T_INTERP_FOURIER, &planForward, &planBackward, ElementsPerBatch, NULL, d_projectionsBatchFFT);
-			if (true)
+			if (writeDebug)
 				outputDeviceAsImage(d_projectionsBatch, batchProjDim, tmpDir + std::string("d_projectionsBatch_it") + std::to_string(startIm) + ".mrc", false);
 			d_ComplexMultiplyByVector(d_projectionsBatchFFT, d_ctfs, d_projectionsBatchFFT, batch*ElementsFFT2(dimsproj), 1);
 			d_IFFTC2R(d_projectionsBatchFFT, d_projectionsBatch, DimensionCount(gtom::toInt3(dimsproj)), gtom::toInt3(dimsproj), batch);
-			if (true)
+			if (writeDebug)
 				outputDeviceAsImage(d_projectionsBatch, batchProjDim, tmpDir + std::string("d_projectionsBatchConvolved_it") + std::to_string(startIm) + ".mrc", false);
 			if (Itheo != NULL)
 				cudaErrchk(cudaMemcpy(Itheo->data + startIm * Elements2(dimsproj), d_projectionsBatch, batch*Elements2(dimsproj) * sizeof(float), cudaMemcpyDeviceToHost));
@@ -1711,33 +1711,33 @@ RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBL
 		MultidimArray<RDOUBLE> volBefore;
 		this->atoms->RasterizeToVolume(volBefore, this->Dims, this->super, false);
 		cudaErrchk(cudaMemcpy(atoms->AtomWeights.data(), d_atomIntensities, atoms->NAtoms * sizeof(*(atoms->AtomWeights.data())), cudaMemcpyDeviceToHost));
-		if (true)
+		if (writeDebug)
 			outputAsImage(volBefore, tmpDir + "volBefore.mrc");
 
 
 		MultidimArray<RDOUBLE> volAfter;
 		this->atoms->RasterizeToVolume(volAfter, this->Dims, this->super, false);
-		if (true)
+		if (writeDebug)
 			outputAsImage(volAfter, tmpDir + "volAfter.mrc");
 
 		MultidimArray<RDOUBLE> diffConvolved = volAfter - volBefore;
-		if (true)
+		if (writeDebug)
 			outputAsImage(diffConvolved, tmpDir + "volDiff.mrc");
 
 		float *d_diffConvolved;
 		cudaErrchk(cudaMalloc(&d_diffConvolved, Elements(Dims*this->super) * sizeof(*d_diffConvolved)));
 		cudaErrchk(cudaMemcpy(d_diffConvolved, diffConvolved.data, Elements(Dims*this->super) * sizeof(*d_diffConvolved), cudaMemcpyHostToDevice));
-		if (true)
+		if (writeDebug)
 			outputDeviceAsImage(d_diffConvolved, this->Dims*this->super, tmpDir + "d_diffConvolved.mrc");
 		tcomplex *d_fftDiffConvolved;
 		cudaErrchk(cudaMalloc(&d_fftDiffConvolved, ElementsFFT(Dims*this->super) * sizeof(*d_fftDiffConvolved)));
 		d_FFTR2C(d_diffConvolved, d_fftDiffConvolved, DimensionCount(this->Dims*this->super), this->Dims*this->super);
-		if (true)
+		if (writeDebug)
 			outputDeviceAsImage(d_fftDiffConvolved, this->Dims * this->super, tmpDir + "d_fftDiffConvolved.mrc");
 
 		MultidimArray<RDOUBLE> ctfRecon;
 		this->ctfAtoms->RasterizeToVolume(ctfRecon, this->Dims, this->super, false);
-		if (true)
+		if (writeDebug)
 			outputAsImage(ctfRecon, tmpDir + "ctfRecon.mrc");
 
 
@@ -1747,21 +1747,26 @@ RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBL
 
 		tcomplex *d_fftCTFRecon;
 		cudaErrchk(cudaMalloc(&d_fftCTFRecon, ElementsFFT(Dims*this->super) * sizeof(*d_fftCTFRecon)));
-		if (true)
-			outputDeviceAsImage(d_fftCTFRecon, this->Dims * this->super, tmpDir + "d_fftCTFRecon.mrc");
+
 
 		tfloat *d_absfftCTFRecon;
 		cudaErrchk(cudaMalloc(&d_absfftCTFRecon, ElementsFFT(Dims*this->super) * sizeof(*d_absfftCTFRecon)));
 		d_FFTR2C(d_CTFRecon, d_fftCTFRecon, DimensionCount(this->Dims), this->Dims*this->super);
 		d_Abs(d_fftCTFRecon, d_absfftCTFRecon, ElementsFFT(Dims*this->super));
-		if (true)
+		
+		if (writeDebug)
+			outputDeviceAsImage(d_fftCTFRecon, this->Dims * this->super, tmpDir + "d_fftCTFRecon.mrc");
+		if (writeDebug)
 			outputDeviceAsImage(d_absfftCTFRecon, this->Dims * this->super, tmpDir + "d_absfftCTFRecon.mrc", true);
+		
 		d_MaxOp(d_absfftCTFRecon, 1e-2, d_absfftCTFRecon, ElementsFFT(Dims*this->super));
+		if (writeDebug)
+			outputDeviceAsImage(d_absfftCTFRecon, this->Dims * this->super, tmpDir + "d_absfftCTFRecon_max.mrc", true);
 		d_ComplexDivideByVector(d_fftDiffConvolved, d_absfftCTFRecon, d_fftDiffConvolved, ElementsFFT(this->Dims*this->super), 1);
-		if (true)
+		if (writeDebug)
 			outputDeviceAsImage(d_fftDiffConvolved, this->Dims * this->super, tmpDir + "d_fftDiffDivided.mrc");
 		d_IFFTC2R(d_fftDiffConvolved, d_diffConvolved, DimensionCount(this->Dims), this->Dims*this->super, 1);
-		if (true)
+		if (writeDebug)
 			outputDeviceAsImage(d_diffConvolved, this->Dims * this->super, tmpDir + "d_diffDivided.mrc");
 		RealspaceVolumeUpdate(d_atomPositions, d_copyAtomIntensities, atoms->NAtoms, d_diffConvolved, this->Dims, this->super);
 

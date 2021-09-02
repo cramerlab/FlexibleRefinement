@@ -17,9 +17,10 @@ namespace Testing
             String outdir = args[1];
             Star starFile = new Star(args[0]);
             string instarName = Path.GetFileName(args[0].Replace(".star", ""));
+            string starDir = Path.GetDirectoryName(args[0]);
 
             System.ValueTuple<string, int>[] micrographNames = starFile.GetRelionParticlePaths();
-            Image micrograph = Image.FromFile($@"{micrographNames[0].Item1}");
+            Image micrograph = Image.FromFile($@"{starDir}\{micrographNames[0].Item1}");
             //micrograph.WriteMRC("micrograph.mrc", true);
             string name = micrographNames[0].Item1;
             Image[] particles = Helper.ArrayOfFunction(i =>
@@ -28,7 +29,7 @@ namespace Testing
                 if (item.Item1 != name)
                 {
                     name = item.Item1;
-                    micrograph = Image.FromFile($@"{name}");
+                    micrograph = Image.FromFile($@"{starDir}\{name}");
                 }
                 return micrograph.AsSliceXY(item.Item2);
 
