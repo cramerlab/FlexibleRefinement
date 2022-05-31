@@ -506,6 +506,103 @@ namespace Preprocessor
         }
 
 
+        static void projectTomo9233(string inputVolstring = @"D:\FlexibleRefinementResults\input\emd_9233_Scaled_2.0.mrc", string outdir = @"D:\FlexibleRefinementResults\input\projectionsTomo", int order = 4)
+        {
+            int batchSize = 1024;
+
+            outdir = $@"D:\FlexibleRefinementResults\input\projectionsTomo_order{order}";
+            Image refVolume = Image.FromFile(inputVolstring);
+            int2 projDim = new int2(refVolume.Dims.X);
+            Projector proj = new Projector(refVolume, 2);
+
+            string CTFStarPath = @"D:\EMPIAR\10168\shiny_r2.star";
+            int2 originalSize = new int2(240);
+
+            if (!Directory.Exists(outdir))
+            {
+                Directory.CreateDirectory(outdir);
+            }
+            if (!Directory.Exists($@"{outdir}\particles_clean"))
+            {
+                Directory.CreateDirectory($@"{outdir}\particles_clean");
+            }
+            if (!Directory.Exists($@"{outdir}\particles_CTF"))
+            {
+                Directory.CreateDirectory($@"{outdir}\particles_CTF");
+            }
+
+            Star starInFile = new Star(CTFStarPath);
+
+            Star starCleanOutFile = new Star(starInFile.GetColumnNames());
+            Star starConvolvedOutFile = new Star(starInFile.GetColumnNames());
+
+            CTF[] CTFParams = starInFile.GetRelionCTF();
+            Image CTFCoords = CTF.GetCTFCoords(projDim, originalSize);
+
+            float3[] anglesRad = Helper.GetHealpixRotTilt(order).Select(v => new float3(v.X, v.Y, 0) * Helper.ToRad).ToArray();
+            int numAngles = anglesRad.Length;
+            int numParticles = numAngles;
+            int numBatches = (int)(Math.Ceiling((double)numParticles / batchSize));
+
+            float3[] anglesDeg = Helper.ArrayOfFunction(i => anglesRad[i] * Helper.ToDeg, anglesRad.Count());
+
+            List<List<string>> rows = starInFile.GetAllRows();
+            int n = 0;
+            Image CTFSum = new Image(new int3(projDim), true);
+            Image[] outProjections = new Image[numBatches];
+            Image[] outConvolved = new Image[numBatches];
+            Image[] outCTFs = new Image[numBatches];
+            for (int i = 0; i < numBatches; i++)
+            {
+                int batchElements = Math.Min(batchSize, numAngles - batchSize);
+                float3[] partAnglesRad = anglesRad.Skip(((i) * batchSize)).Take(batchElements).ToArray();
+
+                float3[] partAnglesDeg = Helper.ArrayOfFunction(k => partAnglesRad[k] * Helper.ToDeg, batchElements);
+                Image im = proj.ProjectToRealspace(projDim, partAnglesRad);
+                Image CTFs = new Image(im.Dims, true);
+                GPU.CreateCTF(CTFs.GetDevice(Intent.Write),
+                    CTFCoords.GetDevice(Intent.Read),
+                    (uint)CTFCoords.ElementsSliceComplex,
+                    CTFParams.Skip(((i) * batchSize)).Select(p => p.ToStruct()).ToArray(),
+                    false,
+                    (uint)im.Dims.Z);
+                outProjections[i] = im;
+                outCTFs[i] = CTFs;
+                /* convolve once */
+                Image imFFT = im.AsFFT();
+                imFFT.ShiftSlices(Helper.ArrayOfFunction(idx => new float3(im.Dims.X / 2, im.Dims.Y / 2, 0), batchElements));
+                imFFT.Multiply(CTFs);
+                imFFT.ShiftSlices(Helper.ArrayOfFunction(idx => new float3(-im.Dims.X / 2, -im.Dims.Y / 2, 0), batchElements));
+                im = imFFT.AsIFFT();
+                imFFT.Dispose();
+                outConvolved[i] = im;
+
+                for (int j = 0; j < batchElements; j++)
+                {
+                    List<string> row = rows[n];
+                    row[0] = $@"{ n + 1}@particles_clean\projections_tomo.mrc";
+                    row[5] = partAnglesDeg[j].X.ToString();
+                    row[6] = partAnglesDeg[j].Y.ToString();
+                    row[7] = partAnglesDeg[j].Z.ToString();
+
+                    starCleanOutFile.AddRow(new List<string>(row));
+
+                    row[0] = $@"{n + 1}@{outdir}\particles_CTF\projections_tomo_convolvedShift.mrc";
+                    starConvolvedOutFile.AddRow(new List<string>(row));
+
+                    n++;
+                }
+
+            }
+            Image.Stack(outProjections).WriteMRC($@"{outdir}\particles_clean\projections_tomo.mrc", true);
+            Image.Stack(outConvolved).WriteMRC($@"{outdir}\particles_CTF\projections_tomo_convolved.mrc", true);
+            Image.Stack(outCTFs).WriteMRC($@"{outdir}\particles_clean\projections_tomo_ctf.mrc", true);
+            Image.Stack(outCTFs).WriteMRC($@"{outdir}\particles_CTF\projections_tomo_ctf.mrc", true);
+            starCleanOutFile.Save($@"{outdir}\{Path.GetFileNameWithoutExtension(inputVolstring)}.projections_tomo.star");
+            starConvolvedOutFile.Save($@"{outdir}\{Path.GetFileNameWithoutExtension(inputVolstring)}.projections_tomo_convolved.star");
+        }
+
+
         static void projectorByStar(string inputVolPath = @"D:\EMPIAR\10168\emd_4180_res7.mrc", string outdir = @"D:\EMPIAR\10168\",  string projDir = @"D:\EMPIAR\10168\Projections_7", string starPath = @"D:\EMPIAR\10299\data\Particles\shiny.star")
         {
             
@@ -543,40 +640,60 @@ namespace Preprocessor
 
         static void preprocess_emd_9233()
         {
+            String Outdir = @"D:\FlexibleRefinementResults\input";
+            String Infile = $@"D:\EMD\9233\emd_9233.mrc";
+            String Outfile = $@"{Outdir}\emd_9233_Scaled_2.0.mrc";
 
-            Image inVol = Image.FromFile($@"D:\EMD\9233\emd_9233.mrc");
+            String OutfileSoftMask = $@"{Outdir}\emd_9233_Scaled_2.0_softMask.mrc";
+            String OutfileZylinderMask = $@"{Outdir}\emd_9233_Scaled_2.0_zylinderMask.mrc";
+            String OutfileMasked = $@"{Outdir}\emd_9233_Scaled_2.0_masked.mrc";
+            String OutMask = $@"{Outdir}\emd_9233_Scaled_2.0_mask.mrc";
+            Image inVol = Image.FromFile(Infile);
             HeaderMRC Header;
-            using (BinaryReader Reader = new BinaryReader(File.OpenRead($@"D:\EMD\9233\emd_9233.mrc")))
+            using (BinaryReader Reader = new BinaryReader(File.OpenRead(Infile)))
             {
                 Header = new HeaderMRC(Reader);
 
             }
             float3 olPix = Header.PixelSize;
             float3 newPix = new float3(2.0f);
-            Image sampledVol = ImageProcessor.Downsample(inVol, newPix.X / olPix.X);
-            Image scaledVol = inVol.AsScaled(sampledVol.Dims);
-            Image scaledMask = scaledVol.GetCopy();
-            scaledMask.Binarize(0.01f);
-            scaledMask = scaledMask.AsConvolvedGaussian(2.0f);
-            scaledMask.Binarize(0.2f);
-            scaledMask = scaledMask.AsConvolvedGaussian(2.0f);
-            scaledMask.Binarize(0.2f);
-            scaledMask = scaledMask.AsConvolvedGaussian(10.0f);
-            scaledMask.Binarize(0.2f);
-            scaledMask.WriteMRC($@"D:\EMD\9233\emd_9233_Scaled_2.0_mask.mrc");
-            scaledVol.Multiply(scaledMask);
-            scaledVol.WriteMRC($@"D:\EMD\9233\emd_9233_Scaled_2.0.mrc");
-            //inVol.Normalize();
-            //inVol.WriteMRC($@"D:\EMD\9233\emd_9233_normalized.mrc", true, Header);
-            inVol.Binarize(0.01f);
-            inVol = inVol.AsConvolvedGaussian(2.0f);
-            inVol.Binarize(0.2f);
-            inVol = inVol.AsConvolvedGaussian(2.0f);
-            inVol.Binarize(0.2f);
-            inVol = inVol.AsConvolvedGaussian(10.0f);
-            inVol.Binarize(0.2f);
-            inVol.WriteMRC($@"D:\EMD\9233\emd_9233_mask.mrc", true,Header);
-           
+            float factor = (float)(newPix.X) / olPix.X;
+            int newSizeX = ((int)(((float)inVol.Dims.X / factor) / 2)) * 2 + 2;
+
+            int3 newDims = new int3(newSizeX);
+
+            newPix = olPix * ((float)newDims.X) / inVol.Dims.X;
+            Image scaledVol = inVol.AsScaled(newDims);
+
+            Image zylinderMask = new Image(newDims);
+            zylinderMask.TransformValues((x, y, z, val) =>
+            {
+                if (Math.Abs(z - zylinderMask.Dims.Z / 2) <= 40)
+                {
+                    int xx = x - zylinderMask.Dims.X / 2;
+                    int yy = y - zylinderMask.Dims.Y / 2;
+                    double r = Math.Sqrt(Math.Pow(xx, 2) + Math.Pow(yy, 2));
+                    return (r <= 35) ? 1 : 0;
+                }
+                return 0;
+            });
+
+            Image softMask = scaledVol.GetCopy();
+            softMask.Binarize(0.01f);
+            softMask = FSC.MakeSoftMask(softMask, 6, 3);
+
+            scaledVol.WriteMRC(Outfile, true);
+            scaledVol.Multiply(softMask);
+            scaledVol.WriteMRC(OutfileMasked, true);
+
+            zylinderMask.WriteMRC(OutfileZylinderMask, true, Header);
+            softMask.WriteMRC(OutfileSoftMask, true, Header);
+
+            Image sum = softMask.AsSum3D();
+            float[][] data = sum.GetHost(Intent.Read);
+            Console.WriteLine($"Soft Mask has a sum of {softMask.AsSum3D().GetHost(Intent.Read)[0][0]}");
+            Console.WriteLine($"Cylinder Mask has a sum of {zylinderMask.AsSum3D().GetHost(Intent.Read)[0][0]}");
+
             //sampledVol.Normalize();
             /*
             Header.PixelSize = Header.PixelSize * inVol.Dims.X / sampledVol.Dims.X;
@@ -657,7 +774,64 @@ namespace Preprocessor
             // Go to http://aka.ms/dotnet-get-started-console to continue learning how to build a console app!
             //downsampleToDim();
             //downsampler();
-            //preprocess_emd_9233();
+            if(args[0]=="9233")
+                preprocess_emd_9233();
+            /*else if(args[0] == "apo")
+            {
+                String Outdir = @"D:\FlexibleRefinementResults\input\smallApo";
+                if (!Directory.Exists(Outdir))
+                    Directory.CreateDirectory(Outdir);
+                Image mask = new Image(new int3(180));
+
+                Star projections = new Star(@"Z:\DATA\fjochhe\smallApo\run_data.star");
+                int NParticles = projections.RowCount;
+                float3[] Angles = projections.GetRelionAngles();
+                CTF[] CTFParams = projections.GetRelionCTF();
+                var particlePaths = projections.GetRelionParticlePaths();
+                Dictionary<string, Image> micrographs = new Dictionary<string, Image>();
+
+                foreach (var item in particlePaths)
+                {
+                    if (!micrographs.ContainsKey(item.Item1))
+                    {
+                        micrographs.Add(item.Item1, Image.FromFile($@"Z:\DATA\fjochhe\smallApo\{item.Item1}"));
+                    }
+                }
+                float3[] offsets = projections.GetRelionOffsets();
+                Image[] particleArray = Helper.ArrayOfFunction(i =>
+                {
+                    micrographs.TryGetValue(particlePaths[i].Item1, out Image micrograph);
+                    return micrograph.AsSliceXY(particlePaths[i].Item2);
+                }, NParticles);
+
+                Image Particles = Image.Stack(particleArray);
+
+                Particles.ShiftSlices(offsets);
+
+                Projector Reconstructor = new Projector(new int3(Particles.Dims.X), 2);
+
+                Image CTFCoords = CTF.GetCTFCoords(Particles.Dims.X, Particles.Dims.X);
+                Image CTFs = new Image(Particles.Dims, true);
+                GPU.CreateCTF(CTFs.GetDevice(Intent.Write),
+                                CTFCoords.GetDevice(Intent.Read),
+                                (uint)CTFCoords.ElementsSliceComplex,
+                                CTFParams.Select(p => p.ToStruct()).ToArray(),
+                                false,
+                                (uint)NParticles);
+
+                Image ParticlesFT = Particles.AsFFT();
+                ParticlesFT.ShiftSlices(Helper.ArrayOfFunction(i => new float3(Particles.Dims.X / 2, Particles.Dims.Y / 2, 0), NParticles));
+
+                Reconstructor.BackProject(ParticlesFT, CTFs, Angles.Select(a => a * Helper.ToRad).ToArray(), new float3(1, 1, 0));
+                GPU.PeekLastCUDAError();
+                Image Rec = Reconstructor.Reconstruct(false);
+                Rec.WriteMRC($@"{Outdir}\reconstruction.mrc", true);
+            }
+            */
+            if (args[0] == "projectTomo9233")
+            {
+                projectTomo9233();
+            }
             //projectUniform();
             //projectUniform(@"D:\EMPIAR\10168\emd_4180_res7.mrc",  @"D:\EMPIAR\10168\shiny.star", @"D:\EMPIAR\10168\", @"D:\EMPIAR\10168\Projections_7_uniform")
             //preprocess_emd_9233();
@@ -675,7 +849,7 @@ namespace Preprocessor
             //    return 0.0f;
             //});
             //mask.WriteMRC(@"D:\EMD\9233\emd_9233_Scaled_2.0_largeMask.mrc", true);
-            projectorByStar(@"D:\EMD\9233\TomoReconstructions\2.0_convolvedFromAtoms.1024_it1_oversampled4.mrc", @"D:\EMD\9233\TomoReconstructions", @"D:\EMD\9233\TomoReconstructions\2.0_convolvedFromAtoms.1024_it1_oversampled4_projections", @"D:\EMD\9233\emd_9233_Scaled_2.0.projections_tomo_convolved-fromAtoms.1024.star");
+            //projectorByStar(@"D:\EMD\9233\TomoReconstructions\2.0_convolvedFromAtoms.1024_it1_oversampled4.mrc", @"D:\EMD\9233\TomoReconstructions", @"D:\EMD\9233\TomoReconstructions\2.0_convolvedFromAtoms.1024_it1_oversampled4_projections", @"D:\EMD\9233\emd_9233_Scaled_2.0.projections_tomo_convolved-fromAtoms.1024.star");
         }
     }
 }

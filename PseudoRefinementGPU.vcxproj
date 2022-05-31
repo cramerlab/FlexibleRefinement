@@ -71,7 +71,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <Optimization>MaxSpeed</Optimization>
+      <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>FLOAT_PRECISION;WIN32;WIN64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
@@ -129,6 +129,7 @@
     <ClCompile Include="src_cpp\metadata_container.cpp" />
     <ClCompile Include="src_cpp\metadata_label.cpp" />
     <ClCompile Include="src_cpp\metadata_table.cpp" />
+    <ClCompile Include="src_cpp\ProjectionReader.cpp" />
     <ClCompile Include="src_cpp\pseudoatoms.cpp" />
     <ClCompile Include="src_cpp\PseudoProjector.cpp" />
     <ClCompile Include="src_cpp\readMRC.cpp" />
@@ -142,7 +143,8 @@
     <ClInclude Include="src_cpp\metadata_container.h" />
     <ClInclude Include="src_cpp\metadata_label.h" />
     <ClInclude Include="src_cpp\metadata_table.h" />
-    <ClInclude Include="src_cpp\Projector.h" />
+    <ClInclude Include="src_cpp\MyProjector.h" />
+    <ClInclude Include="src_cpp\ProjectionReader.h" />
     <ClInclude Include="src_cpp\pseudoatoms.h" />
     <ClInclude Include="src_cpp\PseudoProjector.h" />
     <ClInclude Include="src_cpp\readMRC.h" />
@@ -165,6 +167,6 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.1.props" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.1.targets" />
   </ImportGroup>
 </Project>

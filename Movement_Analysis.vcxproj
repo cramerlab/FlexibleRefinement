@@ -132,6 +132,8 @@
     <ClCompile Include="src_cpp\funcs.cpp" />
     <ClCompile Include="src_cpp\histogram.cpp" />
     <ClCompile Include="src_cpp\MovementAnalysis.cpp" />
+    <ClCompile Include="src_cpp\ProjectionReader.cpp" />
+    <ClCompile Include="src_cpp\PseudoProjector.cpp" />
     <ClCompile Include="src_cpp\volume_to_pseudoatoms.cpp" />
     <ClCompile Include="src_cpp\metadata_container.cpp" />
     <ClCompile Include="src_cpp\metadata_label.cpp" />
@@ -153,7 +155,9 @@
     <ClInclude Include="src_cpp\metadata_label.h" />
     <ClInclude Include="src_cpp\metadata_table.h" />
     <ClInclude Include="src_cpp\my_mask.h" />
+    <ClInclude Include="src_cpp\ProjectionReader.h" />
     <ClInclude Include="src_cpp\pseudoatoms.h" />
+    <ClInclude Include="src_cpp\PseudoProjector.h" />
     <ClInclude Include="src_cpp\readMRC.h" />
     <ClInclude Include="src_cpp\Types.h" />
     <ClInclude Include="src_cpp\volume_to_pseudoatoms.h" />
@@ -167,6 +171,6 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.1.props" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.1.targets" />
   </ImportGroup>
 </Project>

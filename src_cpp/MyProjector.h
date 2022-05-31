@@ -3,7 +3,7 @@
 #include "Prerequisites.cuh"
 #include "Warp_GPU.h"
 #include "cudaHelpers.cuh"
-class Projector
+class MyProjector
 {
 
 public:
@@ -16,7 +16,7 @@ public:
 	unsigned long t_DataRe, t_DataIm;
 	unsigned long a_DataRe, a_DataIm;
 
-	Projector(int3 dims, int oversampling)
+	MyProjector(int3 dims, int oversampling)
 	{
 		Dims = dims;
 		Oversampling = oversampling;

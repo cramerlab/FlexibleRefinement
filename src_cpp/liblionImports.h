@@ -14,4 +14,5 @@
 #include "src/strings.h"
 
 #define RFLOAT float
+
 #endif // !LIBLION_IMPORTS

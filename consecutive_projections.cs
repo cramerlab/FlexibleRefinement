@@ -13,13 +13,22 @@ namespace Consecutive_Rastering_Projections
 
         static void Main(string[] args)
         {
+            /*Image refVol = Image.FromFile(@"D:\FlexibleRefinementResults\input\input2\emd_9233_Scaled_2.0.mrc");
+            var angles = Helper.GetHealpixAngles(1);
 
+            Projector proj = new Projector(refVol, 2);
+            Image projections = proj.ProjectToRealspace(refVol.DimsSlice, angles);
+            projections.WriteMRC(@"D:\FlexibleRefinementResults\Results\Consecutive_Rastering\Output\refProjections_cs.mrc", true);
+            */
             string refFileName = args[0];
-            string refMaskName = args[1];
-            string atomProjectionsName = args[2];
+            // string refMaskName = args[1];
+            string atomProjectionsName = args[1];
 
             Image RefProjections = Image.FromFile(refFileName);
-            Image RefProjectionsMask = Image.FromFile(refMaskName);
+            Image RefProjectionsMask = new Image(RefProjections.Dims);
+            RefProjectionsMask.Fill(1);
+            RefProjectionsMask.MaskSpherically(47, 4, false);
+
             RefProjections.Multiply(RefProjectionsMask);
             Image RefProjectionsFT = RefProjections.AsFFT();
             float[][] RefProjectionsFTData = RefProjectionsFT.GetHost(Intent.Read);

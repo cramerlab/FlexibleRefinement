@@ -67,6 +67,22 @@ void Substract_GPU(MultidimArray<float> &img, MultidimArray<float> &substrahend)
 
 }
 
+
+std::vector<float3> GetHealpixAnglesRad(int order, char * symmetry, float limittilt)
+{
+	int N = GetAnglesCount(order, symmetry, limittilt);
+	
+	float3 * c_array = (float3 *) malloc(sizeof(*c_array)*N);
+
+	GetAngles(c_array, order, symmetry, limittilt);
+	for (size_t i = 0; i < N; i++)
+	{
+		c_array[i] *= PI / 360;
+	}
+	std::vector<float3> output(c_array, c_array + N);
+	return output;
+}
+
 void realspaceCTF(MultidimArray<RDOUBLE> &ctf, MultidimArray<RDOUBLE> &realCtf, int3 dims)
 {
 	realCtf.resizeNoCopy(ctf.zdim, dims.y, dims.x);

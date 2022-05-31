@@ -1585,7 +1585,7 @@ RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBL
 	idxtype space = Elements2(dimsproj) * sizeof(float);
 	idxtype ElementsPerBatch = 0.9*(GPU_FREEMEM / ((2 * Elements2(superDimsproj) + Elements2(dimsproj) + Elements2(dimsproj)) * sizeof(float)));
 
-	ElementsPerBatch = std::min(numAngles, (idxtype)2048);	//Hard limit of elementsPerBatch instead of calculating
+	ElementsPerBatch = std::min(numAngles, (idxtype)4096);	//Hard limit of elementsPerBatch instead of calculating
 	if (Itheo != NULL)
 		Itheo->resizeNoCopy(numAngles, dimsproj.y, dimsproj.x);
 	if (Icorr != NULL)

@@ -121,17 +121,41 @@ void ProgVolumeToPseudoatoms::placeSeedsEquidistantPoints() {
 			RDOUBLE maxX = 0.0;
 			RDOUBLE maxXY = 0.0;
 			RDOUBLE maxXZ = 0.0;
+#pragma omp parallel for
+			for (int k = 0; k < ZSIZE(BestSolution); k++) {
+				for (size_t i = 0; i < YSIZE(BestSolution); i++) {
+					for (size_t j = 0; j < XSIZE(BestSolution); j++) {
+						//FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY3D(BestSolution)
+						{
+							DIRECT_A3D_ELEM(BestSolution, k, i, j) = make_FR_float3((2 * j + (i + k) % 2) * R + Offset.x, Root3 * (i + 1.0 / 3.0 * (k % 2))* R + Offset.y, ZTerm * k* R + Offset.z);
+							if ((2 * j + (i + k) % 2) * R + Offset.x > maxX) {
+								maxX = (2 * j + (i + k) % 2) * R + Offset.x;
+								maxXY = Root3 * (i + 1.0 / 3.0 * (k % 2))* R + Offset.y;
+								maxXZ = ZTerm * k* R + Offset.z;
 
-			FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY3D(BestSolution)
-			{
-				DIRECT_A3D_ELEM(BestSolution, k, i, j) = make_FR_float3((2 * j + (i + k) % 2) * R + Offset.x, Root3 * (i + 1.0 / 3.0 * (k % 2))* R + Offset.y, ZTerm * k* R + Offset.z);
-				if ((2 * j + (i + k) % 2) * R + Offset.x > maxX) {
-					maxX = (2 * j + (i + k) % 2) * R + Offset.x;
-					maxXY = Root3 * (i + 1.0 / 3.0 * (k % 2))* R + Offset.y;
-					maxXZ = ZTerm * k* R + Offset.z;
-
+							}
+						}
+					}
 				}
 			}
+
+			/*
+			for (int k = 0; k < ZSIZE(BestSolution); k++) {
+				for (size_t i = 0; i < YSIZE(BestSolution); i++) {
+					for (size_t j = 0; j < XSIZE(BestSolution); j++) {
+						//FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY3D(BestSolution)
+						{
+							DIRECT_A3D_ELEM(BestSolution, k, i, j) = make_FR_float3((2 * j + (i + k) % 2) * R + Offset.x, Root3 * (i + 1.0 / 3.0 * (k % 2))* R + Offset.y, ZTerm * k* R + Offset.z);
+							if ((2 * j + (i + k) % 2) * R + Offset.x > maxX) {
+								maxX = (2 * j + (i + k) % 2) * R + Offset.x;
+								maxXY = Root3 * (i + 1.0 / 3.0 * (k % 2))* R + Offset.y;
+								maxXZ = ZTerm * k* R + Offset.z;
+
+							}
+						}
+					}
+				}
+			}*/
 
 			InsideMask.clear();
 			InsideMask.reserve(BestSolution.nzyxdim);
@@ -358,6 +382,8 @@ void ProgVolumeToPseudoatoms::writeResults()
 	fhOut = fopen((fnOut + ".pdb").c_str(), "w");
 	if (!fhOut)
 		REPORT_ERROR(fnOut + ".pdb");
+
+	Atoms.writeTsvFile(fnOut + ".tsv");
 	idxtype nmax = Atoms.AtomPositions.size();
 	idxtype col = 1;
 	if (intensityColumn == "Bfactor")

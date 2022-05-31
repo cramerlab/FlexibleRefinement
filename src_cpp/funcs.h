@@ -21,7 +21,11 @@ void Uproject_to_plane(const Matrix1D<RDOUBLE> &point,
 	const Matrix1D<RDOUBLE> &direction, RDOUBLE distance,
 	Matrix1D<RDOUBLE> &result);
 
-void writeFSC(MultidimArray<RDOUBLE> &V1, MultidimArray<RDOUBLE> &V2, FileName outpath);
+void myGetFSC(MultidimArray< RDOUBLE > &m1,
+	MultidimArray< RDOUBLE > &m2,
+	MultidimArray< RDOUBLE > &fsc);
+
+MultidimArray<RDOUBLE> writeFSC(MultidimArray<RDOUBLE> &V1, MultidimArray<RDOUBLE> &V2, FileName outpath);
 
 RDOUBLE Lerp(RDOUBLE a, RDOUBLE b, RDOUBLE x);
 

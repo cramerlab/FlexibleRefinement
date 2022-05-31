@@ -11,7 +11,7 @@
 #include "ADAM_Solver.h"
 #include <omp.h>
 #include <io.h>
-
+#include "ProjectionReader.h"
 
 namespace fs = std::filesystem;
 
@@ -111,7 +111,7 @@ void writeProjectionsToDisk(Pseudoatoms *Atoms, float3* angles, idxtype numAngle
 	cufftDestroy(planBackward);
 }
 
-
+/*
 idxtype readProjections(FileName starFileName, MultidimArray<RDOUBLE> &projections, float3 **angles, bool shuffle = false)
 {
 	MetaDataTable MD;
@@ -167,23 +167,23 @@ idxtype readProjections(FileName starFileName, MultidimArray<RDOUBLE> &projectio
 	}
 	return numProj;
 }
-
+*/
 
 int main(int argc, char** argv) {
 	omp_set_num_threads(20);
 
 	// Parameters
-	FileName inVol = "D:\\EMD\\9233\\emd_9233_Scaled_2.0.mrc";
-	FileName inMask = "D:\\EMD\\9233\\emd_9233_Scaled_2.0_mask.mrc";
-	FileName inProj = "D:\\EMD\\9233\\emd_9233_Scaled_2.0.projections_tomo.star";
-	FileName outdirBase = "D:\\EMD\\9233\\Movement_Analysis_tomo\\800k\\";
+	FileName inVol = "D:\\FlexibleRefinementResults\\input\\emd_9233_Scaled_2.0.mrc"; 
+	FileName inMask = "D:\\FlexibleRefinementResults\\input\\emd_9233_Scaled_2.0_softMask.mrc";
+	FileName inProj = "D:\\FlexibleRefinementResults\\input\\projectionsTomo_order4\\emd_9233_Scaled_2.0.projections_tomo.star";
+	FileName outdirBase = "D:\\FlexibleRefinementResults\\input\\MovementAnalysis\\";
 
 	std::vector<RFLOAT> steps = { 0.5, 1.0, 2.0, 4.0 };
 	float diff = 5.0;
-	int N = 800000;
+	int N = 500000;
 	bool weighting = false;
 	float super = 4;
-	std::vector<int> its_per_step = { 100, 100, 100, 50};
+	std::vector<int> its_per_step = { 100, 100, 100, 100};
 
 
 
@@ -197,9 +197,9 @@ int main(int argc, char** argv) {
 
 
 
-	float3 *angles;
+	//float3 *angles;
 	MultidimArray<RDOUBLE> refProjections;
-	idxtype numProj = readProjections(inProj, refProjections, &angles, false);
+	ProjectionSet * refProjectionSet = readProjectionsAndAngles(inProj, 1);
 	char bufferN[100];
 	char bufferSuper[100];
 	char bufferIn[1000];
@@ -232,7 +232,7 @@ int main(int argc, char** argv) {
 		}
 		writeFSC(im()*mask(), rastered*mask(), std::string(outdirBase) + "original_fsc_masked.star");
 		writeFSC(im(), rastered, std::string(outdirBase) + "original_fsc.star");
-		writeProjectionsToDisk(Atoms, angles, numProj, super, dims, outdirBase + "original_proj.mrc");
+		writeProjectionsToDisk(Atoms, refProjectionSet->angles, refProjectionSet->numProj, super, dims, outdirBase + "original_proj.mrc");
 	}
 	outdirBase += "non_linear_";
 
@@ -264,7 +264,7 @@ int main(int argc, char** argv) {
 			MRCImage<float> out(rastered);
 			out.writeAs<float>(outdir + "moved.mrc");
 		}
-		writeProjectionsToDisk(Atoms, angles, numProj, super, dims, outdir + "moved_proj.mrc");
+		writeProjectionsToDisk(Atoms, refProjectionSet->angles, refProjectionSet->numProj, super, dims, outdir + "moved_proj.mrc");
 		writeFSC(im()*mask(), rastered*mask(), std::string(outdir) + "moved_fsc_masked.star");
 		writeFSC(im(), rastered, std::string(outdir) + "moved_fsc.star");
 		//writeProjectionsToDisk(Atoms, angles, numProj, super, dims, outdir + "moved_proj.mrc");
@@ -287,7 +287,7 @@ int main(int argc, char** argv) {
 			}
 			writeFSC(im()*mask(), rastered*mask(), std::string(outdir) + "moved_" + std::to_string(numIt) + "_" + std::to_string(i) + "_fsc_masked.star");
 			writeFSC(im(), rastered, std::string(outdir) + "moved_" + std::to_string(numIt) + "_" + std::to_string(i) + "_fsc.star");
-			writeProjectionsToDisk(Atoms, angles, numProj, super, dims, outdir + "moved_" + std::to_string(numIt) + "_" + std::to_string(i) + "_proj.mrc");
+			writeProjectionsToDisk(Atoms, refProjectionSet->angles, refProjectionSet->numProj, super, dims, outdir + "moved_" + std::to_string(numIt) + "_" + std::to_string(i) + "_proj.mrc");
 			Atoms->writeTsvFile(outdir + "moved_" + std::to_string(numIt) + "_" + std::to_string(i) + ".tsv");
 		}
 

@@ -99,10 +99,61 @@ void drawOneGaussian(Matrix1D<RDOUBLE> &gaussianTable, RDOUBLE boundary, RDOUBLE
 
 }
 
-void writeFSC(MultidimArray<RDOUBLE> &V1, MultidimArray<RDOUBLE> &V2, FileName outpath) {
+void myGetFSC(MultidimArray< Complex > &FT1,
+	MultidimArray< Complex > &FT2,
+	MultidimArray< RDOUBLE > &fsc)
+{
+	if (!FT1.sameShape(FT2))
+		REPORT_ERROR("fourierShellCorrelation ERROR: MultidimArrays have different shapes!");
+
+	MultidimArray< int > radial_count(XSIZE(FT1));
+	MultidimArray<double> num, den1, den2;
+	Matrix1D<double> f(3);
+	num.initZeros(radial_count);
+	den1.initZeros(radial_count);
+	den2.initZeros(radial_count);
+	fsc.initZeros(radial_count);
+	FOR_ALL_ELEMENTS_IN_FFTW_TRANSFORM(FT1)
+	{
+		int idx = ROUND(sqrt(kp*kp + ip * ip + jp * jp));
+		if (idx >= XSIZE(FT1))
+			continue;
+		Complex z1 = DIRECT_A3D_ELEM(FT1, k, i, j);
+		Complex z2 = DIRECT_A3D_ELEM(FT2, k, i, j);
+		double absz1 = abs(z1);
+		double absz2 = abs(z2);
+		num(idx) += (conj(z1) * z2).real;
+		den1(idx) += absz1 * absz1;
+		den2(idx) += absz2 * absz2;
+		radial_count(idx)++;
+	}
+
+	FOR_ALL_ELEMENTS_IN_ARRAY1D(fsc)
+	{
+		auto den1Num = den1(i);
+		auto den2Num = den2(i);
+		auto numI = num(i);
+		fsc(i) = (float)(num(i) / (sqrt(den1(i))*sqrt(den2(i))));
+	}
+
+}
+
+
+void myGetFSC(MultidimArray< RDOUBLE > &m1,
+	MultidimArray< RDOUBLE > &m2,
+	MultidimArray< RDOUBLE > &fsc)
+{
+	MultidimArray< Complex > FT1, FT2;
+	FourierTransformer transformer;
+	transformer.FourierTransform(m1, FT1);
+	transformer.FourierTransform(m2, FT2);
+	myGetFSC(FT1, FT2, fsc);
+}
+
+MultidimArray<RDOUBLE> writeFSC(MultidimArray<RDOUBLE> &V1, MultidimArray<RDOUBLE> &V2, FileName outpath) {
 	MultidimArray<RDOUBLE> fsc;
 	MetaDataTable MDfsc;
-	getFSC(V1, V2, fsc);
+	myGetFSC(V1, V2, fsc);
 	MDfsc.setName("fsc");
 	FOR_ALL_DIRECT_ELEMENTS_IN_ARRAY1D(fsc)
 	{
@@ -111,6 +162,7 @@ void writeFSC(MultidimArray<RDOUBLE> &V1, MultidimArray<RDOUBLE> &V2, FileName o
 		MDfsc.setValue(EMDL_POSTPROCESS_FSC_GENERAL, DIRECT_A1D_ELEM(fsc, i));
 	}
 	MDfsc.write(outpath);
+	return fsc;
 }
 
 float getLength(float3 f) {
