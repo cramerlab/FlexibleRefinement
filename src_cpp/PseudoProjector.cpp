@@ -1710,11 +1710,11 @@ RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBL
 
 		MultidimArray<RDOUBLE> volBefore;
 		this->atoms->RasterizeToVolume(volBefore, this->Dims, this->super, false);
-		cudaErrchk(cudaMemcpy(atoms->AtomWeights.data(), d_atomIntensities, atoms->NAtoms * sizeof(*(atoms->AtomWeights.data())), cudaMemcpyDeviceToHost));
+
 		if (writeDebug)
 			outputAsImage(volBefore, tmpDir + "volBefore.mrc");
 
-
+		cudaErrchk(cudaMemcpy(atoms->AtomWeights.data(), d_atomIntensities, atoms->NAtoms * sizeof(*(atoms->AtomWeights.data())), cudaMemcpyDeviceToHost));
 		MultidimArray<RDOUBLE> volAfter;
 		this->atoms->RasterizeToVolume(volAfter, this->Dims, this->super, false);
 		if (writeDebug)
@@ -1769,7 +1769,7 @@ RDOUBLE PseudoProjector::SIRT(MultidimArray<RDOUBLE> &Iexp, MultidimArray<RDOUBL
 		if (writeDebug)
 			outputDeviceAsImage(d_diffConvolved, this->Dims * this->super, tmpDir + "d_diffDivided.mrc");
 		RealspaceVolumeUpdate(d_atomPositions, d_copyAtomIntensities, atoms->NAtoms, d_diffConvolved, this->Dims, this->super);
-
+		cudaErrchk(cudaMemcpy(atoms->AtomWeights.data(), d_copyAtomIntensities, atoms->NAtoms * sizeof(*(atoms->AtomWeights.data())), cudaMemcpyDeviceToHost));
 		cufftDestroy(planForward);
 		cufftDestroy(planBackward);
 

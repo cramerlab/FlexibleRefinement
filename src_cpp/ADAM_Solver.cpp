@@ -5,11 +5,13 @@
 
 void ADAM_Solver::run(AtomMover &mover, int numIt, FileName outfile)
 {
+	/*
 	alpha = 0.01;
 	beta1 = 0.9;
 	beta2 = 0.999;
 	t = 0;
 	epsilon = 1e-8;
+	*/
 	m = Eigen::VectorXd::Zero(3*mover.Atoms->NAtoms);
 	v = Eigen::VectorXd::Zero(3*mover.Atoms->NAtoms);
 	std::ofstream ofs;

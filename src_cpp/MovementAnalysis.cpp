@@ -178,12 +178,12 @@ int main(int argc, char** argv) {
 	FileName inProj = "D:\\FlexibleRefinementResults\\input\\projectionsTomo_order4\\emd_9233_Scaled_2.0.projections_tomo.star";
 	FileName outdirBase = "D:\\FlexibleRefinementResults\\input\\MovementAnalysis\\";
 
-	std::vector<RFLOAT> steps = { 0.5, 1.0, 2.0, 4.0 };
-	float diff = 5.0;
+	std::vector<RFLOAT> steps = { 0.25, 0.33, 0.5, 0.75, 1.0, 2.0, 3.0, 4.0 };
+	float diff = 3.0;
 	int N = 500000;
 	bool weighting = false;
 	float super = 4;
-	std::vector<int> its_per_step = { 100, 100, 100, 100};
+	std::vector<int> its_per_step = { 500, 500, 500, 500, 500, 500, 500, 300 };
 
 
 
@@ -274,7 +274,7 @@ int main(int argc, char** argv) {
 
 		for (int i = 0; i < steps.size(); i++) {
 			AtomMover mover(Atoms, refVolumes[i], dims, steps[i], false, weighting, 0.01);
-			ADAM_Solver adam_solver;
+			ADAM_Solver adam_solver(0.001);
 			int numIt = its_per_step[i];
 
 			//lbfgs_solver.run(mover, 500);
@@ -287,7 +287,7 @@ int main(int argc, char** argv) {
 			}
 			writeFSC(im()*mask(), rastered*mask(), std::string(outdir) + "moved_" + std::to_string(numIt) + "_" + std::to_string(i) + "_fsc_masked.star");
 			writeFSC(im(), rastered, std::string(outdir) + "moved_" + std::to_string(numIt) + "_" + std::to_string(i) + "_fsc.star");
-			writeProjectionsToDisk(Atoms, refProjectionSet->angles, refProjectionSet->numProj, super, dims, outdir + "moved_" + std::to_string(numIt) + "_" + std::to_string(i) + "_proj.mrc");
+			//writeProjectionsToDisk(Atoms, refProjectionSet->angles, refProjectionSet->numProj, super, dims, outdir + "moved_" + std::to_string(numIt) + "_" + std::to_string(i) + "_proj.mrc");
 			Atoms->writeTsvFile(outdir + "moved_" + std::to_string(numIt) + "_" + std::to_string(i) + ".tsv");
 		}
 

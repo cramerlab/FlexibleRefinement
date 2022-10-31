@@ -14,7 +14,9 @@ namespace Testing
     {
         static void Main(string[] args)
         {
-            String outdir = args[1];
+            String outdir = args[3];
+            Image refImage = Image.FromFile(args[1]);
+            Image refMask = Image.FromFile(args[2]);
             Star starFile = new Star(args[0]);
             string instarName = Path.GetFileName(args[0].Replace(".star", ""));
             string starDir = Path.GetDirectoryName(args[0]);
@@ -66,6 +68,18 @@ namespace Testing
                 }
                 Image Rec = Reconstructor.Reconstruct(false, "C1");
                 Rec.WriteMRC($@"{outdir}\{instarName}.WARP_recon.mrc", true);
+                float[] fsc = FSC.GetFSC(refImage, Rec);
+                refImage.Multiply(refMask);
+                Rec.Multiply(refMask);
+                float[] fsc_masked = FSC.GetFSC(refImage, Rec);
+                System.Globalization.CultureInfo customCulture = (System.Globalization.CultureInfo)System.Threading.Thread.CurrentThread.CurrentCulture.Clone();
+                customCulture.NumberFormat.NumberDecimalSeparator = ".";
+                System.Threading.Thread.CurrentThread.CurrentCulture = customCulture;
+                Star outFSC = new Star(new string[][] { Helper.ArrayOfSequence(0, fsc.Length, 1).Select(x => $"{x}").ToArray(), fsc.Select(x => $"{x}").ToArray() }, new string[] { "rlnSpectralIndex", "rlnFourierShellCorrelation" });
+                outFSC.Save($@"{outdir}\{instarName}.WARP_recon.fsc.star");
+
+                outFSC = new Star(new string[][] { Helper.ArrayOfSequence(0, fsc_masked.Length, 1).Select(x => $"{x}").ToArray(), fsc.Select(x => $"{x}").ToArray() }, new string[] { "rlnSpectralIndex", "rlnFourierShellCorrelation" });
+                outFSC.Save($@"{outdir}\{instarName}.WARP_recon.fsc_masked.star");
             }
         }
     }

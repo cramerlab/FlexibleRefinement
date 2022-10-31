@@ -13,6 +13,8 @@ class ADAM_Solver
 		Eigen::VectorXd v;
 
 public:
+
 	void run(AtomMover &mover, int numIt, FileName outfile="");
+	ADAM_Solver(double Alpha = 0.01, double Beta1 = 0.9, double Beta2 = 0.999, double Epsilon = 1e-8) : alpha(Alpha), beta1(Beta1), beta2(Beta2), epsilon(Epsilon), t(0) {};
 };
 
